@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#173d2d">
+<meta name="description" content="歴代プロ野球の名選手をドラフトして自動ペナントで優勝を決めるパーティーゲーム">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='6' fill='%23a72c18'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='%23f2ecdd' font-family='serif' font-weight='bold'%3E球%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&display=swap" rel="stylesheet">
+<title>球史 〜レジェンドドラフト〜</title>
+<style>
+:root{
+  --paper:#f2ecdd; --paper2:#faf6ec; --paper3:#e7dfc9;
+  --ink:#221e17; --ink2:#57503f; --rule:#c8bda0; --rule2:#8f8468;
+  --red:#a72c18; --red2:#8c2412;
+  --board:#173d2d; --board2:#0f2c20; --amber:#f3b83c; --boardtxt:#e9e2ce;
+  --navy:#22456b; --green:#2c5c34; --gray:#6e675a; --goldseal:#9a7714;
+  /* 旧テーマ互換(インラインstyleで参照) */
+  --gold:#9a7714; --sub:#57503f; --blue:#22456b; --line:#c8bda0;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{background:#d9d2bd;}
+body{
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,70,.035) 3px 4px),
+    var(--paper);
+  color:var(--ink);
+  font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
+  min-height:100vh; padding-bottom:70px;
+  font-feature-settings:"palt";
+}
+.wrap{max-width:1120px;margin:0 auto;padding:18px 16px;}
+.serif{font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN","MS PMincho",serif;}
+h1{
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN","MS PMincho",serif;
+  font-size:27px;letter-spacing:6px;font-weight:800;
+  border-bottom:3px solid var(--ink);padding:2px 2px 8px;margin-bottom:14px;
+  position:relative;
+}
+h1::after{content:"";position:absolute;left:0;bottom:-7px;width:100%;border-bottom:1px solid var(--ink);}
+h1 .kicker{
+  font-size:11px;letter-spacing:3px;color:#fff;background:var(--red);
+  padding:3px 10px;margin-right:12px;vertical-align:4px;font-family:inherit;
+}
+.screen{display:none;}
+.screen.active{display:block;animation:fadein .3s ease;}
+@keyframes fadein{from{opacity:0;}to{opacity:1;}}
+
+/* ---- ボタン ---- */
+.btn{
+  display:inline-block;background:var(--red);color:#fdf9ef;
+  border:1px solid var(--red2);border-radius:2px;padding:11px 26px;
+  font-size:15px;font-weight:bold;letter-spacing:3px;cursor:pointer;
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  box-shadow:2px 2px 0 rgba(34,30,23,.25);
+  transition:background .12s, transform .08s;
+}
+.btn:hover{background:var(--red2);}
+.btn:active{transform:translate(1px,1px);box-shadow:1px 1px 0 rgba(34,30,23,.25);}
+.btn:disabled{opacity:.35;cursor:default;transform:none;}
+.btn.ghost{
+  background:var(--paper2);color:var(--ink);border:1px solid var(--rule2);
+  box-shadow:2px 2px 0 rgba(34,30,23,.12);
+}
+.btn.ghost:hover{background:var(--paper3);}
+.btn.sm{padding:7px 14px;font-size:13px;letter-spacing:2px;}
+
+/* ---- 枠・紙面 ---- */
+.panel{
+  background:var(--paper2);border:1px solid var(--rule);
+  border-top:3px double var(--ink);
+  padding:16px 18px;margin:16px 0;
+}
+.panel>b:first-child, .p-head{
+  display:inline-block;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:16px;font-weight:800;letter-spacing:3px;
+  border-left:5px solid var(--red);padding-left:9px;margin-bottom:8px;
+}
+.sub{color:var(--ink2);font-size:13px;}
+.chip{
+  display:inline-block;padding:5px 14px;border:1px solid var(--rule2);
+  background:var(--paper2);color:var(--ink2);font-size:13px;cursor:pointer;margin:3px;user-select:none;
+  border-radius:2px;letter-spacing:1px;
+}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+select,input[type=text]{
+  background:#fff;border:1px solid var(--rule2);color:var(--ink);
+  border-radius:2px;padding:8px 10px;font-size:14px;font-family:inherit;max-width:100%;
+}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;}
+th,td{padding:6px 9px;text-align:center;border-bottom:1px solid var(--rule);font-size:13px;}
+th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid var(--rule2);}
+.tag{
+  display:inline-block;font-size:11px;padding:2px 8px;border:1px solid var(--rule2);
+  background:var(--paper2);color:var(--ink2);margin-right:4px;border-radius:2px;
+}
+
+/* ---- 印判(バッジ) ---- */
+.seal{
+  display:inline-block;min-width:16px;text-align:center;
+  font-size:10px;font-weight:bold;color:#fff;background:var(--red);
+  border-radius:2px;padding:1px 4px;margin-left:4px;vertical-align:1px;
+  letter-spacing:0;font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.seal.b{background:var(--navy);} .seal.g{background:var(--green);} .seal.k{background:var(--goldseal);}
+.tbadge{color:var(--red);font-size:11px;font-weight:bold;white-space:nowrap;margin-left:3px;}
+.hand{
+  display:inline-block;font-size:9px;border:1px solid var(--rule2);color:var(--ink2);
+  padding:0 3px;margin-right:4px;border-radius:2px;vertical-align:1px;background:#fff;
+}
+.hand.lh{border-color:var(--red);color:var(--red);}
+
+/* ---- タイトル(一面) ---- */
+#scr-title{text-align:center;padding-top:44px;}
+.masthead{
+  display:inline-block;border-top:4px solid var(--ink);border-bottom:4px solid var(--ink);
+  padding:20px 40px 22px;position:relative;margin-bottom:8px;
+}
+.masthead::before,.masthead::after{
+  content:"";position:absolute;left:0;width:100%;border-top:1px solid var(--ink);
+}
+.masthead::before{top:6px;} .masthead::after{bottom:6px;}
+.title-logo{
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:56px;font-weight:900;letter-spacing:14px;line-height:1.15;
+}
+.title-logo small{display:block;font-size:15px;letter-spacing:8px;font-weight:600;color:var(--ink2);margin-top:8px;}
+.title-seal{
+  position:absolute;right:-26px;top:-22px;width:58px;height:58px;border:3px solid var(--red);
+  border-radius:50%;color:var(--red);display:flex;align-items:center;justify-content:center;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:17px;letter-spacing:1px;
+  transform:rotate(12deg);background:rgba(250,246,236,.7);
+}
+.title-lede{
+  max-width:560px;margin:22px auto 30px;text-align:left;line-height:2.1;font-size:14px;color:var(--ink2);
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  border-left:1px solid var(--rule2);border-right:1px solid var(--rule2);padding:4px 22px;
+}
+
+/* ---- 設定 ---- */
+.p-row{display:flex;gap:10px;align-items:center;margin:8px 0;flex-wrap:wrap;}
+.p-row .idx{
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  font-size:13px;font-weight:bold;color:#fff;flex:none;border-radius:2px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+
+/* ---- ドラフト ---- */
+.draft-banner{
+  background:var(--ink);color:var(--paper);
+  padding:12px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px;
+  border-bottom:3px solid var(--red);
+}
+.draft-banner .who{
+  font-size:21px;font-weight:800;letter-spacing:2px;
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+}
+.draft-banner .sub{color:#cfc7b2;}
+.pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(162px,1fr));gap:8px;max-height:400px;overflow-y:auto;padding:4px 2px;}
+.pcard{
+  background:#fff;border:1px solid var(--rule);border-radius:2px;padding:9px 10px;cursor:pointer;
+  transition:border-color .1s;position:relative;box-shadow:1px 1px 0 rgba(34,30,23,.08);
+}
+.pcard:hover{border-color:var(--red);}
+.pcard .nm{
+  font-weight:800;font-size:14px;padding-right:26px;
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;letter-spacing:1px;
+}
+.pcard .meta{font-size:11px;color:var(--ink2);margin-top:3px;}
+.rank{
+  position:absolute;top:6px;right:6px;width:20px;height:20px;line-height:20px;
+  text-align:center;font-weight:900;font-size:11px;color:#fff;border-radius:2px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.rank-SS{background:var(--goldseal);} .rank-S{background:var(--red);} .rank-A{background:var(--green);}
+.rank-B{background:var(--navy);} .rank-C{background:var(--gray);}
+.pos-badge{display:inline-block;font-size:10px;padding:1px 6px;margin-right:4px;color:#fff;border-radius:2px;}
+.pos-P{background:var(--navy);} .pos-B{background:var(--red2);}
+.pos-W{background:linear-gradient(90deg,var(--red2) 50%,var(--navy) 50%);} .pos-M{background:#4a3568;}
+.rec-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(184px,1fr));gap:8px;margin-bottom:10px;}
+.pcard.rec{background:#fdf6df;border:1px solid var(--goldseal);}
+.pcard.rec:hover{border-color:var(--red);}
+.rec-label{font-size:10px;color:var(--goldseal);margin-bottom:3px;letter-spacing:2px;font-weight:bold;}
+.rosters{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+.roster-box{
+  flex:1;min-width:236px;background:var(--paper2);border:1px solid var(--rule);padding:10px 12px;
+  border-top:3px solid var(--ink);
+}
+.roster-box.turn{border-color:var(--red);border-top-color:var(--red);background:#fdf8ea;}
+.roster-box h4{font-size:14px;margin-bottom:6px;font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:1px;}
+.roster-box .sec{font-size:10px;color:var(--rule2);letter-spacing:4px;margin-top:7px;border-bottom:1px solid var(--rule);padding-bottom:1px;}
+.roster-box .slot{font-size:12px;color:var(--ink2);padding:1.5px 0;cursor:pointer;display:flex;gap:6px;align-items:baseline;}
+.roster-box .slot:hover{color:var(--ink);}
+.roster-box .slot .sl{flex:none;width:40px;color:var(--rule2);font-size:11px;}
+.roster-box .slot b{color:var(--ink);font-weight:600;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.roster-box .slot.empty .sl{color:var(--red);}
+
+/* ---- モーダル ---- */
+#modal-bg,#event-bg{position:fixed;inset:0;background:rgba(30,25,15,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;overflow-y:auto;}
+#modal-bg.show,#event-bg.show{display:flex;}
+#modal{
+  background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--red);
+  max-width:540px;width:100%;padding:24px;animation:fadein .18s;
+  box-shadow:4px 4px 0 rgba(20,16,8,.3);
+}
+#modal .nm{font-size:26px;font-weight:900;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;letter-spacing:2px;}
+#modal .statline{
+  background:#fff;border:1px solid var(--rule);padding:12px 14px;margin:12px 0;font-size:14px;line-height:1.95;
+}
+#modal .desc{color:var(--ink2);font-size:13.5px;line-height:2;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;}
+#event-panel{
+  background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);
+  max-width:880px;width:100%;padding:24px;animation:fadein .18s;max-height:92vh;overflow-y:auto;
+  box-shadow:4px 4px 0 rgba(20,16,8,.3);
+}
+#event-panel h2{
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:21px;letter-spacing:4px;margin-bottom:6px;font-weight:800;
+  border-bottom:2px solid var(--ink);padding-bottom:6px;
+}
+#event-panel h2 .kicker{font-size:11px;letter-spacing:3px;color:#fff;background:var(--red);padding:3px 10px;margin-right:10px;vertical-align:3px;}
+.mlb-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(196px,1fr));gap:8px;margin:10px 0;}
+.mlb-card{background:#fff;border:1px solid var(--rule);padding:10px;cursor:pointer;position:relative;border-radius:2px;}
+.mlb-card:hover{border-color:var(--red);}
+.mlb-card.sel{border-color:var(--red);background:#fdf3ef;box-shadow:2px 2px 0 rgba(167,44,24,.25);}
+.mlb-card .nm{font-weight:800;font-size:13.5px;padding-right:24px;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.mlb-card .meta{font-size:11px;color:var(--ink2);margin-top:3px;}
+
+/* ---- ペナント(スコアボード) ---- */
+.month-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.board{
+  background:linear-gradient(180deg,var(--board),var(--board2));
+  color:var(--boardtxt);border:2px solid #0b1f16;padding:12px 18px;margin:16px 0;
+  box-shadow:inset 0 0 30px rgba(0,0,0,.35), 2px 3px 0 rgba(20,16,8,.3);
+}
+.board .p-head-b{
+  font-size:12px;letter-spacing:5px;color:#9fbfa8;border-bottom:1px solid #2c574243;
+  padding-bottom:5px;margin-bottom:7px;
+}
+.month-big{
+  font-size:34px;font-weight:900;color:var(--amber);min-width:150px;
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;letter-spacing:2px;
+  text-shadow:0 0 12px rgba(243,184,60,.35);
+}
+.board .sub{color:#b8cbb9;}
+#s-scores{color:#e9e2ce;font-variant-numeric:tabular-nums;}
+.board select{background:#0f2c20;color:var(--boardtxt);border:1px solid #2c5742;}
+.board table{color:var(--boardtxt);}
+.board th{color:#9fbfa8;border-bottom:2px solid #2c5742;}
+.board td{border-bottom:1px solid #21453433;}
+.board .st-first{color:var(--amber);font-weight:bold;}
+#chart-box svg{width:100%;height:auto;display:block;background:#fff;border:1px solid var(--rule);}
+#news{max-height:210px;overflow-y:auto;font-size:13px;line-height:2.1;}
+#news .nw{border-bottom:1px dashed var(--rule);padding:2px 4px;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;}
+#news .nw .mo{
+  color:#fff;background:var(--ink);margin-right:8px;font-size:10px;padding:1px 6px;
+  letter-spacing:1px;vertical-align:1px;font-family:"Yu Gothic",sans-serif;
+}
+
+/* ---- 結果 ---- */
+#scr-result{text-align:center;}
+.champ-box{
+  display:inline-block;margin-top:26px;padding:26px 60px;position:relative;
+  border:3px double var(--ink);background:var(--paper2);
+}
+.champ-label{
+  font-size:14px;letter-spacing:12px;color:#fff;background:var(--red);
+  display:inline-block;padding:4px 18px 4px 28px;margin-bottom:14px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;
+}
+.champ-name{
+  font-size:44px;font-weight:900;margin:2px 0 8px;
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;letter-spacing:6px;
+}
+.confetti{position:fixed;top:-14px;width:9px;height:14px;animation:fall linear forwards;z-index:5;pointer-events:none;}
+@keyframes fall{to{transform:translateY(105vh) rotate(660deg);opacity:.5;}}
+.titles-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(244px,1fr));gap:10px;text-align:left;}
+.title-card{background:#fff;border:1px solid var(--rule);padding:11px 13px;border-left:4px solid var(--goldseal);}
+.title-card .tt{color:var(--goldseal);font-size:11px;letter-spacing:3px;font-weight:bold;}
+.title-card .tn{font-size:17px;font-weight:800;margin:3px 0;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.title-card .tv{font-size:12px;color:var(--ink2);}
+.team-report{margin:14px 0;text-align:left;}
+.team-report h3{font-size:16px;margin-bottom:5px;font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:1px;}
+.team-report td{font-size:12px;padding:4px 7px;}
+footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;letter-spacing:1px;}
+
+/* ---- 入札・抽選演出 ---- */
+#d-announce{
+  background:var(--paper2);border:1px solid var(--rule);border-left:6px solid var(--red);
+  padding:9px 14px;margin-bottom:12px;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:15px;letter-spacing:1px;min-height:1em;
+}
+#d-announce .an-k{color:#fff;background:var(--red);font-size:10px;padding:2px 7px;margin-right:9px;letter-spacing:2px;vertical-align:2px;font-family:"Yu Gothic",sans-serif;}
+#curtain-bg{position:fixed;inset:0;background:var(--ink);display:none;align-items:center;justify-content:center;z-index:80;padding:20px;}
+#curtain-bg.show{display:flex;}
+#curtain{text-align:center;color:var(--paper);max-width:480px;}
+#curtain .c-kicker{font-size:12px;letter-spacing:8px;color:#9b917a;margin-bottom:18px;}
+#curtain .c-title{
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:34px;font-weight:900;letter-spacing:4px;margin-bottom:10px;
+}
+#curtain .c-sub{font-size:13.5px;color:#cfc7b2;line-height:2;margin-bottom:26px;}
+.bid-table{width:100%;margin:12px 0;}
+.bid-table td{text-align:left;font-size:14px;padding:7px 8px;}
+.bid-table .bp{font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:15px;}
+.dup{color:var(--red);font-weight:bold;}
+.kuji-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin:22px 0;}
+.kuji{text-align:center;cursor:pointer;user-select:none;}
+.kuji .card{
+  width:92px;height:132px;margin:0 auto 8px;position:relative;
+  transform-style:preserve-3d;transition:transform .55s cubic-bezier(.2,.7,.3,1.1);
+}
+.kuji.flipped .card{transform:rotateY(180deg);}
+.kuji .face{
+  position:absolute;inset:0;backface-visibility:hidden;border-radius:3px;
+  display:flex;align-items:center;justify-content:center;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+}
+.kuji .front{
+  background:linear-gradient(160deg,#fbf7ee,#e9e0c8);border:1px solid var(--rule2);
+  color:var(--rule2);font-size:15px;letter-spacing:2px;writing-mode:vertical-rl;
+  box-shadow:2px 3px 0 rgba(20,16,8,.25);
+}
+.kuji .back{
+  transform:rotateY(180deg);border:1px solid var(--rule2);font-size:40px;
+  background:#fbf7ee;color:var(--gray);
+}
+.kuji .back.win{background:var(--red);color:#fdf3e3;border-color:var(--red2);box-shadow:0 0 24px rgba(167,44,24,.55);}
+.kuji .t-name{font-size:12.5px;font-weight:bold;}
+.kuji-result{
+  text-align:center;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:19px;font-weight:800;
+  letter-spacing:2px;margin:8px 0 2px;min-height:1.4em;
+}
+
+/* ---- 部門リーダー ---- */
+.lead-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:7px;}
+.lead-cell{background:#0f2c20;border:1px solid #2c5742;padding:7px 9px;border-radius:2px;}
+.lead-k{font-size:10px;color:#9fbfa8;letter-spacing:3px;}
+.lead-n{font-size:12.5px;font-weight:bold;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lead-v{font-size:16px;color:var(--amber);font-weight:900;font-variant-numeric:tabular-nums;}
+
+/* ---- 速報テロップ ---- */
+.telop{
+  position:fixed;top:14px;left:50%;transform:translate(-50%,-180%);
+  z-index:120;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  background:var(--ink);color:var(--paper);border-left:6px solid var(--amber);
+  padding:10px 18px;font-size:14.5px;letter-spacing:1px;
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;font-weight:700;
+  box-shadow:3px 4px 0 rgba(20,16,8,.35);
+  transition:transform .38s cubic-bezier(.2,.8,.3,1.1), opacity .38s;
+  opacity:0;
+}
+.telop.in{transform:translate(-50%,0);opacity:1;}
+.telop .tk{background:var(--amber);color:var(--ink);font-size:10px;padding:2px 7px;margin-right:10px;letter-spacing:3px;font-family:"Yu Gothic",sans-serif;vertical-align:2px;}
+
+/* ---- トレードUI ---- */
+.tr-cols{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.tr-col{flex:1;min-width:250px;background:#fff;border:1px solid var(--rule);padding:8px;max-height:300px;overflow-y:auto;}
+.tr-head{font-size:11px;color:var(--ink2);letter-spacing:2px;border-bottom:2px solid var(--rule2);padding-bottom:4px;margin-bottom:6px;}
+.tr-item{
+  display:flex;align-items:center;gap:8px;padding:6px 7px;border:1px solid transparent;
+  border-bottom:1px solid var(--rule);cursor:pointer;font-size:13px;
+}
+.tr-item:hover{background:var(--paper2);}
+.tr-item.sel{border:1px solid var(--red);background:#fdf3ef;}
+.tr-item.dim{opacity:.32;cursor:default;}
+.tr-pos{flex:none;width:34px;font-size:10px;color:var(--ink2);}
+.tr-nm{flex:1;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tr-summary{
+  margin-top:12px;background:var(--ink);color:var(--paper);padding:10px 16px;
+  display:flex;gap:14px;align-items:center;justify-content:center;flex-wrap:wrap;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:15px;
+}
+.tr-arrow{color:var(--amber);font-size:20px;font-weight:900;}
+
+/* ---- 観戦モード・QR ---- */
+#qr-bg{position:fixed;inset:0;background:rgba(30,25,15,.6);display:none;align-items:center;justify-content:center;z-index:90;padding:16px;}
+#qr-bg.show{display:flex;}
+#qr-box{background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:22px;text-align:center;max-width:420px;width:100%;}
+#qr-box h3{font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:3px;margin-bottom:8px;}
+#qr-img{margin:10px auto;background:#fff;padding:10px;display:inline-block;border:1px solid var(--rule);}
+#qr-img svg{display:block;width:230px;height:230px;}
+#spec-tabs{margin:10px 0 4px;}
+.spec-note{background:var(--ink);color:var(--paper);padding:8px 14px;font-size:12px;letter-spacing:1px;margin-bottom:12px;}
+
+/* ---- スマホ最適化 ---- */
+.panel,.board{overflow-x:auto;} /* 表が幅を超えても画面全体は横スクロールさせない */
+@media (max-width:680px){
+  .wrap{padding:10px 8px;}
+  h1{font-size:19px;letter-spacing:3px;}
+  h1 .kicker{font-size:10px;padding:2px 7px;margin-right:8px;vertical-align:2px;}
+  select,input[type=text]{font-size:16px;padding:9px 10px;} /* iOSのフォーカスズーム防止 */
+  .btn{padding:11px 16px;font-size:14px;letter-spacing:2px;}
+  .btn.sm{padding:8px 11px;font-size:12px;letter-spacing:1px;}
+  .panel{padding:12px 10px;margin:12px 0;}
+  th,td{padding:4px 4px;font-size:11px;}
+  th{font-size:10px;}
+  /* タイトル */
+  #scr-title{padding-top:26px;}
+  .masthead{padding:14px 20px 16px;}
+  .title-logo{font-size:34px;letter-spacing:8px;}
+  .title-logo small{font-size:12px;letter-spacing:5px;}
+  .title-seal{width:46px;height:46px;font-size:13px;right:-12px;top:-16px;}
+  .title-lede{font-size:13px;padding:2px 14px;margin:16px auto 22px;}
+  /* ドラフト */
+  .draft-banner{padding:10px 12px;gap:8px;}
+  .draft-banner .who{font-size:17px;}
+  .draft-banner .sub{font-size:11.5px;}
+  .pool{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:48vh;}
+  .pcard .nm{font-size:13px;}
+  .rec-row{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
+  .roster-box{min-width:100%;}
+  /* ペナント */
+  .board{padding:10px 10px;}
+  .month-big{font-size:23px;min-width:0;}
+  #s-scores{font-size:11px;}
+  .month-head{gap:8px;}
+  #news{font-size:12px;}
+  /* イベント・モーダル */
+  #modal{padding:16px;}
+  #modal .nm{font-size:21px;}
+  #event-panel{padding:14px;}
+  #event-panel h2{font-size:17px;letter-spacing:2px;}
+  .mlb-grid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
+  /* 結果 */
+  .champ-box{padding:16px 22px;margin-top:16px;}
+  .champ-name{font-size:29px;letter-spacing:3px;}
+  .champ-label{font-size:12px;letter-spacing:8px;padding:3px 12px 3px 20px;}
+  .team-report td{font-size:11px;padding:3px 4px;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ================= TITLE ================= -->
+<div id="scr-title" class="screen active">
+  <div class="masthead">
+    <div class="title-seal">球史<br>特報</div>
+    <div class="title-logo">レジェンド<br>ドラフト<small>― 歴代最強ペナント ―</small></div>
+  </div>
+  <div class="title-lede">
+    戦前の豪傑から現代の怪物まで、日本プロ野球の歴代名選手をドラフトで奪い合い、
+    監督を据え、一年間のペナントレースを戦い抜く。栄冠を手にするのは、どの球団か。
+  </div>
+  <div><button class="btn" onclick="goSetup()">開幕準備をはじめる</button></div>
+</div>
+
+<!-- ================= SETUP ================= -->
+<div id="scr-setup" class="screen">
+  <h1><span class="kicker">第一面</span>球団結成</h1>
+
+  <div class="panel">
+    <b>参加者（2〜6人）</b>
+    <div class="sub" style="margin:4px 0 8px;">「球団縛り」を選ぶと、その人はその球団（前身球団を含む）の選手しか指名できません。</div>
+    <div id="p-list"></div>
+    <button class="btn ghost sm" onclick="addPlayer()">＋ 参加者を追加</button>
+  </div>
+
+  <div class="panel">
+    <b>年代縛り（全員共通）</b>
+    <div class="sub" style="margin:4px 0 8px;">選んだ年代の選手だけがドラフト対象になります。何も選ばなければ全年代。</div>
+    <div id="era-chips"></div>
+  </div>
+
+  <div class="panel">
+    <b>チームコスト上限</b>
+    <div class="sub" style="margin:4px 0 8px;">このコスト内で監督+選手18人を指名します。能力が高い選手ほどコストが跳ね上がります。</div>
+    <select id="opt-budget">
+      <option value="150">ゆったり コスト150（スターを集めやすい）</option>
+      <option value="130" selected>標準 コスト130</option>
+      <option value="110">シビア コスト110（やりくり勝負）</option>
+    </select>
+  </div>
+
+  <div class="panel">
+    <b>シーズンイベント</b>
+    <div style="margin-top:8px;">
+      <label style="cursor:pointer;"><input type="checkbox" id="opt-trade" checked> トレードタイム（6月末に自動で一時停止、1チーム1回まで選手交換を提案できる）</label>
+    </div>
+    <div style="margin-top:8px;">
+      <label style="cursor:pointer;"><input type="checkbox" id="opt-mlb" checked> MLBスター補強（7月末に自動で一時停止、最下位チームから順に歴代メジャーリーガーを1人指名できる。コスト不要）</label>
+    </div>
+    <div style="margin-top:8px;">
+      <label style="cursor:pointer;"><input type="checkbox" id="opt-cpu" checked> 参加者が3人以下のとき、CPU球団を足して4球団リーグにする</label>
+    </div>
+  </div>
+
+  <div class="panel">
+    <b>ロースター（監督1人＋選手18人）</b>
+    <div class="sub" style="margin-top:6px;line-height:2;">
+      監督1 ＋ スタメン野手9（捕・一・二・三・遊・外×3・指名打者）＋ 控え野手3<br>
+      先発投手3 ＋ 中継ぎ2 ＋ 抑え1　※二刀流選手は「指名打者＋先発」の2枠を同時に埋めます<br>
+      名将は采配に優れ、<b>安い監督は育成力が高い</b>（開幕時に無名級の選手が「覚醒」しやすくなる）
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:18px;">
+    <button class="btn" onclick="startDraft()">ドラフト会議へ</button>
+  </div>
+</div>
+
+<!-- ================= DRAFT ================= -->
+<div id="scr-draft" class="screen">
+  <h1><span class="kicker">第二面</span>ドラフト会議</h1>
+  <div class="draft-banner">
+    <div class="who" id="d-who"></div>
+    <div class="sub" id="d-round"></div>
+    <div style="flex:1"></div>
+    <button class="btn sm ghost" onclick="autoPick()">おまかせ</button>
+    <button class="btn sm ghost" onclick="autoAll()">全員おまかせで最後まで</button>
+  </div>
+  <div id="d-announce"><span class="an-k">実況</span>ドラフト会議、開会。</div>
+
+  <div class="panel" style="padding:12px;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+      <select id="f-slot" onchange="renderPool()">
+        <option value="">全ポジション</option>
+        <option value="MGR">監督</option>
+        <option value="捕">捕手</option>
+        <option value="一">一塁</option>
+        <option value="二">二塁</option>
+        <option value="三">三塁</option>
+        <option value="遊">遊撃</option>
+        <option value="外">外野</option>
+        <option value="B">野手すべて（指名打者・控え）</option>
+        <option value="SP">先発投手</option>
+        <option value="RP">中継ぎ</option>
+        <option value="CL">抑え</option>
+      </select>
+      <select id="f-fr" onchange="renderPool()"><option value="">全球団</option></select>
+      <select id="f-era" onchange="renderPool()"><option value="">全年代</option></select>
+      <select id="f-sort" onchange="renderPool()">
+        <option value="ovr">能力順</option>
+        <option value="year">年代順</option>
+        <option value="name">名前順</option>
+        <option value="cost">コスト順</option>
+      </select>
+      <input type="text" id="f-name" placeholder="選手名で検索" oninput="renderPool()" style="width:150px;">
+      <span class="sub" id="pool-count"></span>
+      <span class="sub" style="margin-left:auto;">★=主要タイトル数　<span class="seal">三冠</span>=三冠王　空き枠クリックで絞り込み</span>
+    </div>
+    <div id="recs-wrap"><div class="sub" style="margin:2px 0 4px;letter-spacing:2px;">編集部のおすすめ（クリックで詳細）</div><div id="recs" class="rec-row"></div></div>
+    <div class="pool" id="pool"></div>
+  </div>
+
+  <div class="rosters" id="d-rosters"></div>
+</div>
+
+<!-- ================= SEASON ================= -->
+<div id="scr-season" class="screen">
+  <h1><span class="kicker">第三面</span>ペナントレース</h1>
+  <div class="board">
+    <div class="month-head">
+      <div class="month-big" id="s-date">開幕前</div>
+      <div style="min-width:220px;">
+        <div class="sub" id="s-note"></div>
+        <div class="sub" id="s-scores" style="margin-top:3px;"></div>
+      </div>
+      <div style="flex:1"></div>
+      <select id="s-speed" onchange="changeSpeed()">
+        <option value="500">進行：ゆっくり</option>
+        <option value="220" selected>進行：ふつう</option>
+        <option value="70">進行：高速</option>
+      </select>
+      <button class="btn" id="s-play" onclick="togglePlay()">プレイボール</button>
+      <button class="btn ghost sm" id="s-skip" onclick="skipAhead()">次のイベントまで進める</button>
+    </div>
+  </div>
+
+  <div class="board">
+    <div class="p-head-b">ＳＴＡＮＤＩＮＧＳ ─ 順位表　<a href="javascript:openQr()" style="color:#9fbfa8;font-size:11px;letter-spacing:1px;float:right;">▶ 観戦用QRを表示</a></div>
+    <table id="standings"></table>
+  </div>
+
+  <div class="board">
+    <div class="p-head-b">ＬＥＡＤＥＲＳ ─ 部門トップ</div>
+    <div id="leaders"></div>
+  </div>
+
+  <div class="panel" id="chart-box">
+    <b>ペナントの軌跡（貯金の推移）</b>
+    <div id="chart"></div>
+  </div>
+
+  <div class="panel">
+    <b>運動面 ─ 紙面より</b>
+    <div id="news"></div>
+  </div>
+</div>
+
+<!-- ================= RESULT ================= -->
+<div id="scr-result" class="screen">
+  <div class="champ-box">
+    <div class="champ-label">優　勝</div>
+    <div class="champ-name" id="r-champ"></div>
+    <div class="sub" id="r-record"></div>
+  </div>
+
+  <div class="panel" style="text-align:left;">
+    <b>最終順位</b>
+    <table id="r-standings"></table>
+  </div>
+
+  <div class="panel" style="text-align:left;">
+    <b>個人タイトル</b>
+    <div class="sub" style="margin:4px 0 10px;">シミュレーションで選手たちが残した今季成績です。</div>
+    <div class="titles-grid" id="r-titles"></div>
+  </div>
+
+  <div class="panel" style="text-align:left;">
+    <b>各チーム最終成績</b>
+    <div id="r-teams"></div>
+  </div>
+
+  <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <button class="btn ghost" onclick="openQr()">観戦用QRを表示</button>
+    <button class="btn" onclick="location.reload()">もう一度あそぶ</button>
+  </div>
+</div>
+
+<!-- ================= 観戦モード(URLスナップショット) ================= -->
+<div id="scr-spec" class="screen">
+  <h1><span class="kicker">観戦席</span>ペナント速報</h1>
+  <div class="spec-note" id="spec-note"></div>
+  <div class="board">
+    <div class="p-head-b">ＳＴＡＮＤＩＮＧＳ ─ 順位表</div>
+    <table id="spec-standings"></table>
+  </div>
+  <div class="board">
+    <div class="p-head-b">ＬＥＡＤＥＲＳ ─ 部門トップ</div>
+    <div id="spec-leaders"></div>
+  </div>
+  <div class="panel">
+    <b>各チームの成績</b>
+    <div id="spec-tabs"></div>
+    <div id="spec-team"></div>
+  </div>
+</div>
+
+<footer>本紙の成績・記録は各選手のキャリアハイ年の実成績に基づく ── 球史編集局</footer>
+</div>
+
+<!-- player modal -->
+<div id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div id="modal">
+    <div class="nm" id="m-name"></div>
+    <div style="margin-top:6px;" id="m-tags"></div>
+    <div class="statline" id="m-stats"></div>
+    <div class="desc" id="m-desc"></div>
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn ghost sm" onclick="closeModal()">閉じる</button>
+      <button class="btn sm" id="m-pick" onclick="pickFromModal()">この選手を指名</button>
+    </div>
+  </div>
+</div>
+
+<!-- event panel (trade / MLB / 入札抽選) -->
+<div id="event-bg">
+  <div id="event-panel"></div>
+</div>
+
+<!-- 観戦QRモーダル -->
+<div id="qr-bg" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="qr-box">
+    <h3>観戦用QRコード</h3>
+    <div class="sub">みんなのスマホで読み取ると、この瞬間の順位表・各チーム成績が見られます（スナップショット。最新にするには再表示→再読取）。</div>
+    <div id="qr-img"></div>
+    <div style="margin-top:10px;"><button class="btn ghost sm" onclick="document.getElementById('qr-bg').classList.remove('show')">閉じる</button></div>
+  </div>
+</div>
+
+<!-- 目隠し幕(入札のホットシート用) -->
+<div id="curtain-bg">
+  <div id="curtain">
+    <div class="c-kicker">ドラフト会議</div>
+    <div class="c-title" id="c-title"></div>
+    <div class="c-sub" id="c-sub"></div>
+    <button class="btn" id="c-btn"></button>
+  </div>
+</div>
+
+<script src="qrcode.js"></script>
+<script src="players.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

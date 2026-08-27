@@ -182,7 +182,7 @@ function renumber(){
 // ドラフト
 // ============================================================
 function newTeam(name, fr, cpu, color){
-  return {name, fr, cpu, color, slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0, hist:[0]};
+  return {name, fr, cpu, color, slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0, hist:[0], watch:new Set()};
 }
 function startDraft(){
   const rows = [...$("p-list").children];
@@ -359,6 +359,7 @@ function renderDraft(){
       (over ? `｜<span style="color:#ff8f7a">予算不足のため特例で超過契約を許可</span>` : "");
   }
   renderRecs();
+  renderWatchRow();
   renderPool();
   renderRosters();
 }
@@ -431,6 +432,7 @@ function renderPool(){
   $("pool").innerHTML = list.map(p=>`
     <div class="pcard" onclick="openModal('${p.id}')">
       <span class="rank rank-${rankOf(p.ovr)}">${rankOf(p.ovr)}</span>
+      ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')">★</span>`}
       <div class="pc-row">
         ${avatarBox(p)}
         <div class="pc-main">
@@ -441,6 +443,37 @@ function renderPool(){
       </div>
     </div>`).join("");
 }
+// ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----
+function toggleWatch(pid){
+  const t = currentTeam();
+  if(!t || t.cpu) return;
+  if(t.watch.has(pid)) t.watch.delete(pid); else t.watch.add(pid);
+  renderWatchRow();
+  renderPool();
+  if(state.modalPlayer && state.modalPlayer.id === pid) updateWatchBtn();
+}
+function renderWatchRow(){
+  const el = $("watch-row");
+  if(!el) return;
+  const t = currentTeam();
+  if(!t || t.cpu){ el.innerHTML=""; return; }
+  const items = [...t.watch].map(id=>findPlayer(id)).filter(p=>p && !state.taken.has(p.id));
+  el.innerHTML = items.length ? `<span class="wlabel">★注目リスト</span>` + items.map(p=>
+    `<span class="wchip" onclick="openModal('${p.id}')">${esc(p.name)} <span class="sub" style="font-weight:normal;">${p.cost}pt</span></span>`
+  ).join("") : "";
+}
+function updateWatchBtn(){
+  const b = $("m-watch");
+  if(!b) return;
+  const t = currentTeam(), p = state.modalPlayer;
+  const usable = $("scr-draft").classList.contains("active") && t && !t.cpu && p && !p.mlb;
+  b.style.display = usable ? "" : "none";
+  if(usable) b.textContent = t.watch.has(p.id) ? "★ リストから外す" : "☆ リストに入れる";
+}
+function watchFromModal(){
+  if(state.modalPlayer) toggleWatch(state.modalPlayer.id);
+}
+
 // 投打(利き腕)の一目表示: 投手=左腕/右腕、野手=左打/右打/両打
 function handMark(p){
   if(p.cat==="M") return "";
@@ -521,6 +554,7 @@ function openModal(id){
     (canTake(t,p) || (validPool(t).over && canTake(t,p,true)));
   $("m-pick").style.display = canPick ? "" : "none";
   $("m-pick").textContent = (state.bid && state.bid.stage==="collect") ? "この選手に入札する" : "この選手を指名";
+  updateWatchBtn();
   $("modal-bg").classList.add("show");
 }
 function closeModal(){ $("modal-bg").classList.remove("show"); }
@@ -734,9 +768,9 @@ function startLottery(g){
       ${order.map((idx,i)=>{
         const t = state.parts[idx];
         return `<div class="kuji" id="kuji-${i}" onclick="kujiFlip(${i})">
-          <div class="card">
-            <div class="face front">選択希望選手</div>
-            <div class="face back ${idx===winner?"win":""}">${idx===winner?"当":"外"}</div>
+          <div class="env">
+            <div class="slip ${idx===winner?"win":""}">${idx===winner?"当":"外"}</div>
+            <div class="env-front">選択希望選手</div>
           </div>
           <div class="t-name"><span style="color:${t.color}">●</span> ${esc(t.name)}</div>
         </div>`;
@@ -750,23 +784,27 @@ function startLottery(g){
 function kujiFlip(i){
   const lot = state.bid.lot;
   const el = $("kuji-"+i);
-  if(!el || el.classList.contains("flipped")) return;
-  el.classList.add("flipped");
+  if(!el || el.classList.contains("drawn") || el.classList.contains("drawing")) return;
+  el.classList.add("drawing"); // 封筒を振る
   lot.flipped++;
   const idx = lot.order[i];
-  if(idx === lot.winner){
-    seRollStop();
-    seWin();
-    setTimeout(()=>{
-      const t = state.parts[idx];
-      $("kuji-result").innerHTML = `交渉権獲得 ―― <span style="color:${t.color}">●</span> ${esc(t.name)}！`;
-    }, 560);
-  }else{
-    seMiss();
-  }
-  if(lot.flipped >= lot.order.length){
-    setTimeout(()=>{ $("kuji-next").style.display = ""; }, 640);
-  }
+  setTimeout(()=>{
+    el.classList.remove("drawing");
+    el.classList.add("drawn"); // 紙を引き抜く
+    if(idx === lot.winner){
+      seRollStop();
+      setTimeout(seWin, 380);
+      setTimeout(()=>{
+        const t = state.parts[idx];
+        $("kuji-result").innerHTML = `交渉権獲得 ―― <span style="color:${t.color}">●</span> ${esc(t.name)}！`;
+      }, 820);
+    }else{
+      setTimeout(seMiss, 420);
+    }
+    if(lot.flipped >= lot.order.length){
+      setTimeout(()=>{ const b=$("kuji-next"); if(b) b.style.display = ""; }, 950);
+    }
+  }, 340);
 }
 function lotteryDone(){
   seRollStop();
@@ -938,19 +976,58 @@ function togglePlay(){
   if(state.finished){ showResult(); return; }
   if(state.playing) stopTimer(); else startTimer();
 }
+function checkClinch(){
+  if(state.clinchedTeam || state.day < state.schedule.length*0.4) return null;
+  const s = standingsSorted();
+  if(s.length < 2) return null;
+  const rem = state.schedule.length - state.day;
+  const gb = ((s[0].W - s[1].W) + (s[1].L - s[0].L)) / 2;
+  if(gb > rem){
+    state.clinchedTeam = s[0];
+    const txt = `【優勝決定】${s[0].name}がリーグ制覇を確定！`;
+    state.news.unshift({mo: dateLabel(state.day-1), txt});
+    telop(txt);
+    return s[0];
+  }
+  return null;
+}
 function tick(){
   if(state.day >= state.schedule.length){ finishSeason(); return; }
   playDay();
   renderLive();
+  // 生中継: 開幕戦と優勝決定試合だけ、イニングごとにスコアが動く
+  let broadcast = null;
+  if(state.day === 1 && !state.openingShown){
+    state.openingShown = true;
+    if(state.lastGames && state.lastGames.length) broadcast = {label:"開幕戦 生中継", g: state.lastGames[0]};
+  }
+  const clincher = checkClinch();
+  if(clincher && state.lastGames){
+    const g = state.lastGames.find(x=>x.A===clincher || x.B===clincher);
+    if(g) broadcast = {label:"優勝決定試合 生中継", g};
+  }
+  if(broadcast){
+    stopTimer();
+    state.resumeAfterLive = true;
+    showLiveGame(broadcast.label, broadcast.g, ()=>{
+      const ev = dueEvent();
+      if(ev){ ev.done = true; state.resumeAfterEvent = state.resumeAfterLive; state.resumeAfterLive=false; startEvent(ev.type); return; }
+      if(state.day >= state.schedule.length){ finishSeason(); return; }
+      if(state.resumeAfterLive){ state.resumeAfterLive=false; startTimer(); }
+    });
+    return;
+  }
   const ev = dueEvent();
   if(ev){ stopTimer(); ev.done = true; state.resumeAfterEvent = true; startEvent(ev.type); return; }
   if(state.day >= state.schedule.length) finishSeason();
 }
 function skipAhead(){
   stopTimer();
+  state.openingShown = true; // 一気進行中は中継なし
   let guard = 2000;
   while(state.day < state.schedule.length && guard-->0){
     playDay();
+    checkClinch();
     const ev = dueEvent();
     if(ev){ renderLive(); ev.done = true; state.resumeAfterEvent = false; startEvent(ev.type); return; }
   }
@@ -984,9 +1061,11 @@ function playDay(){
   const games = state.schedule[state.day];
   const dl = dateLabel(state.day);
   const scores = [];
+  const played = [];
   for(const [ai,bi] of games){
     const A = state.parts[ai], B = state.parts[bi];
     const g = simGame(A,B);
+    played.push({A, B, rA:g.rA, rB:g.rB});
     scores.push(`${A.name} ${g.rA}-${g.rB} ${B.name}`);
     // その日の見どころニュース(たまに)
     const diff = Math.abs(g.rA-g.rB);
@@ -1005,6 +1084,7 @@ function playDay(){
   }
   state.parts.forEach(t=>t.hist.push(t.W-t.L));
   state.lastScores = scores;
+  state.lastGames = played;
   const mPrev = monthOfDay(state.day);
   state.day++;
   const mNow = state.day >= state.schedule.length ? 7 : monthOfDay(state.day);
@@ -1830,3 +1910,70 @@ function showGogai(champ){
 }
 function closeGogai(){ $("gogai-bg").classList.remove("show"); }
 updateSndBtns();
+
+// ============================================================
+// ライブ中継(開幕戦・優勝決定試合をイニングごとに再現)
+// ============================================================
+let liveCtx = null;
+function splitInnings(runs){
+  const inn = Array(9).fill(0);
+  for(let i=0;i<runs;i++) inn[Math.floor(rnd()*9)]++;
+  return inn;
+}
+function showLiveGame(label, g, done){
+  const ia = splitInnings(g.rA), ib = splitInnings(g.rB);
+  liveCtx = {g, ia, ib, step:0, done, timer:null};
+  $("lv-k").textContent = label;
+  $("lv-msg").textContent = "プレイボール ――";
+  $("lv-btn").textContent = "スキップ";
+  renderLiveBoard();
+  $("live-bg").classList.add("show");
+  liveCtx.timer = setInterval(liveStep, 620);
+}
+function renderLiveBoard(){
+  const {g, ia, ib, step} = liveCtx;
+  const aN = Math.min(9, Math.ceil(step/2)), bN = Math.min(9, Math.floor(step/2));
+  const aActive = (step%2===0 && step<18) ? step/2 : -1;
+  const bActive = (step%2===1 && step<18) ? (step-1)/2 : -1;
+  const row = (name, color, arr, n, active) => `<tr>
+    <td class="tn"><span style="color:${color}">●</span> ${esc(name)}</td>
+    ${arr.map((v,i)=>`<td class="${active===i?"now":""}">${i<n?v:""}</td>`).join("")}
+    <td class="r">${arr.slice(0,n).reduce((s,x)=>s+x,0)}</td></tr>`;
+  $("lv-board").innerHTML = `<table>
+    <tr><th></th>${Array.from({length:9},(_,i)=>`<th>${i+1}</th>`).join("")}<th>R</th></tr>
+    ${row(g.A.name, g.A.color, ia, aN, aActive)}
+    ${row(g.B.name, g.B.color, ib, bN, bActive)}
+  </table>`;
+}
+function liveStep(){
+  const c = liveCtx; if(!c) return;
+  c.step++;
+  renderLiveBoard();
+  const k = c.step - 1;
+  const runs = k%2===0 ? c.ia[k/2] : c.ib[(k-1)/2];
+  if(sndOn && runs>0){ const x = ac(); if(x) tone(x.currentTime, 760+runs*70, 0.16, 0.10, "triangle"); }
+  const inning = Math.floor(k/2)+1;
+  if(c.step < 18) $("lv-msg").textContent = `${inning}回${k%2===0?"表":"裏"} ―― ${runs>0 ? runs+"点が入った！" : "無得点"}`;
+  if(c.step >= 18) liveFinish();
+}
+function liveFinish(){
+  const c = liveCtx; if(!c) return;
+  if(c.timer){ clearInterval(c.timer); c.timer = null; }
+  c.step = 18;
+  renderLiveBoard();
+  const g = c.g;
+  const win = g.rA>g.rB ? g.A : g.rB>g.rA ? g.B : null;
+  $("lv-msg").textContent = win
+    ? `試合終了 ―― ${win.name}、${Math.max(g.rA,g.rB)}対${Math.min(g.rA,g.rB)}で勝利！`
+    : `試合終了 ―― ${g.rA}対${g.rB}の引き分け`;
+  $("lv-btn").textContent = "閉じる";
+  if(sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 1.1, 5000, 0.10); }
+}
+function liveSkip(){
+  const c = liveCtx; if(!c) return;
+  if(c.step < 18){ liveFinish(); return; } // 途中スキップはまず結果表示へ
+  $("live-bg").classList.remove("show");
+  const done = c.done;
+  liveCtx = null;
+  if(done) done();
+}

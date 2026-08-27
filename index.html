@@ -308,29 +308,75 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
 .bid-table td{text-align:left;font-size:14px;padding:7px 8px;}
 .bid-table .bp{font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:15px;}
 .dup{color:var(--red);font-weight:bold;}
-.kuji-row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin:22px 0;}
+.kuji-row{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;margin:24px 0 14px;}
 .kuji{text-align:center;cursor:pointer;user-select:none;}
-.kuji .card{
-  width:92px;height:132px;margin:0 auto 8px;position:relative;
-  transform-style:preserve-3d;transition:transform .55s cubic-bezier(.2,.7,.3,1.1);
-}
-.kuji.flipped .card{transform:rotateY(180deg);}
-.kuji .face{
-  position:absolute;inset:0;backface-visibility:hidden;border-radius:3px;
+.kuji .env{width:96px;height:126px;margin:0 auto 8px;position:relative;}
+.kuji .slip{
+  position:absolute;left:9px;right:9px;top:6px;height:86px;z-index:1;
+  background:#fdfaf2;border:1px solid var(--rule2);border-radius:2px;
   display:flex;align-items:center;justify-content:center;
-  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:36px;color:var(--gray);
+  transform:translateY(34%);
+  transition:transform .8s cubic-bezier(.2,.9,.25,1.05);
+  box-shadow:0 -1px 4px rgba(20,16,8,.15);
 }
-.kuji .front{
-  background:linear-gradient(160deg,#fbf7ee,#e9e0c8);border:1px solid var(--rule2);
-  color:var(--rule2);font-size:15px;letter-spacing:2px;writing-mode:vertical-rl;
-  box-shadow:2px 3px 0 rgba(20,16,8,.25);
+.kuji .slip.win{background:var(--red);color:#fdf3e3;border-color:var(--red2);}
+.kuji.drawn .slip{transform:translateY(-62%) rotate(-3deg);}
+.kuji.drawn .slip.win{box-shadow:0 0 26px rgba(167,44,24,.65);animation:winPulse 1.1s ease infinite alternate;}
+.kuji .env-front{
+  position:absolute;left:0;right:0;bottom:0;height:78px;z-index:2;
+  background:
+    linear-gradient(180deg, rgba(167,44,24,.08), transparent 26%),
+    repeating-linear-gradient(45deg, transparent 0 9px, rgba(154,119,20,.09) 9px 10px),
+    linear-gradient(165deg,#efe6cd,#ddd1b1);
+  border:1px solid var(--rule2);border-top:4px solid var(--red);border-radius:0 0 3px 3px;
+  display:flex;align-items:flex-end;justify-content:center;
+  font-size:10px;letter-spacing:3px;color:var(--rule2);padding-bottom:7px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+  box-shadow:2px 3px 0 rgba(20,16,8,.22);
 }
-.kuji .back{
-  transform:rotateY(180deg);border:1px solid var(--rule2);font-size:40px;
-  background:#fbf7ee;color:var(--gray);
-}
-.kuji .back.win{background:var(--red);color:#fdf3e3;border-color:var(--red2);box-shadow:0 0 24px rgba(167,44,24,.55);}
+.kuji.drawing .env{animation:envShake .34s ease;}
+@keyframes envShake{0%,100%{transform:rotate(0);}25%{transform:rotate(-4deg);}55%{transform:rotate(3.5deg);}80%{transform:rotate(-2deg);}}
+.kuji:not(.drawn):hover .env{transform:translateY(-4px);transition:transform .15s;}
 .kuji .t-name{font-size:12.5px;font-weight:bold;}
+
+/* ---- ライブ中継(開幕戦・優勝決定試合) ---- */
+#live-bg{position:fixed;inset:0;background:rgba(10,16,12,.85);display:none;align-items:center;justify-content:center;z-index:125;padding:14px;}
+#live-bg.show{display:flex;}
+#live{
+  background:linear-gradient(180deg,var(--board),var(--board2));
+  border:2px solid #0b1f16;outline:1px solid #2c5742;outline-offset:-5px;
+  color:var(--boardtxt);max-width:640px;width:100%;padding:20px 22px;
+  box-shadow:inset 0 0 40px rgba(0,0,0,.4), 6px 8px 0 rgba(0,0,0,.45);
+}
+#live .lv-k{
+  display:inline-block;background:var(--amber);color:var(--ink);font-size:11px;
+  padding:2px 10px;letter-spacing:4px;margin-bottom:10px;font-weight:bold;
+}
+#live table{width:100%;border-collapse:collapse;font-family:"Oswald",sans-serif;}
+#live th,#live td{border:1px solid #2c574277;padding:5px 4px;text-align:center;font-size:14px;}
+#live th{color:#9fbfa8;font-size:10px;font-weight:normal;font-family:"Yu Gothic",sans-serif;}
+#live td.tn{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;text-align:left;padding-left:8px;white-space:nowrap;}
+#live td.r{color:var(--amber);font-weight:600;font-size:17px;text-shadow:0 0 8px rgba(243,184,60,.5);}
+#live td.now{background:rgba(243,184,60,.14);}
+#live .lv-msg{min-height:1.6em;margin-top:12px;font-size:14px;letter-spacing:1px;font-family:"Zen Old Mincho","Yu Mincho",serif;color:#e9e2ce;}
+#live .lv-foot{margin-top:12px;text-align:right;}
+
+/* ---- 注目リスト ---- */
+.wstar{
+  position:absolute;top:30px;right:6px;font-size:15px;color:#cfc4a5;cursor:pointer;z-index:2;
+  text-shadow:0 1px 0 rgba(0,0,0,.15);transition:transform .12s, color .12s;
+}
+.wstar:hover{transform:scale(1.25);}
+.wstar.on{color:var(--goldseal);}
+#watch-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;align-items:center;}
+#watch-row .wchip{
+  display:inline-flex;gap:5px;align-items:center;background:#fdf6df;border:1px solid var(--goldseal);
+  padding:4px 10px;border-radius:2px;font-size:12.5px;cursor:pointer;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:700;
+}
+#watch-row .wchip:hover{border-color:var(--red);}
+#watch-row .wlabel{font-size:11px;color:var(--goldseal);letter-spacing:2px;font-weight:bold;}
 .kuji-result{
   text-align:center;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:19px;font-weight:800;
   letter-spacing:2px;margin:8px 0 2px;min-height:1.4em;
@@ -712,6 +758,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
       <span class="sub" style="margin-left:auto;">★=主要タイトル数　<span class="seal">三冠</span>=三冠王　空き枠クリックで絞り込み</span>
     </div>
     <div id="recs-wrap"><div class="sub" style="margin:2px 0 4px;letter-spacing:2px;">編集部のおすすめ（クリックで詳細）</div><div id="recs" class="rec-row"></div></div>
+    <div id="watch-row"></div>
     <div class="pool" id="pool"></div>
   </div>
 
@@ -820,7 +867,8 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
     <div style="margin-top:6px;" id="m-tags"></div>
     <div class="statline" id="m-stats"></div>
     <div class="desc" id="m-desc"></div>
-    <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end;">
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
+      <button class="btn ghost sm" id="m-watch" onclick="watchFromModal()">☆ リストに入れる</button>
       <button class="btn ghost sm" onclick="closeModal()">閉じる</button>
       <button class="btn sm" id="m-pick" onclick="pickFromModal()">この選手を指名</button>
     </div>
@@ -830,6 +878,16 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 <!-- event panel (trade / MLB / 入札抽選) -->
 <div id="event-bg">
   <div id="event-panel"></div>
+</div>
+
+<!-- ライブ中継(開幕戦・優勝決定試合) -->
+<div id="live-bg">
+  <div id="live">
+    <div class="lv-k" id="lv-k"></div>
+    <div id="lv-board"></div>
+    <div class="lv-msg" id="lv-msg"></div>
+    <div class="lv-foot"><button class="btn ghost sm" id="lv-btn" onclick="liveSkip()">スキップ</button></div>
+  </div>
 </div>
 
 <!-- 優勝號外 -->

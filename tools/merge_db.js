@@ -174,6 +174,26 @@ console.log("  bat:", applyHands("hands_bat.json", db), "matched");
 console.log("  pit:", applyHands("hands_pit.json", db), "matched");
 console.log("  mlb:", applyHands("hands_mlb.json", mlb), "matched");
 
+// 背番号パッチの適用(numbers_*.json: [{name, no}])
+// catsで適用先を限定(同名の選手/監督で番号が違うケースを守る: 王=選手1/監督89 など)
+function applyNumbers(file, arr, cats){
+  const patch = loadSeg(file);
+  if(!patch.length) return 0;
+  const map = new Map();
+  for(const r of patch){ if(r && r.name && Number.isFinite(Number(r.no))) map.set(normName(r.name), clamp(Math.round(Number(r.no)), 0, 199)); }
+  let hit = 0;
+  for(const p of arr){
+    if(cats && !cats.includes(p.cat)) continue;
+    const v = map.get(normName(p.name));
+    if(v !== undefined){ p.no = v; hit++; }
+  }
+  return hit;
+}
+console.log("numbers patches:");
+console.log("  bat:", applyNumbers("numbers_bat.json", db, ["B"]), "matched");
+console.log("  pit+mgr:", applyNumbers("numbers_pit.json", db, ["P","M"]), "matched");
+console.log("  mlb:", applyNumbers("numbers_mlb.json", mlb, null), "matched");
+
 // 集計
 const count = (arr, fn) => arr.filter(fn).length;
 const posCount = c => count(db, p=>p.cat==="B" && p.pos.includes(c));

@@ -398,9 +398,14 @@ function renderRecs(){
   el.innerHTML = recs.map(r=>`
     <div class="pcard rec" onclick="openModal('${r.p.id}')">
       <div class="rec-label">${r.label}</div>
-      <div class="nm">${esc(r.p.name)}${titleBadge(r.p)}</div>
-      <div class="meta">${roleLabel(r.p)}・${esc(r.p.team)}・${r.p.year}年 <span style="float:right;color:var(--gold)">${r.p.cost}pt</span></div>
-      <div class="meta">${statShort(r.p)}<span style="float:right;font-weight:900;" class="rank-${rankOf(r.p.ovr)}">${rankOf(r.p.ovr)}</span></div>
+      <div class="pc-row">
+        ${avatarBox(r.p, 36)}
+        <div class="pc-main">
+          <div class="nm">${esc(r.p.name)}${titleBadge(r.p)}</div>
+          <div class="meta">${roleLabel(r.p)}・${esc(r.p.team)}・${r.p.year}年 <span style="float:right;color:var(--gold)">${r.p.cost}pt</span></div>
+          <div class="meta">${statShort(r.p)}<span style="float:right;font-weight:900;" class="rank-${rankOf(r.p.ovr)}">${rankOf(r.p.ovr)}</span></div>
+        </div>
+      </div>
     </div>`).join("");
 }
 
@@ -426,9 +431,14 @@ function renderPool(){
   $("pool").innerHTML = list.map(p=>`
     <div class="pcard" onclick="openModal('${p.id}')">
       <span class="rank rank-${rankOf(p.ovr)}">${rankOf(p.ovr)}</span>
-      <div class="nm">${esc(p.name)}${titleBadge(p)}</div>
-      <div class="meta"><span class="pos-badge pos-${p.cat==="M"?"M":p.twoWay?"W":p.cat}">${roleLabel(p)}</span>${handMark(p)}${esc(p.team)}・${p.year}年</div>
-      <div class="meta">${statShort(p)}<span style="float:right;color:var(--gold)">${p.cost}pt</span></div>
+      <div class="pc-row">
+        ${avatarBox(p)}
+        <div class="pc-main">
+          <div class="nm">${esc(p.name)}${titleBadge(p)}</div>
+          <div class="meta"><span class="pos-badge pos-${p.cat==="M"?"M":p.twoWay?"W":p.cat}">${roleLabel(p)}</span>${handMark(p)}${esc(p.team)}・${p.year}年</div>
+          <div class="meta">${statShort(p)}<span style="float:right;color:var(--gold)">${p.cost}pt</span></div>
+        </div>
+      </div>
     </div>`).join("");
 }
 // 投打(利き腕)の一目表示: 投手=左腕/右腕、野手=左打/右打/両打
@@ -485,7 +495,7 @@ function findPlayer(id){ return PLAYERS.find(x=>x.id===id) || MLB_STARS.find(x=>
 function openModal(id){
   const p = findPlayer(id); if(!p) return;
   state.modalPlayer = p;
-  $("m-name").innerHTML = `${esc(p.name)} <span style="font-size:14px;color:var(--sub)">（${p.year}年・${esc(p.team)}）</span>`;
+  $("m-name").innerHTML = `<span class="m-av">${avatarBox(p, 52)}</span>${esc(p.name)} <span style="font-size:14px;color:var(--sub)">（${p.year}年・${esc(p.team)}）</span>`;
   $("m-tags").innerHTML = `<span class="tag">${roleLabel(p)}</span>` +
     ((p.th||p.bh)?`<span class="tag">${p.th||"？"}投${p.bh||"？"}打</span>`:"") +
     `<span class="tag">${p.decade}</span>` +
@@ -540,6 +550,7 @@ function pickAnnounce(t, p, label){
 }
 function doPick(t,p){
   assignPick(t,p);
+  seTap();
   pickAnnounce(t, p, "ウェーバー指名");
   nextTurn();
 }
@@ -655,6 +666,7 @@ function registerBid(p){
   const bid = state.bid;
   bid.bids[bid.pending[bid.ptr]] = p;
   bid.ptr++;
+  seTap();
   const remainHuman = bid.pending.slice(bid.ptr).some(i=>!state.parts[i].cpu);
   curtain("入札を受理しました",
     remainHuman ? "端末を伏せて、次の方へお回しください。" : "全球団の入札が出揃いました。",
@@ -733,6 +745,7 @@ function startLottery(g){
     <div class="kuji-result" id="kuji-result"></div>
     <div style="text-align:right;"><button class="btn" id="kuji-next" style="display:none;" onclick="lotteryDone()">交渉権確定</button></div>`;
   $("event-bg").classList.add("show");
+  seRollStart();
 }
 function kujiFlip(i){
   const lot = state.bid.lot;
@@ -742,16 +755,21 @@ function kujiFlip(i){
   lot.flipped++;
   const idx = lot.order[i];
   if(idx === lot.winner){
+    seRollStop();
+    seWin();
     setTimeout(()=>{
       const t = state.parts[idx];
       $("kuji-result").innerHTML = `交渉権獲得 ―― <span style="color:${t.color}">●</span> ${esc(t.name)}！`;
     }, 560);
+  }else{
+    seMiss();
   }
   if(lot.flipped >= lot.order.length){
     setTimeout(()=>{ $("kuji-next").style.display = ""; }, 640);
   }
 }
 function lotteryDone(){
+  seRollStop();
   const bid = state.bid;
   const lot = bid.lot;
   const wt = state.parts[lot.winner];
@@ -1341,9 +1359,14 @@ function renderMlbPanel(){
       ${ctx.pool.map(p=>`
         <div class="mlb-card ${star===p?"sel":""}" onclick="mlbStarClick('${p.id}')">
           <span class="rank rank-${rankOf(p.ovr)}" style="position:absolute;top:7px;right:8px;font-weight:900;">${rankOf(p.ovr)}</span>
-          <div class="nm">${esc(p.name)}${titleBadge(p)}</div>
-          <div class="meta">${roleLabel(p)}・${handMark(p)}${esc(p.team)}・${p.year}年</div>
-          <div class="meta">${statShort(p)}</div>
+          <div class="pc-row">
+            ${avatarBox(p, 36)}
+            <div class="pc-main">
+              <div class="nm">${esc(p.name)}${titleBadge(p)}</div>
+              <div class="meta">${roleLabel(p)}・${handMark(p)}${esc(p.team)}・${p.year}年</div>
+              <div class="meta">${statShort(p)}</div>
+            </div>
+          </div>
         </div>`).join("")}
     </div>
     <div class="sub">カードをクリックで選択、もう一度詳しく見るには選択後「経歴を見る」。</div>
@@ -1524,6 +1547,8 @@ function showResult(){
     </div>`;
   }).join("");
   confetti();
+  seFanfare();
+  showGogai(champ);
 }
 function confetti(){
   const cols=["#a72c18","#22456b","#2c5c34","#9a7714","#e2b13c","#faf6ec"];
@@ -1692,3 +1717,116 @@ function specShowTeam(i){
   $("spec-team").innerHTML = `<table><tr><th>位置</th><th>選手</th><th>ここまでの成績</th></tr>${rows}</table>`;
 }
 tryEnterSpectator();
+
+// ============================================================
+// 選手シルエット肖像(著作権フリーの描き起こしSVG。打席/利き腕で向きが変わる)
+// ============================================================
+const FR_ACCENT = {
+  "巨人":"#e86100","阪神":"#e8c400","中日":"#16336e","ヤクルト":"#0b8747","広島":"#c3000f",
+  "DeNA":"#005bac","ソフトバンク":"#e8b800","西武":"#1f366a","ロッテ":"#3a3a3a","日本ハム":"#02598c",
+  "オリックス":"#9f8a44","近鉄":"#b7282e","楽天":"#860010","その他":"#666666","MLB":"#1c3d6e",
+};
+function avatarSvg(p, size=44){
+  const acc = FR_ACCENT[p.mlb ? "MLB" : p.fr] || "#666";
+  const ink = "#2a251c";
+  const flip = (p.cat==="B" && p.bh==="左") || (p.cat==="P" && p.th==="左");
+  let pre = "", post = "";
+  if(p.cat==="B"){
+    pre = `<rect x="30.5" y="3" width="3" height="20" rx="1.5" transform="rotate(24 32 13)" fill="${ink}"/>`;
+  }else if(p.cat==="P"){
+    pre = `<path d="M31 31 Q37 24 38.5 13" stroke="${ink}" stroke-width="4.6" fill="none" stroke-linecap="round"/><circle cx="39" cy="10.5" r="2.6" fill="${ink}"/>`;
+  }else{
+    post = `<path d="M24 33 l2.6 4.6 -2.6 8.4 -2.6 -8.4 Z" fill="${acc}"/>`;
+  }
+  return `<svg viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="#efe7d2" stroke="#c8bda0"/><g ${flip?'transform="translate(48,0) scale(-1,1)"':''}>${pre}<path d="M7 46 Q10 32 24 31.5 Q38 32 41 46 Z" fill="${ink}"/><circle cx="24" cy="17.5" r="7.4" fill="${ink}"/><path d="M16.6 15.8 A7.4 7.4 0 0 1 31.4 15.8 Z" fill="${acc}"/>${p.cat==="M"?"":`<rect x="28.5" y="14.6" width="8.2" height="2.4" rx="1.2" fill="${acc}"/>`}${post}</g></svg>`;
+}
+function avatarBox(p, size=42){
+  return `<div class="pc-av">${avatarSvg(p,size)}${p.no!==undefined?`<span class="pc-no">${p.no}</span>`:""}</div>`;
+}
+
+// ============================================================
+// 効果音(WebAudioでその場で合成。素材ファイル不要)
+// ============================================================
+let AC = null;
+let sndOn = true;
+try{ sndOn = localStorage.getItem("kyushi_snd") !== "0"; }catch(e){}
+function ac(){
+  if(!AC){ const C = window.AudioContext || window.webkitAudioContext; if(!C) return null; AC = new C(); }
+  if(AC.state === "suspended") AC.resume();
+  return AC;
+}
+function updateSndBtns(){ document.querySelectorAll(".snd-btn").forEach(b=>b.textContent = sndOn ? "音:ON" : "音:OFF"); }
+function toggleSnd(){
+  sndOn = !sndOn;
+  try{ localStorage.setItem("kyushi_snd", sndOn?"1":"0"); }catch(e){}
+  if(!sndOn) seRollStop();
+  updateSndBtns();
+}
+function noiseBurst(t, dur, freq, vol){
+  const ctx = ac(); if(!ctx) return;
+  const len = Math.max(1, Math.floor(ctx.sampleRate*dur));
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const d = buf.getChannelData(0);
+  for(let i=0;i<len;i++) d[i] = (Math.random()*2-1)*(1-i/len);
+  const src = ctx.createBufferSource(); src.buffer = buf;
+  const bp = ctx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = freq; bp.Q.value = 0.8;
+  const g = ctx.createGain(); g.gain.setValueAtTime(vol, t);
+  src.connect(bp); bp.connect(g); g.connect(ctx.destination);
+  src.start(t);
+}
+function tone(t, freq, dur, vol, type="square"){
+  const ctx = ac(); if(!ctx) return;
+  const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq;
+  const g = ctx.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t+0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  o.connect(g); g.connect(ctx.destination);
+  o.start(t); o.stop(t+dur+0.05);
+}
+function seTap(){ if(!sndOn) return; const c=ac(); if(!c) return; tone(c.currentTime, 620, 0.07, 0.10, "triangle"); }
+let rollTimer = null;
+function seRollStart(){
+  if(!sndOn) return; const c=ac(); if(!c) return;
+  seRollStop();
+  const hit = ()=>{ if(AC) noiseBurst(AC.currentTime, 0.05, 1800, 0.09); };
+  hit();
+  rollTimer = setInterval(hit, 62);
+}
+function seRollStop(){ if(rollTimer){ clearInterval(rollTimer); rollTimer = null; } }
+function seMiss(){ if(!sndOn) return; const c=ac(); if(!c) return; tone(c.currentTime, 130, 0.28, 0.14, "sawtooth"); }
+function seWin(){
+  if(!sndOn) return; const c=ac(); if(!c) return;
+  const t = c.currentTime;
+  noiseBurst(t, 0.9, 6500, 0.12);
+  [523,659,784,1047].forEach((f,i)=>tone(t+0.05+i*0.09, f, 0.5, 0.11));
+}
+function seFanfare(){
+  if(!sndOn) return; const c=ac(); if(!c) return;
+  const t = c.currentTime;
+  const seq = [[392,0],[523,0.14],[659,0.28],[784,0.42],[659,0.62],[784,0.76],[1047,0.95]];
+  for(const [f,dt] of seq){ tone(t+dt, f, 0.42, 0.11); tone(t+dt, f/2, 0.42, 0.06, "triangle"); }
+  noiseBurst(t+0.95, 1.4, 7000, 0.10);
+}
+
+// ============================================================
+// 優勝號外演出
+// ============================================================
+function showGogai(champ){
+  $("gg-team").textContent = champ.name;
+  const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
+  $("gg-sub").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct} ―― 歓喜の胴上げ`;
+  $("gogai-bg").classList.add("show");
+  for(let i=0;i<10;i++){
+    const m = document.createElement("span");
+    m.className = "gogai-mini";
+    m.textContent = "號外";
+    m.style.left = (rnd()*94)+"vw";
+    m.style.animationDuration = (3+rnd()*3.5)+"s";
+    m.style.animationDelay = (rnd()*2.5)+"s";
+    document.body.appendChild(m);
+    setTimeout(()=>m.remove(), 9000);
+  }
+}
+function closeGogai(){ $("gogai-bg").classList.remove("show"); }
+updateSndBtns();

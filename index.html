@@ -536,6 +536,67 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 .tf .n{font-family:"Oswald","Zen Old Mincho",sans-serif;font-size:26px;font-weight:600;line-height:1.1;}
 .tf .k{font-size:10.5px;color:var(--ink2);letter-spacing:3px;margin-top:3px;}
 .tf:nth-child(1) .n{color:var(--red);} .tf:nth-child(2) .n{color:var(--navy);} .tf:nth-child(3) .n{color:var(--green);}
+
+/* ---- 選手肖像・背番号 ---- */
+.pc-row{display:flex;gap:9px;align-items:center;min-width:0;}
+.pc-main{flex:1;min-width:0;}
+.pc-av{position:relative;flex:none;line-height:0;}
+.pc-av svg{display:block;filter:drop-shadow(1px 1px 0 rgba(93,82,58,.25));}
+.pc-no{
+  position:absolute;right:-4px;bottom:-3px;background:var(--ink);color:var(--paper);
+  font-family:"Oswald",sans-serif;font-size:11px;font-weight:600;min-width:17px;text-align:center;
+  border-radius:2px;padding:0 3px;line-height:1.5;box-shadow:1px 1px 0 rgba(0,0,0,.35);
+}
+.m-av{display:inline-block;vertical-align:-16px;margin-right:10px;}
+.pcard .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:20px;}
+
+/* ---- 優勝號外 ---- */
+#gogai-bg{
+  position:fixed;inset:0;background:rgba(24,20,12,.82);display:none;
+  align-items:center;justify-content:center;z-index:140;padding:16px;cursor:pointer;
+}
+#gogai-bg.show{display:flex;}
+#gogai{
+  position:relative;background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,70,.05) 3px 4px),
+    var(--paper2);
+  border:2px solid var(--ink);outline:1px solid var(--ink);outline-offset:-6px;
+  padding:44px 110px 38px 44px;max-width:560px;width:100%;
+  transform:rotate(-2.5deg);
+  animation:gogaiIn .55s cubic-bezier(.2,1.1,.3,1);
+  box-shadow:8px 10px 0 rgba(0,0,0,.4);
+}
+@keyframes gogaiIn{0%{transform:scale(2.1) rotate(-14deg);opacity:0;}62%{transform:scale(.96) rotate(-2deg);opacity:1;}100%{transform:scale(1) rotate(-2.5deg);}}
+#gogai .gg-go{
+  position:absolute;right:20px;top:18px;bottom:18px;writing-mode:vertical-rl;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:58px;font-weight:900;color:var(--red);
+  letter-spacing:14px;border-left:2px solid var(--ink);padding-left:12px;
+}
+#gogai .gg-k{font-size:12px;letter-spacing:6px;color:var(--ink2);border-bottom:1px solid var(--rule2);padding-bottom:5px;margin-bottom:14px;font-family:"Zen Old Mincho",serif;}
+#gogai .gg-team{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:44px;font-weight:900;letter-spacing:4px;line-height:1.25;
+}
+#gogai .gg-v{
+  display:inline-block;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:30px;font-weight:900;
+  color:#fff;background:var(--red);padding:2px 16px;margin:10px 0 12px;letter-spacing:10px;
+}
+#gogai .gg-sub{font-size:13.5px;color:var(--ink2);line-height:1.9;font-family:"Zen Old Mincho",serif;}
+#gogai .gg-tap{margin-top:18px;font-size:11px;color:var(--rule2);letter-spacing:4px;text-align:center;}
+.gogai-mini{
+  position:fixed;top:-80px;z-index:135;pointer-events:none;
+  width:46px;height:62px;background:var(--paper2);border:1px solid var(--ink);
+  display:flex;align-items:center;justify-content:center;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;color:var(--red);font-size:15px;
+  writing-mode:vertical-rl;letter-spacing:2px;
+  animation:ggFall linear forwards;box-shadow:2px 2px 0 rgba(0,0,0,.3);
+}
+@keyframes ggFall{to{transform:translateY(115vh) rotate(320deg);opacity:.55;}}
+@media (max-width:680px){
+  #gogai{padding:30px 72px 26px 24px;}
+  #gogai .gg-go{font-size:38px;right:12px;letter-spacing:8px;}
+  #gogai .gg-team{font-size:29px;}
+  #gogai .gg-v{font-size:22px;letter-spacing:6px;}
+}
 </style>
 </head>
 <body>
@@ -551,11 +612,6 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
   <div class="title-lede">
     戦前の豪傑から現代の怪物まで、日本プロ野球の歴代名選手をドラフトで奪い合い、
     監督を据え、一年間のペナントレースを戦い抜く。栄冠を手にするのは、どの球団か。
-  </div>
-  <div class="title-facts">
-    <div class="tf"><div class="n">416</div><div class="k">NPB選手・監督</div></div>
-    <div class="tf"><div class="n">100</div><div class="k">MLBスター</div></div>
-    <div class="tf"><div class="n">1936-2026</div><div class="k">収録年代</div></div>
   </div>
   <div><button class="btn" onclick="goSetup()">開幕準備をはじめる</button></div>
 </div>
@@ -621,6 +677,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
     <div class="who" id="d-who"></div>
     <div class="sub" id="d-round"></div>
     <div style="flex:1"></div>
+    <button class="btn sm ghost snd-btn" onclick="toggleSnd()">音:ON</button>
     <button class="btn sm ghost" onclick="autoPick()">おまかせ</button>
     <button class="btn sm ghost" onclick="autoAll()">全員おまかせで最後まで</button>
   </div>
@@ -679,6 +736,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
       </select>
       <button class="btn" id="s-play" onclick="togglePlay()">プレイボール</button>
       <button class="btn ghost sm" id="s-skip" onclick="skipAhead()">次のイベントまで進める</button>
+      <button class="btn ghost sm snd-btn" onclick="toggleSnd()">音:ON</button>
     </div>
   </div>
 
@@ -772,6 +830,18 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 <!-- event panel (trade / MLB / 入札抽選) -->
 <div id="event-bg">
   <div id="event-panel"></div>
+</div>
+
+<!-- 優勝號外 -->
+<div id="gogai-bg" onclick="closeGogai()">
+  <div id="gogai">
+    <div class="gg-go">號外</div>
+    <div class="gg-k">球史新聞社 ── 特別號外</div>
+    <div class="gg-team" id="gg-team"></div>
+    <div class="gg-v">優　勝</div>
+    <div class="gg-sub" id="gg-sub"></div>
+    <div class="gg-tap">── 画面をタップして紙面へ ──</div>
+  </div>
 </div>
 
 <!-- 観戦QRモーダル -->

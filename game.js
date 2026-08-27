@@ -529,7 +529,11 @@ function assignPick(t,p){
 }
 function announceLine(kicker, html){
   const el = $("d-announce");
-  if(el) el.innerHTML = `<span class="an-k">${kicker}</span>${html}`;
+  if(!el) return;
+  el.innerHTML = `<span class="an-k">${kicker}</span>${html}`;
+  el.classList.remove("flash");
+  void el.offsetWidth; // アニメーション再トリガー
+  el.classList.add("flash");
 }
 function pickAnnounce(t, p, label){
   announceLine("指名", `${label} ―― ${esc(t.name)}、<b>${esc(p.name)}</b>（${roleLabel(p)}・${esc(p.team)} '${String(p.year).slice(2)}）`);
@@ -1106,7 +1110,7 @@ function renderStandings(elId){
 }
 
 function renderChart(){
-  const W=720, H=240, padL=34, padR=10, padT=12, padB=22;
+  const W=720, H=240, padL=34, padR=86, padT=12, padB=22;
   const total = (state.schedule && state.schedule.length) || 1;
   const maxLen = total + 1; // 開幕前(0)+全日程
   let lo=0, hi=0;
@@ -1126,7 +1130,10 @@ function renderChart(){
     const pts = t.hist.map((v,i)=>`${x(i)},${y(v)}`).join(" ");
     svg += `<polyline points="${pts}" fill="none" stroke="${t.color}" stroke-width="2" stroke-linejoin="round"/>`;
     const last=t.hist[t.hist.length-1];
-    svg += `<circle cx="${x(t.hist.length-1)}" cy="${y(last)}" r="3.5" fill="${t.color}"/>`;
+    const lx=x(t.hist.length-1), ly=y(last);
+    svg += `<circle cx="${lx}" cy="${ly}" r="3.5" fill="${t.color}"/>`;
+    const nm = t.name.length>5 ? t.name.slice(0,5) : t.name;
+    svg += `<text x="${lx+7}" y="${ly+3.5}" fill="${t.color}" font-size="10.5" font-weight="bold">${esc(nm)} ${last>0?"+":""}${last}</text>`;
   });
   svg += `</svg>`;
   svg += `<div style="margin-top:6px;">` + state.parts.map(t=>`<span class="tag"><span style="color:${t.color}">●</span> ${esc(t.name)}</span>`).join("") + `</div>`;

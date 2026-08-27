@@ -10,7 +10,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='6' fill='%23a72c18'/%3E%3Ctext x='32' y='45' font-size='38' text-anchor='middle' fill='%23f2ecdd' font-family='serif' font-weight='bold'%3E球%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
 <title>球史 〜レジェンドドラフト〜</title>
 <style>
 :root{
@@ -432,6 +432,110 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
   .champ-label{font-size:12px;letter-spacing:8px;padding:3px 12px 3px 20px;}
   .team-report td{font-size:11px;padding:3px 4px;}
 }
+
+/* ============================================================
+   仕上げの化粧(質感・階調・マイクロアニメーション)
+   ============================================================ */
+body{
+  background:
+    radial-gradient(1200px 500px at 50% -140px, rgba(255,252,240,.75), transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,70,.04) 3px 4px),
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(120,105,70,.022) 46px 47px),
+    var(--paper);
+}
+.screen.active{animation:screenIn .42s cubic-bezier(.2,.75,.3,1);}
+@keyframes screenIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+.panel{box-shadow:0 1px 0 rgba(255,255,255,.65) inset, 3px 4px 0 -1px rgba(93,82,58,.14);}
+.panel>b:first-child, .p-head{position:relative;}
+h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);}
+
+/* ボタン: 活版の押し味 */
+.btn{
+  background:linear-gradient(180deg,#b93722,#a72c18 55%,#962312);
+  text-shadow:0 1px 0 rgba(0,0,0,.25);
+}
+.btn.ghost{background:linear-gradient(180deg,#fdfaf2,#f3ecda);text-shadow:none;}
+
+/* 選手カード: 浮きと差し色 */
+.pcard{transition:border-color .12s, transform .14s, box-shadow .14s;}
+.pcard:hover{transform:translateY(-2px);box-shadow:3px 5px 0 rgba(93,82,58,.18);}
+.rank{transform:rotate(4deg);box-shadow:1px 1px 0 rgba(34,30,23,.3);}
+.pcard.rec{background:linear-gradient(180deg,#fdf7e1,#f9efd2);}
+
+/* ドラフトバナー: 幕の柄 */
+.draft-banner{
+  background:
+    repeating-linear-gradient(135deg, transparent 0 14px, rgba(255,255,255,.03) 14px 28px),
+    linear-gradient(180deg,#2a251c,#221e17);
+}
+#d-announce.flash{animation:anFlash .8s ease;}
+@keyframes anFlash{0%{background:#f7e2b8;}100%{background:var(--paper2);}}
+
+/* スコアボード: 電光の質感 */
+.board{
+  background:
+    radial-gradient(700px 130px at 50% -40px, rgba(255,255,255,.08), transparent 70%),
+    repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.13) 2px 3px),
+    linear-gradient(180deg,var(--board),var(--board2));
+  border:2px solid #0b1f16;
+  outline:1px solid #2c5742;
+  outline-offset:-5px;
+}
+.month-big, .lead-v, .board td{font-family:"Oswald","Zen Old Mincho","Yu Mincho",sans-serif;}
+.month-big{letter-spacing:1px;font-weight:600;text-shadow:0 0 14px rgba(243,184,60,.5), 0 0 3px rgba(243,184,60,.6);}
+.lead-v{text-shadow:0 0 10px rgba(243,184,60,.45);}
+.board td{font-weight:500;letter-spacing:.5px;}
+.board tr{transition:background .2s;}
+.board tr:hover td{background:rgba(255,255,255,.04);}
+.board .st-first td:first-child{box-shadow:inset 3px 0 0 var(--amber);}
+.lead-cell{box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+
+/* くじ封筒: 熨斗紙の柄 */
+.kuji .front{
+  background:
+    linear-gradient(160deg, rgba(167,44,24,.1), transparent 30%),
+    repeating-linear-gradient(45deg, transparent 0 9px, rgba(154,119,20,.08) 9px 10px),
+    linear-gradient(160deg,#fbf7ee,#e9e0c8);
+  border-top:5px solid var(--red);
+}
+.kuji:not(.flipped):hover .card{transform:rotate(-2.5deg) translateY(-4px);}
+.kuji .back.win{animation:winPulse 1.1s ease infinite alternate;}
+@keyframes winPulse{from{box-shadow:0 0 16px rgba(167,44,24,.4);}to{box-shadow:0 0 34px rgba(167,44,24,.8);}}
+
+/* 優勝: ペナントフラッグと金縁 */
+.champ-box{
+  border:3px double var(--goldseal);
+  background:
+    radial-gradient(400px 120px at 50% 0, rgba(154,119,20,.09), transparent 70%),
+    var(--paper2);
+  box-shadow:4px 5px 0 rgba(93,82,58,.18);
+  position:relative;
+}
+.champ-box::before,.champ-box::after{
+  content:"";position:absolute;top:-3px;width:26px;height:44px;
+  background:var(--red);
+  clip-path:polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+}
+.champ-box::before{left:-14px;transform:rotate(8deg);}
+.champ-box::after{right:-14px;transform:rotate(-8deg);background:var(--navy);}
+.title-card{transition:transform .14s, box-shadow .14s;}
+.title-card:hover{transform:translateY(-2px);box-shadow:3px 4px 0 rgba(93,82,58,.15);}
+
+/* 一面の欄外 */
+.dateline{
+  display:flex;justify-content:center;gap:18px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--ink2);letter-spacing:3px;margin-bottom:14px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.dateline span{border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);padding:2px 6px;}
+.title-facts{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:0 auto 26px;max-width:560px;}
+.tf{
+  flex:1;min-width:130px;background:var(--paper2);border:1px solid var(--rule);
+  border-top:3px solid var(--ink);padding:10px 8px;text-align:center;
+}
+.tf .n{font-family:"Oswald","Zen Old Mincho",sans-serif;font-size:26px;font-weight:600;line-height:1.1;}
+.tf .k{font-size:10.5px;color:var(--ink2);letter-spacing:3px;margin-top:3px;}
+.tf:nth-child(1) .n{color:var(--red);} .tf:nth-child(2) .n{color:var(--navy);} .tf:nth-child(3) .n{color:var(--green);}
 </style>
 </head>
 <body>
@@ -439,6 +543,7 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
 
 <!-- ================= TITLE ================= -->
 <div id="scr-title" class="screen active">
+  <div class="dateline"><span>球史特別號</span><span>プロ野球九十年・完全保存版</span><span>定価：無料</span></div>
   <div class="masthead">
     <div class="title-seal">球史<br>特報</div>
     <div class="title-logo">レジェンド<br>ドラフト<small>― 歴代最強ペナント ―</small></div>
@@ -446,6 +551,11 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
   <div class="title-lede">
     戦前の豪傑から現代の怪物まで、日本プロ野球の歴代名選手をドラフトで奪い合い、
     監督を据え、一年間のペナントレースを戦い抜く。栄冠を手にするのは、どの球団か。
+  </div>
+  <div class="title-facts">
+    <div class="tf"><div class="n">416</div><div class="k">NPB選手・監督</div></div>
+    <div class="tf"><div class="n">100</div><div class="k">MLBスター</div></div>
+    <div class="tf"><div class="n">1936-2026</div><div class="k">収録年代</div></div>
   </div>
   <div><button class="btn" onclick="goSetup()">開幕準備をはじめる</button></div>
 </div>

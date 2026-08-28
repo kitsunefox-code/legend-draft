@@ -1358,6 +1358,60 @@ function teamStatRows(t, opts){
   }
   return rows.join("");
 }
+// ---- 野球速報スタイルの詳細成績表 ----
+function statTables(t, light){
+  const prog = light === "final" ? 1 : seasonProg();
+  const c = v => Math.round((v||0)*prog);
+  const ipS = v => (Math.round((v||0)*prog*10)/10).toFixed(1);
+  const cls = light ? "stat-t light" : "stat-t";
+  const marks = p => (p.awakened?`<span class='seal g'>覚</span>`:"")+(p.traded?`<span class='seal b'>交</span>`:"")+((p.joined!==undefined&&p.joined!==false)?`<span class='seal b'>米</span>`:"");
+
+  const bSeen = new Set(), bRows = [];
+  for(const d of SLOT_DEFS){
+    if(d.key === "MGR" || ["SP","RP","CL"].includes(d.grp)) continue;
+    const p = t.slots[d.key];
+    if(!p || bSeen.has(p.id)) continue;
+    bSeen.add(p.id);
+    const s = statOf(t, p, d.grp);
+    if(!s){ continue; }
+    bRows.push(`<tr>
+      <td class="pos">${d.label}</td>
+      <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}</td>
+      <td class="key">${avg3(s.avg)}</td>
+      <td class="dim">${c(s.g)}</td><td class="dim">${c(s.ab)}</td><td>${c(s.h)}</td>
+      <td>${c(s.d2)}</td><td>${c(s.hr)}</td><td>${c(s.rbi)}</td><td>${c(s.sb)}</td>
+      <td class="dim">${c(s.bb)}</td><td class="dim">${c(s.so)}</td>
+      <td>${(s.ops||0).toFixed(3).replace(/^0/,"")}</td></tr>`);
+  }
+  const pSeen = new Set(), pRows = [];
+  for(const d of SLOT_DEFS){
+    if(!["SP","RP","CL"].includes(d.grp)) continue;
+    const p = t.slots[d.key];
+    if(!p || pSeen.has(p.id)) continue;
+    pSeen.add(p.id);
+    const s = statOf(t, p, d.grp);
+    if(!s) continue;
+    pRows.push(`<tr>
+      <td class="pos">${d.label}</td>
+      <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}</td>
+      <td class="key">${(s.era||0).toFixed(2)}</td>
+      <td class="dim">${c(s.g)}</td><td>${c(s.w)}</td><td>${c(s.l)}</td>
+      <td>${c(s.sv)}</td><td>${c(s.hld)}</td>
+      <td class="dim">${ipS(s.ip)}</td><td>${c(s.so)}</td><td class="dim">${c(s.bb)}</td>
+      <td>${(s.whip||0).toFixed(2)}</td></tr>`);
+  }
+  return `
+  <div class="stat-wrap"><table class="${cls}">
+    <caption>ＢＡＴＴＥＲＳ ─ 野手成績</caption>
+    <thead><tr><th></th><th class="l">選手</th><th>打率</th><th>試合</th><th>打数</th><th>安打</th><th>二塁打</th><th>本塁打</th><th>打点</th><th>盗塁</th><th>四球</th><th>三振</th><th>OPS</th></tr></thead>
+    <tbody>${bRows.join("")}</tbody>
+  </table></div>
+  <div class="stat-wrap"><table class="${cls}">
+    <caption>ＰＩＴＣＨＥＲＳ ─ 投手成績</caption>
+    <thead><tr><th></th><th class="l">選手</th><th>防御率</th><th>登板</th><th>勝</th><th>敗</th><th>S</th><th>H</th><th>投球回</th><th>奪三振</th><th>与四球</th><th>WHIP</th></tr></thead>
+    <tbody>${pRows.join("")}</tbody>
+  </table></div>`;
+}
 function renderRosterLive(){
   const tabs = $("roster-tabs"), body = $("roster-live");
   if(!tabs || !body || !state.seasonStats) return;
@@ -1366,30 +1420,19 @@ function renderRosterLive(){
     `<span class="chip ${state.rosterTab===i?"on":""}" onclick="state.rosterTab=${i};renderRosterLive()"><span style="color:${state.rosterTab===i?"#fff":t.color}">●</span> ${esc(t.name)}</span>`
   ).join("");
   const t = state.parts[state.rosterTab] || state.parts[0];
-  body.innerHTML = `<table><tr><th>位置</th><th>選手</th><th>ここまでの成績</th></tr>${teamStatRows(t, {compact:true})}</table>`;
+  const m = t.slots.MGR;
+  body.innerHTML = (m ? `<div class="rl-mgr">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
+    + statTables(t, false);
 }
 
 // ---- チーム別 選手成績(順位表の行をタップ。自由契約やトレードの判断材料に) ----
 function openTeamStats(idx){
   const t = state.parts[idx];
   if(!t || !state.seasonStats) return;
-  const doneP = new Set();
-  const rows = [];
-  const mgr = t.slots.MGR;
-  if(mgr) rows.push(`<tr><td>監督</td><td style="text-align:left;">${esc(mgr.name)}</td><td style="text-align:left;">采配${((mgr.ovr-85)*0.1>=0?"+":"")}${((mgr.ovr-85)*0.1).toFixed(1)}・育成${devStars(mgr)}</td></tr>`);
-  for(const d of SLOT_DEFS){
-    if(d.key==="MGR") continue;
-    const p = t.slots[d.key];
-    if(!p) continue;
-    const pit = ["SP","RP","CL"].includes(d.grp);
-    const dupKey = p.id + (pit?"P":"B");
-    if(doneP.has(dupKey)) continue;
-    doneP.add(dupKey);
-    const st = statOf(t, p, d.grp);
-    rows.push(`<tr><td>${d.label}</td><td style="text-align:left;">${esc(p.name)}${titleBadge(p)}${p.awakened?" <span class='seal g'>覚</span>":""}${p.traded?" <span class='seal b'>交</span>":""}${p.joined!==undefined&&p.joined!==false?" <span class='seal b'>米</span>":""}</td><td style="text-align:left;">${statLineLive(st)}</td></tr>`);
-  }
+  const m = t.slots.MGR;
   $("ts-title").innerHTML = `<span style="color:${t.color}">●</span> ${esc(t.name)} ── ここまでの成績（${t.W}勝${t.L}敗${t.T?t.T+"分":""}）`;
-  $("ts-body").innerHTML = `<table><tr><th>位置</th><th>選手</th><th>成績</th></tr>${rows.join("")}</table>`;
+  $("ts-body").innerHTML = (m ? `<div class="rl-mgr light">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
+    + statTables(t, true);
   $("team-bg").classList.add("show");
 }
 
@@ -1680,34 +1723,67 @@ function projWins(t){
   return clamp(Math.round(G*(0.5 + diff*0.012)), Math.round(G*0.25), Math.round(G*0.72));
 }
 function genBatLine(p, t, bench){
-  const vol = (totalG()/143) * (bench?0.4:1) * joinScale(p);
+  const G = totalG();
+  const vol = (G/143) * (bench?0.4:1) * joinScale(p);
   const avg = clamp(p.avg - 0.012 + gauss()*0.016, 0.210, 0.402);
   const hr = Math.max(0, Math.round(p.hr*vol*(0.82+rnd()*0.35)));
   const rbi = Math.max(hr, Math.round(p.rbi*vol*(0.82+rnd()*0.35)));
   const sb = Math.max(0, Math.round(p.sb*vol*(0.75+rnd()*0.45)));
-  return {p, t, kind:"B", bench, avg, hr, rbi, sb};
+  // 細かい成績(試合・打席・打数・安打・長打・四死球・三振・出塁率/長打率)
+  const g = Math.max(1, Math.round(G * (bench?0.62:0.94) * joinScale(p) * (0.92+rnd()*0.12)));
+  const pa = Math.max(hr+1, Math.round(g * (bench?2.6:4.25)));
+  const bbRate = clamp(0.055 + (p.ovr-80)*0.0032 + rnd()*0.02, 0.04, 0.155);
+  const bb = Math.round(pa * bbRate);
+  const hbp = Math.round(pa * 0.006);
+  const sf = Math.round(pa * 0.008);
+  const ab = Math.max(hr+1, pa - bb - hbp - sf);
+  const h = Math.max(hr, Math.round(ab * avg));
+  const d3 = Math.round((h-hr) * 0.022 * (1 + (p.sb||0)/60));
+  const d2 = Math.round((h-hr-d3) * 0.21);
+  const so = Math.round(pa * clamp(0.20 - (p.avg-0.28)*0.35 + rnd()*0.05, 0.07, 0.30));
+  const tb = h + d2 + 2*d3 + 3*hr;
+  const obp = (h + bb + hbp) / Math.max(1, ab + bb + hbp + sf);
+  const slg = tb / Math.max(1, ab);
+  return {p, t, kind:"B", bench, avg, hr, rbi, sb, g, pa, ab, h, d2, d3, bb, hbp, so, obp, slg, ops: obp+slg};
+}
+function pitDetail(s, ip){
+  s.ip = Math.round(ip*10)/10;
+  s.er = Math.max(0, Math.round(s.era * s.ip / 9));
+  s.hAllow = Math.max(0, Math.round(s.ip * clamp(0.98 - (3.6-s.era)*0.06, 0.62, 1.25)));
+  s.bb = Math.max(0, Math.round(s.ip * clamp(0.34 - (3.6-s.era)*0.02, 0.14, 0.48)));
+  s.whip = (s.hAllow + s.bb) / Math.max(1, s.ip);
+  s.k9 = s.so * 9 / Math.max(1, s.ip);
+  return s;
 }
 function genPitLine(p, t, role, wShare){
-  const scale = totalG()/143;
+  const G = totalG();
+  const scale = G/143;
   const src = p.twoWay || p;
   if(role==="SP"){
     const era = Math.max(0.85, src.era*(0.9+rnd()*0.45) + 0.25);
     const w = clamp(Math.round(wShare*(0.85+rnd()*0.3)*joinScale(p)), 1, 28);
     const so = Math.round(Math.min(src.so,300)*scale*(0.75+rnd()*0.45)*joinScale(p));
-    return {p, t, kind:"P", role, w, era, so, sv:0, hld:0};
+    const g = Math.max(1, Math.round(G*0.185*joinScale(p)*(0.9+rnd()*0.2)));
+    const ip = g * (5.4 + rnd()*1.6);
+    const l = clamp(Math.round(g*0.34 - w*0.22 + rnd()*2), 0, 22);
+    return pitDetail({p, t, kind:"P", role, w, l, era, so, sv:0, hld:0, g, gs:g, cg:Math.round(g*0.06)}, ip);
   }
   if(role==="RP"){
     const era = Math.max(0.85, src.era*(0.9+rnd()*0.5) + 0.3);
-    const hld = clamp(Math.round(totalG()*0.28*(0.75+rnd()*0.5)*(ovrFor(p,"RP")/86)*joinScale(p)), 5, 48);
+    const hld = clamp(Math.round(G*0.28*(0.75+rnd()*0.5)*(ovrFor(p,"RP")/86)*joinScale(p)), 5, 48);
     const w = Math.round((2+rnd()*5)*scale*joinScale(p));
     const so = Math.round(Math.min(src.so,120)*scale*(0.8+rnd()*0.4)*joinScale(p));
-    return {p, t, kind:"P", role, w, era, so, sv:Math.round(rnd()*3), hld};
+    const g = Math.max(1, Math.round(G*0.42*joinScale(p)*(0.85+rnd()*0.3)));
+    const ip = g * (0.9 + rnd()*0.35);
+    return pitDetail({p, t, kind:"P", role, w, l:clamp(Math.round(rnd()*5),0,9), era, so, sv:Math.round(rnd()*3), hld, g, gs:0, cg:0}, ip);
   }
   const era = Math.max(0.60, src.era*(0.9+rnd()*0.5) + 0.2);
   const sv = clamp(Math.round(projWins(t)*0.58*(0.85+rnd()*0.3)*joinScale(p)), 5, 59);
   const w = Math.round((1+rnd()*4)*scale*joinScale(p));
   const so = Math.round(Math.min(src.so,110)*scale*(0.8+rnd()*0.4)*joinScale(p));
-  return {p, t, kind:"P", role, w, era, so, sv, hld:0};
+  const g = Math.max(1, Math.round(G*0.4*joinScale(p)*(0.85+rnd()*0.25)));
+  const ip = g * (0.95 + rnd()*0.25);
+  return pitDetail({p, t, kind:"P", role, w, l:clamp(Math.round(rnd()*5),0,9), era, so, sv, hld:0, g, gs:0, cg:0}, ip);
 }
 function simulateAllPlayerStats(){
   const stats = [];
@@ -1805,25 +1881,12 @@ function showResult(){
     </div>`).join("");
   // 各チーム最終成績
   $("r-teams").innerHTML = s.map((t,rank)=>{
-    const statOf = p => state.seasonStats.find(x=>x.t===t && x.p===p);
-    const rows = [];
     const mgr = t.slots.MGR;
-    if(mgr) rows.push(`<tr><td>監督</td><td style="text-align:left;">${esc(mgr.name)} ('${String(mgr.year).slice(2)})</td><td>${rankOf(mgr.ovr)}</td><td>${mgr.cost}pt</td><td style="text-align:left;">優勝${mgr.pennants}回・日本一${mgr.japan}回・育成${devStars(mgr)}</td></tr>`);
-    const doneP = new Set();
-    for(const d of SLOT_DEFS){
-      if(d.key==="MGR") continue;
-      const p = t.slots[d.key];
-      const isPitchSlot = ["SP","RP","CL"].includes(d.grp);
-      const stat = state.seasonStats.find(x=>x.t===t && x.p===p && (isPitchSlot ? x.kind==="P" : x.kind==="B"));
-      const dupKey = p.id + (isPitchSlot?"P":"B");
-      if(doneP.has(dupKey)) continue;
-      doneP.add(dupKey);
-      rows.push(`<tr><td>${d.label}</td><td style="text-align:left;">${esc(p.name)}${titleBadge(p)} ('${String(p.year).slice(2)})${p.awakened?" <span class='seal g'>覚</span>":""}${p.traded?" <span class='seal b'>交</span>":""}${p.joined!==undefined?" <span class='seal b'>米</span>":""}</td><td>${rankOf(ovrFor(p,d.grp))}</td><td>${p.cost}pt</td><td style="text-align:left;">${statLineOf(stat)}</td></tr>`);
-    }
     return `<div class="team-report">
       <h3>${rank+1}位 <span style="color:${t.color}">●</span> ${esc(t.name)}（${t.W}勝${t.L}敗${t.T?t.T+"分":""}）
         <span class="tag">合計コスト ${t.spent}pt</span></h3>
-      <table><tr><th>位置</th><th>選手</th><th>能力</th><th>コスト</th><th>今季成績</th></tr>${rows.join("")}</table>
+      ${mgr?`<div class="rl-mgr light">監督　<b>${esc(mgr.name)}</b>（'${String(mgr.year).slice(2)}）　優勝${mgr.pennants}回・日本一${mgr.japan}回／育成${devStars(mgr)}</div>`:""}
+      ${statTables(t, "final")}
     </div>`;
   }).join("");
   confetti();
@@ -2107,63 +2170,300 @@ updateSndBtns();
 // ライブ中継(開幕戦・優勝決定試合をイニングごとに再現)
 // ============================================================
 let liveCtx = null;
+const DIR_1B = ["レフト前","センター前","ライト前","三遊間","一二塁間","中前","左前","右前"];
+const DIR_2B = ["左中間","右中間","レフト線","ライト線","三塁線"];
+const DIR_HR = ["レフトスタンド","ライトスタンド","左中間スタンド","右中間スタンド","バックスクリーン","場外"];
+const DIR_GO = ["ショートゴロ","セカンドゴロ","サードゴロ","ファーストゴロ","ピッチャーゴロ","一二塁間の当たり"];
+const DIR_FO = ["レフトフライ","センターフライ","ライトフライ","ショートフライ","浅いセンターフライ"];
+const DIR_LN = ["ショートライナー","セカンドライナー","サードライナー","ピッチャーライナー"];
+const K_TXT = ["空振り三振","見逃し三振","フォークで空振り三振","外角いっぱいの見逃し三振","渾身の直球で空振り三振"];
+const CATCH = ["快音を残すも好捕","惜しくも正面","大きな当たりだが伸びを欠く","詰まらされた"];
+
 function splitInnings(runs){
   const inn = Array(9).fill(0);
   for(let i=0;i<runs;i++) inn[Math.floor(rnd()*9)]++;
   return inn;
 }
+function pitcherForInning(t, inn){
+  if(inn <= 5) return {p:t.slots.SP1, key:"SP", label:"先発"};
+  if(inn === 6) return {p:t.slots.SP2 || t.slots.SP1, key:"SP", label:"先発"};
+  if(inn === 7) return {p:t.slots.RP1 || t.slots.SP1, key:"RP", label:"中継ぎ"};
+  if(inn === 8) return {p:t.slots.RP2 || t.slots.RP1 || t.slots.SP1, key:"RP", label:"セットアッパー"};
+  return {p:t.slots.CL || t.slots.RP1 || t.slots.SP1, key:"CL", label:"抑え"};
+}
+function basesLabel(b){
+  const on = [b[0]?"一":"", b[1]?"二":"", b[2]?"三":""].filter(Boolean);
+  return on.length ? on.join("・")+"塁" : "走者なし";
+}
+// 打席結果のシミュレート(basesは破壊しない)
+function simOutcome(key, bases, outs, bat, pit){
+  const nb = bases.slice();
+  let runs = 0, outsAdd = 0, scored = [], text = "", cls = "";
+  const push = p => { if(p) scored.push(p.name); runs++; };
+  switch(key){
+    case "K":
+      outsAdd = 1;
+      text = `${bat.name}、${pick1(K_TXT)}。${pit.name}がねじ伏せた`;
+      break;
+    case "GO": {
+      if(nb[0] && outs < 2 && rnd() < 0.34){
+        outsAdd = 2; const r1 = nb[0]; nb[0] = null;
+        if(nb[2]){ push(nb[2]); nb[2] = null; }
+        text = `${bat.name}、${pick1(["ショートゴロ併殺打","セカンドゴロ併殺打","三塁線ゴロ併殺打"])}。${pit.name}が最少失点で切り抜ける`;
+      }else{
+        outsAdd = 1;
+        const adv = outs < 2 && rnd() < 0.45;
+        const dir = pick1(DIR_GO);
+        if(adv){
+          if(nb[2]){ push(nb[2]); nb[2] = null; cls = "run"; }
+          if(nb[1]){ nb[2] = nb[1]; nb[1] = null; }
+          if(nb[0]){ nb[1] = nb[0]; nb[0] = null; }
+          text = runs ? `${bat.name}、${dir}の間に生還！ ${scored[0]}がホームを踏む` : `${bat.name}、${dir}。走者を進める進塁打`;
+        }else{
+          text = `${bat.name}、${dir}。${pick1(["軽快に処理","無難にさばく","堅い守り"])}`;
+        }
+      }
+      break;
+    }
+    case "FO": {
+      outsAdd = 1;
+      if(nb[2] && outs < 2 && rnd() < 0.6){
+        push(nb[2]); nb[2] = null; cls = "run";
+        text = `${bat.name}、${pick1(["右犠飛","左犠飛","中犠飛"])}！ ${scored[0]}が悠々生還`;
+      }else{
+        text = `${bat.name}、${pick1([...DIR_FO, ...DIR_LN])}。${pick1(CATCH)}`;
+      }
+      break;
+    }
+    case "1B": {
+      const dir = pick1(DIR_1B);
+      if(nb[2]){ push(nb[2]); nb[2] = null; }
+      if(nb[1]){ if(rnd() < 0.62){ push(nb[1]); } else { nb[2] = nb[1]; } nb[1] = null; }
+      if(nb[0]){ nb[1] = nb[0]; nb[0] = null; }
+      nb[0] = bat;
+      cls = runs ? "run" : "hit";
+      text = runs
+        ? `${bat.name}、${dir}へ運ぶタイムリーヒット！ ${scored.join("・")}が生還`
+        : `${bat.name}、${dir}へクリーンヒット`;
+      break;
+    }
+    case "2B": {
+      const dir = pick1(DIR_2B);
+      if(nb[2]){ push(nb[2]); nb[2] = null; }
+      if(nb[1]){ push(nb[1]); nb[1] = null; }
+      if(nb[0]){ if(rnd() < 0.5){ push(nb[0]); } else { nb[2] = nb[0]; } nb[0] = null; }
+      nb[1] = bat;
+      cls = runs ? "run" : "hit";
+      text = runs
+        ? `${bat.name}、${dir}を破る${runs}点タイムリー二塁打！ ${scored.join("・")}が還る`
+        : `${bat.name}、${dir}を破る二塁打で好機を作る`;
+      break;
+    }
+    case "3B": {
+      [2,1,0].forEach(i=>{ if(nb[i]){ push(nb[i]); nb[i] = null; } });
+      nb[2] = bat;
+      cls = runs ? "run" : "hit";
+      text = `${bat.name}、${pick1(["右中間深く","左中間深く","ライト線"])}を破る三塁打！${runs?` ${scored.join("・")}が生還`:""}`;
+      break;
+    }
+    case "HR": {
+      [2,1,0].forEach(i=>{ if(nb[i]){ push(nb[i]); nb[i] = null; } });
+      scored.push(bat.name); runs++;
+      const n = runs;
+      const dist = 110 + Math.floor(rnd()*35);
+      cls = "hr";
+      text = `${bat.name}、${pick1(DIR_HR)}へ${n===1?"ソロ":n===4?"満塁":n+"ラン"}本塁打！ 推定飛距離${dist}m`;
+      break;
+    }
+    case "BB": case "HBP": {
+      if(nb[0] && nb[1] && nb[2]){ push(nb[2]); cls = "run"; }
+      else if(nb[0] && nb[1]){ nb[2] = nb[1]; nb[1] = nb[0]; }
+      else if(nb[0]){ nb[1] = nb[0]; }
+      nb[0] = bat;
+      text = key === "BB"
+        ? (runs ? `${bat.name}、押し出しの四球！ ${scored[0]}が転がり込む` : `${bat.name}、${pick1(["粘って四球","選球眼を見せて四球","フルカウントから四球"])}`)
+        : `${bat.name}、死球で出塁。球場がどよめく`;
+      break;
+    }
+    case "E": {
+      const pos = pick1(["ショート","セカンド","サード","ライト"]);
+      if(nb[2]){ push(nb[2]); nb[2] = null; cls = "run"; }
+      if(nb[1]){ nb[2] = nb[1]; nb[1] = null; }
+      if(nb[0]){ nb[1] = nb[0]; nb[0] = null; }
+      nb[0] = bat;
+      text = `${bat.name}の当たりを${pos}が${pick1(["悪送球","後逸","ファンブル"])}！ 記録はエラー${runs?`、${scored[0]}が生還`:""}`;
+      break;
+    }
+  }
+  return {bases:nb, outsAdd, runs, text, cls, scored};
+}
+// 打者と投手の力関係から結果を抽選(得点の帳尻を合わせる制約つき)
+function chooseOutcome(bat, pit, pitKey, need, outs, bases){
+  const bo = (bat.ovr||80) + fw(bat);
+  const po = ovrFor(pit, pitKey) + fw(pit);
+  const edge = clamp(1 + (bo - po)*0.022, 0.55, 1.7);
+  const hrRate = clamp((bat.hr||10)/28, 0.15, 2.2);
+  const base = {
+    K:  22/edge, GO: 25/edge, FO: 21/edge,
+    "1B": 17*edge, "2B": 5.2*edge, "3B": 0.5*edge, HR: 4.4*edge*hrRate,
+    BB: 7.5, HBP: 0.7, E: 1.6,
+  };
+  const keys = Object.keys(base);
+  const ok = [];
+  for(const k of keys){
+    const r = simOutcome(k, bases, outs, bat, pit);
+    if(r.runs > need) continue;                        // 予定得点を超える結果は出さない
+    if(outs + r.outsAdd >= 3 && need > r.runs) continue; // 得点を残してスリーアウトにしない
+    if(need === 0 && r.runs === 0 && r.outsAdd === 0 && rnd() < 0.55) continue; // 無得点回は長引かせない
+    ok.push(k);
+  }
+  const pool = ok.length ? ok : (need > 0 ? ["HR"] : ["K","GO","FO"]);
+  const total = pool.reduce((s,k)=>s+base[k], 0);
+  let r = rnd()*total;
+  for(const k of pool){ r -= base[k]; if(r <= 0) return k; }
+  return pool[0];
+}
+function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
+  const order = LINEUP_KEYS.map(k=>bat.slots[k]).filter(Boolean);
+  const ev = [];
+  let idx = startIdx, outs = 0, bases = [null,null,null], runs = 0, guard = 16;
+  while(outs < 3 && guard-- > 0){
+    const b = order[idx % order.length]; idx++;
+    const need = target - runs;
+    const key = chooseOutcome(b, pitInfo.p, pitInfo.key, need, outs, bases);
+    const r = simOutcome(key, bases, outs, b, pitInfo.p);
+    bases = r.bases; outs += r.outsAdd; runs += r.runs;
+    ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
+      sit:`${inn}回${top?"表":"裏"}　${outs}死　${basesLabel(bases)}`});
+    if(walkoff && runs >= target && target > 0){
+      ev.push({t:"pa", text:`サヨナラ！ ${bat.name}が試合を決めた！`, cls:"hr", runs:0, sit:"試合終了"});
+      break;
+    }
+    if(runs >= target && outs >= 3) break;
+  }
+  return {events:ev, nextIdx:idx, outs};
+}
+function buildGameScript(g){
+  const ia = splitInnings(g.rA);
+  const ib = splitInnings(g.rB);
+  // ホームが先に勝っている場合は9回裏を行わない(Xスコア)
+  let skipBottom9 = false, walkoff = false;
+  if(g.rB > g.rA && (g.rB - ib[8]) > g.rA){
+    const extra = ib[8]; ib[8] = 0;
+    for(let i=0;i<extra;i++) ib[Math.floor(rnd()*8)]++;
+    skipBottom9 = true;
+  }else if(g.rB > g.rA && ib[8] > 0){
+    walkoff = true;
+  }
+  const script = [];
+  let idxA = 0, idxB = 0, prevPA = null, prevPB = null;
+  for(let inn = 1; inn <= 9; inn++){
+    for(const top of [true, false]){
+      if(!top && inn === 9 && skipBottom9){ script.push({t:"x"}); continue; }
+      const batT = top ? g.A : g.B;
+      const pitT = top ? g.B : g.A;
+      const info = pitcherForInning(pitT, inn);
+      const prev = top ? prevPA : prevPB;
+      if(prev && prev !== info.p){
+        script.push({t:"chg", text:`― 投手交代　${pitT.name}　${prev.name} → ${info.p.name}（${info.label}）―`});
+      }
+      if(top) prevPA = info.p; else prevPB = info.p;
+      script.push({t:"half", inn, top, text:`▼ ${inn}回${top?"表":"裏"}　${batT.name}の攻撃　［${pitT.name}・投手 ${info.p.name}］`});
+      const runs = top ? ia[inn-1] : ib[inn-1];
+      const res = genHalf(batT, info, runs, top ? idxA : idxB, inn, top, !top && inn === 9 && walkoff);
+      if(top) idxA = res.nextIdx; else idxB = res.nextIdx;
+      script.push(...res.events);
+      script.push({t:"end", inn, top, runs,
+        text: runs ? `${inn}回${top?"表":"裏"}、${batT.name}が${runs}点を挙げた` : `${inn}回${top?"表":"裏"}、${info.p.name}が${pick1(["三者凡退に抑えた","無失点で切り抜けた","走者を出すも要所を締めた"])}`});
+    }
+  }
+  return {script, ia, ib, skipBottom9};
+}
 function showLiveGame(label, g, done){
-  const ia = splitInnings(g.rA), ib = splitInnings(g.rB);
-  liveCtx = {g, ia, ib, step:0, done, timer:null};
+  const built = buildGameScript(g);
+  liveCtx = {g, ia:built.ia, ib:built.ib, skipBottom9:built.skipBottom9,
+    script:built.script, i:0, shownA:0, shownB:0, done, timer:null};
   $("lv-k").textContent = label;
-  $("lv-msg").textContent = "プレイボール ――";
-  $("lv-btn").textContent = "スキップ";
+  $("lv-sit").textContent = "まもなくプレイボール";
+  $("lv-pbp").innerHTML = "";
+  $("lv-msg").textContent = "";
+  $("lv-btn").textContent = "結果まで飛ばす";
   renderLiveBoard();
   $("live-bg").classList.add("show");
-  liveCtx.timer = setInterval(liveStep, 620);
+  liveCtx.timer = setInterval(liveStep, liveMs());
+}
+function liveMs(){ const s = $("lv-speed"); return s ? (Number(s.value)||300) : 300; }
+function liveSpeed(){
+  const c = liveCtx; if(!c || !c.timer) return;
+  clearInterval(c.timer);
+  c.timer = setInterval(liveStep, liveMs());
 }
 function renderLiveBoard(){
-  const {g, ia, ib, step} = liveCtx;
-  const aN = Math.min(9, Math.ceil(step/2)), bN = Math.min(9, Math.floor(step/2));
-  const aActive = (step%2===0 && step<18) ? step/2 : -1;
-  const bActive = (step%2===1 && step<18) ? (step-1)/2 : -1;
-  const row = (name, color, arr, n, active) => `<tr>
+  const c = liveCtx; if(!c) return;
+  const {g, ia, ib, shownA, shownB} = c;
+  const row = (name, color, arr, n, other) => `<tr>
     <td class="tn"><span style="color:${color}">●</span> ${esc(name)}</td>
-    ${arr.map((v,i)=>`<td class="${active===i?"now":""}">${i<n?v:""}</td>`).join("")}
+    ${arr.map((v,i)=>`<td class="${i===n?"now":""}">${i<n ? (i===8 && other ? "X" : v) : ""}</td>`).join("")}
     <td class="r">${arr.slice(0,n).reduce((s,x)=>s+x,0)}</td></tr>`;
   $("lv-board").innerHTML = `<table>
     <tr><th></th>${Array.from({length:9},(_,i)=>`<th>${i+1}</th>`).join("")}<th>R</th></tr>
-    ${row(g.A.name, g.A.color, ia, aN, aActive)}
-    ${row(g.B.name, g.B.color, ib, bN, bActive)}
+    ${row(g.A.name, g.A.color, ia, shownA, false)}
+    ${row(g.B.name, g.B.color, ib, shownB, c.skipBottom9)}
   </table>`;
+}
+function pbpAdd(text, cls){
+  const box = $("lv-pbp");
+  if(!box) return;
+  const d = document.createElement("div");
+  d.className = "pb " + (cls || "");
+  d.textContent = text;
+  box.appendChild(d);
+  while(box.children.length > 60) box.removeChild(box.firstChild);
+  box.scrollTop = box.scrollHeight;
+}
+function liveApply(e, silent){
+  const c = liveCtx;
+  if(e.t === "half"){ if(!silent) pbpAdd(e.text, "half"); }
+  else if(e.t === "chg"){ if(!silent) pbpAdd(e.text, "chg"); }
+  else if(e.t === "pa"){
+    if(!silent){
+      pbpAdd(e.text, e.cls);
+      $("lv-sit").textContent = e.sit;
+      if(sndOn && e.runs > 0){ const x = ac(); if(x) tone(x.currentTime, e.cls === "hr" ? 900 : 780, 0.18, 0.10, "triangle"); }
+      if(e.cls === "hr" && sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 0.55, 5200, 0.09); }
+    }
+  }
+  else if(e.t === "end"){
+    if(e.top) c.shownA = e.inn; else c.shownB = e.inn;
+    if(!silent){ pbpAdd(e.text, "end"); renderLiveBoard(); }
+  }
+  else if(e.t === "x"){ c.shownB = 9; }
 }
 function liveStep(){
   const c = liveCtx; if(!c) return;
-  c.step++;
-  renderLiveBoard();
-  const k = c.step - 1;
-  const runs = k%2===0 ? c.ia[k/2] : c.ib[(k-1)/2];
-  if(sndOn && runs>0){ const x = ac(); if(x) tone(x.currentTime, 760+runs*70, 0.16, 0.10, "triangle"); }
-  const inning = Math.floor(k/2)+1;
-  if(c.step < 18) $("lv-msg").textContent = `${inning}回${k%2===0?"表":"裏"} ―― ${runs>0 ? runs+"点が入った！" : "無得点"}`;
-  if(c.step >= 18) liveFinish();
+  if(c.i >= c.script.length){ liveFinish(); return; }
+  liveApply(c.script[c.i++], false);
+  if(c.i >= c.script.length) liveFinish();
 }
 function liveFinish(){
   const c = liveCtx; if(!c) return;
   if(c.timer){ clearInterval(c.timer); c.timer = null; }
-  c.step = 18;
+  while(c.i < c.script.length) liveApply(c.script[c.i++], true);
+  c.shownA = 9; c.shownB = 9;
   renderLiveBoard();
   const g = c.g;
-  const win = g.rA>g.rB ? g.A : g.rB>g.rA ? g.B : null;
+  const win = g.rA > g.rB ? g.A : g.rB > g.rA ? g.B : null;
+  const wp = win ? pitcherForInning(win, 1).p : null;
+  $("lv-sit").textContent = "試合終了";
   $("lv-msg").textContent = win
-    ? `試合終了 ―― ${win.name}、${Math.max(g.rA,g.rB)}対${Math.min(g.rA,g.rB)}で勝利！`
+    ? `試合終了 ―― ${win.name}、${Math.max(g.rA,g.rB)}対${Math.min(g.rA,g.rB)}で勝利！${wp?`（先発 ${wp.name}）`:""}`
     : `試合終了 ―― ${g.rA}対${g.rB}の引き分け`;
   $("lv-btn").textContent = "閉じる";
   if(sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 1.1, 5000, 0.10); }
 }
 function liveSkip(){
   const c = liveCtx; if(!c) return;
-  if(c.step < 18){ liveFinish(); return; } // 途中スキップはまず結果表示へ
+  if(c.i < c.script.length){ liveFinish(); return; } // 1度目は結果まで早送り
   $("live-bg").classList.remove("show");
   const done = c.done;
   liveCtx = null;

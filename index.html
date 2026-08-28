@@ -365,8 +365,84 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
 #live td.tn{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;text-align:left;padding-left:8px;white-space:nowrap;}
 #live td.r{color:var(--amber);font-weight:600;font-size:17px;text-shadow:0 0 8px rgba(243,184,60,.5);}
 #live td.now{background:rgba(243,184,60,.14);}
-#live .lv-msg{min-height:1.6em;margin-top:12px;font-size:14px;letter-spacing:1px;font-family:"Zen Old Mincho","Yu Mincho",serif;color:#e9e2ce;}
-#live .lv-foot{margin-top:12px;text-align:right;}
+#live .lv-msg{min-height:1.4em;margin-top:10px;font-size:14px;letter-spacing:1px;font-family:"Zen Old Mincho","Yu Mincho",serif;color:var(--amber);}
+#live .lv-foot{margin-top:12px;display:flex;gap:8px;justify-content:flex-end;align-items:center;}
+#live .lv-foot select{background:#0f2c20;color:var(--boardtxt);border:1px solid #2c5742;font-size:12px;padding:6px 8px;}
+.lv-sit{
+  margin-top:10px;background:#0a1f16;border:1px solid #2c5742;border-left:4px solid var(--amber);
+  padding:7px 12px;font-size:12.5px;color:#cfe0d3;letter-spacing:2px;font-family:"Oswald","Yu Gothic",sans-serif;
+}
+.lv-pbp{
+  margin-top:8px;height:210px;overflow-y:auto;background:#08170f;border:1px solid #22452e;
+  padding:8px 10px;font-size:13px;line-height:1.75;scroll-behavior:smooth;
+}
+.lv-pbp .pb{padding:3px 2px;border-bottom:1px dotted #1c3a28;color:#cfe0d3;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.lv-pbp .pb:last-child{border-bottom:none;}
+.lv-pbp .pb.half{color:#8fae99;font-size:11.5px;letter-spacing:1px;background:#0c2418;margin:5px -10px 3px;padding:4px 10px;font-family:"Yu Gothic",sans-serif;}
+.lv-pbp .pb.chg{color:#c8b078;font-size:11.5px;text-align:center;font-family:"Yu Gothic",sans-serif;}
+.lv-pbp .pb.end{color:#8fae99;font-size:11.5px;font-style:normal;text-align:right;font-family:"Yu Gothic",sans-serif;}
+.lv-pbp .pb.hit{color:#eae2c6;}
+.lv-pbp .pb.run{color:var(--amber);font-weight:bold;}
+.lv-pbp .pb.hr{
+  color:#fff;background:linear-gradient(90deg,rgba(167,44,24,.85),rgba(167,44,24,.15));
+  font-weight:bold;margin:2px -10px;padding:5px 10px;border-left:4px solid var(--amber);
+}
+@media (max-width:680px){
+  .lv-pbp{height:168px;font-size:12px;}
+  #live{padding:14px 12px;}
+  #live th,#live td{padding:3px 2px;font-size:12px;}
+  #live td.tn{font-size:11px;max-width:78px;overflow:hidden;text-overflow:ellipsis;}
+}
+
+/* ---- 野球速報スタイルの成績表 ---- */
+.stat-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:6px;}
+.stat-t{width:100%;border-collapse:separate;border-spacing:0;min-width:560px;font-variant-numeric:tabular-nums;}
+.stat-t caption{
+  text-align:left;font-size:10.5px;letter-spacing:4px;color:#9fbfa8;padding:6px 2px 5px;
+  font-family:"Yu Gothic",sans-serif;
+}
+.stat-t th{
+  position:sticky;top:0;z-index:2;background:#0a1f16;color:#8fae99;font-size:10px;font-weight:normal;
+  padding:5px 6px;text-align:right;border-bottom:1.5px solid #2c5742;white-space:nowrap;letter-spacing:.5px;
+}
+.stat-t th.l,.stat-t td.l{text-align:left;}
+.stat-t td{
+  padding:5px 6px;text-align:right;font-size:12.5px;color:var(--boardtxt);
+  border-bottom:1px solid #17342330;font-family:"Oswald",sans-serif;white-space:nowrap;
+}
+.stat-t tbody tr:nth-child(odd) td{background:rgba(255,255,255,.028);}
+.stat-t tbody tr:hover td{background:rgba(243,184,60,.09);}
+.stat-t td.nm{
+  position:sticky;left:0;z-index:1;background:#10301f;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:12.5px;text-align:left;min-width:118px;box-shadow:1px 0 0 #2c574266;
+}
+.stat-t tbody tr:nth-child(odd) td.nm{background:#123625;}
+.stat-t td.pos{color:#8fae99;font-size:10px;text-align:center;width:26px;}
+.stat-t td.key{color:var(--amber);font-weight:600;font-size:14px;}
+.stat-t td.dim{color:#7f9e8a;}
+.stat-t tr.hurt td.nm{color:#e0a99b;}
+/* 紙面(明るい背景)用の成績表 */
+.stat-t.light caption{color:var(--ink2);border-bottom:1px solid var(--rule);}
+.stat-t.light th{background:var(--paper3);color:var(--ink2);border-bottom:1.5px solid var(--rule2);}
+.stat-t.light td{color:var(--ink);border-bottom:1px solid var(--rule);}
+.stat-t.light tbody tr:nth-child(odd) td{background:rgba(120,105,70,.05);}
+.stat-t.light tbody tr:hover td{background:rgba(167,44,24,.07);}
+.stat-t.light td.nm{background:var(--paper2);box-shadow:1px 0 0 var(--rule);}
+.stat-t.light tbody tr:nth-child(odd) td.nm{background:#f3ecdb;}
+.stat-t.light td.key{color:var(--red);}
+.stat-t.light td.pos,.stat-t.light td.dim{color:var(--ink2);}
+.rl-mgr{
+  background:#0a1f16;border:1px solid #2c5742;border-left:4px solid var(--amber);
+  padding:7px 12px;font-size:12.5px;color:#cfe0d3;letter-spacing:1px;margin-bottom:4px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.rl-mgr.light{background:var(--paper3);border:1px solid var(--rule);border-left:4px solid var(--red);color:var(--ink);}
+@media (max-width:680px){
+  .stat-t{min-width:520px;}
+  .stat-t td{font-size:11.5px;padding:4px 5px;}
+  .stat-t td.nm{min-width:98px;font-size:11.5px;}
+  .stat-t th{font-size:9px;padding:4px 5px;}
+}
 
 /* ---- リーダー5傑・チーム成績・自由契約候補 ---- */
 .lead-grid{grid-template-columns:repeat(auto-fill,minmax(196px,1fr));}
@@ -1158,8 +1234,17 @@ footer{margin-top:56px;}
   <div id="live">
     <div class="lv-k" id="lv-k"></div>
     <div id="lv-board"></div>
+    <div class="lv-sit" id="lv-sit"></div>
+    <div class="lv-pbp" id="lv-pbp"></div>
     <div class="lv-msg" id="lv-msg"></div>
-    <div class="lv-foot"><button class="btn ghost sm" id="lv-btn" onclick="liveSkip()">スキップ</button></div>
+    <div class="lv-foot">
+      <select id="lv-speed" onchange="liveSpeed()">
+        <option value="520">実況：ゆっくり</option>
+        <option value="300" selected>実況：ふつう</option>
+        <option value="150">実況：速い</option>
+      </select>
+      <button class="btn ghost sm" id="lv-btn" onclick="liveSkip()">結果まで飛ばす</button>
+    </div>
   </div>
 </div>
 

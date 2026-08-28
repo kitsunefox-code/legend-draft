@@ -973,8 +973,8 @@ function startSeason(){
   state.eventQueue = [];
   initEngagement();
   state.scored = false; state.scoreBoard = null; state.predicted = false;
-  // 月末ミーティング(采配カード)を各月の切れ目に配置
-  [0,1,2,3,4].forEach(function(m){ state.eventQueue.push({after:m, type:"meeting", no:m}); });
+  // 月例ルーレット(毎月末)
+  [0,1,2,3,4,5].forEach(function(m){ state.eventQueue.push({after:m, type:"roulette", no:m}); });
   if(state.opts.trade) state.eventQueue.push({after:2, type:"trade"});
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
   const wokeCount = rollAwakenings();
@@ -1015,12 +1015,6 @@ function stopTimer(){
 }
 function changeSpeed(){ if(state.playing) startTimer(); }
 function togglePlay(){
-  // 開幕前の一度だけ、全員の優勝予想を入れる
-  if(!state.finished && !state.predicted && state.day === 0){
-    state.predicted = true;
-    startPredict(function(){ startTimer(); });
-    return;
-  }
   if(state.finished){
     if(!state.seriesDone){ startSeries(); return; }
     showResult(); return;
@@ -1076,11 +1070,6 @@ function tick(){
   if(state.day >= state.schedule.length) finishSeason();
 }
 function skipAhead(){
-  if(!state.predicted && state.day === 0){
-    state.predicted = true;
-    startPredict(function(){ skipAhead(); });
-    return;
-  }
   stopTimer();
   state.openingShown = true; // 一気進行中は中継なし
   let guard = 2000;
@@ -1492,7 +1481,7 @@ function tradablePlayers(t){
 }
 function startEvent(type, ev){
   $("s-play").disabled = true; $("s-skip").disabled = true;
-  if(type==="meeting"){ startMeeting(ev && ev.no !== undefined ? ev.no : 0); return; }
+  if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="trade"){
     const humans = state.parts.filter(t=>!t.cpu);
     if(!humans.length){ endEventPhase(); return; }
@@ -1509,6 +1498,15 @@ function startEvent(type, ev){
 function endEventPhase(){
   $("event-bg").classList.remove("show");
   state.eventCtx = null;
+  // ルーレット中のスキャンダル対応が終わったら、残りの球団へ戻る
+  if(state.rouletteResume){
+    const r = state.rouletteResume; state.rouletteResume = null;
+    state.eventCtx = r;
+    $("s-play").disabled = true; $("s-skip").disabled = true;
+    rouletteRender();
+    $("event-bg").classList.add("show");
+    return;
+  }
   $("s-play").disabled = false;
   if(!state.finished) $("s-skip").disabled = false;
   renderNews();
@@ -1889,7 +1887,6 @@ function showResult(){
   }
   renderStandings("r-standings");
   const titles = computeTitles();
-  state.titleList = titles;
   $("r-titles").innerHTML = titles.map(t=>`
     <div class="title-card">
       <div class="tt">${t.tt}</div>
@@ -1906,7 +1903,6 @@ function showResult(){
       ${statTables(t, "final")}
     </div>`;
   }).join("");
-  renderPartyScore();
   confetti();
   seFanfare();
   showGogai(champ);
@@ -2348,9 +2344,17 @@ function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
   while(outs < 3 && guard-- > 0){
     const b = order[idx % order.length]; idx++;
     const need = target - runs;
+    const prevBases = bases.slice();
+    const outsBefore = outs;
     const key = chooseOutcome(b, pitInfo.p, pitInfo.key, need, outs, bases);
     const r = simOutcome(key, bases, outs, b, pitInfo.p);
     bases = r.bases; outs += r.outsAdd; runs += r.runs;
+    const onBefore = [!!prevBases[0], !!prevBases[1], !!prevBases[2]];
+    for(const q of genPitchSeq(key, b, pitInfo.p)){
+      ev.push({t:"pitch", inn:inn, top:top, outs:outsBefore, on:onBefore,
+        bat:b.name, batNo:b.no, pit:pitInfo.p.name, pitRole:pitInfo.label,
+        b:q.b, s:q.s, type:q.type, kmh:q.kmh, zone:q.zone, res:q.res});
+    }
     ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
       inn, top, outs, on:[!!bases[0], !!bases[1], !!bases[2]],
       bat:b.name, batNo:b.no, pit:pitInfo.p.name, pitRole:pitInfo.label,
@@ -2410,13 +2414,13 @@ function showLiveGame(label, g, done){
   $("lv-btn").textContent = "結果まで飛ばす";
   renderLiveBoard();
   $("live-bg").classList.add("show");
-  liveCtx.timer = setInterval(liveStep, liveMs());
+  liveCtx.timer = setTimeout(liveStep, liveMs());
 }
 function liveMs(){ const s = $("lv-speed"); return s ? (Number(s.value)||300) : 300; }
 function liveSpeed(){
   const c = liveCtx; if(!c || !c.timer) return;
-  clearInterval(c.timer);
-  c.timer = setInterval(liveStep, liveMs());
+  clearTimeout(c.timer);
+  c.timer = setTimeout(liveStep, 60);
 }
 function renderLiveBoard(){
   const c = liveCtx; if(!c) return;
@@ -2460,14 +2464,28 @@ function renderDiamond(e){
       </div>
       <div class="dm-info">
         <div class="dm-inn">${e.inn}回${e.top?"表":"裏"}</div>
-        <div class="dm-outs">${[0,1,2].map(i=>`<span class="dm-o ${i<outs?"on":""}"></span>`).join("")}<span class="dm-olbl">OUT</span></div>
+        <div class="dm-count">
+          <span class="dm-cl">B</span>${[0,1,2].map(i=>`<span class="dm-c b ${i<(e.bcnt||0)?"on":""}"></span>`).join("")}
+          <span class="dm-cl">S</span>${[0,1].map(i=>`<span class="dm-c s ${i<(e.scnt||0)?"on":""}"></span>`).join("")}
+          <span class="dm-cl">O</span>${[0,1].map(i=>`<span class="dm-c o ${i<outs?"on":""}"></span>`).join("")}
+        </div>
         <div class="dm-mt"><span class="dm-k">打</span>${esc(e.bat||"")}${e.batNo!==undefined?`<span class="dm-no">#${e.batNo}</span>`:""}</div>
         <div class="dm-mt"><span class="dm-k p">投</span>${esc(e.pit||"")}<span class="dm-role">${esc(e.pitRole||"")}</span></div>
+        ${e.pitchTxt ? `<div class="dm-pitch">${esc(e.pitchTxt)}</div>` : ""}
       </div>
     </div>`;
 }
 function liveApply(e, silent){
   const c = liveCtx;
+  if(e.t === "pitch"){
+    if(!silent){
+      renderDiamond({inn:e.inn, top:e.top, outs:e.outs, on:e.on, bat:e.bat, batNo:e.batNo,
+        pit:e.pit, pitRole:e.pitRole, bcnt:e.b, scnt:e.s,
+        pitchTxt:`${e.kmh}km/h ${e.type}・${e.zone} → ${e.res}`});
+      if(sndOn){ const x = ac(); if(x) tone(x.currentTime, e.res.indexOf("空振")>=0?520:430, 0.05, 0.05, "square"); }
+    }
+    return;
+  }
   if(e.t === "half"){ if(!silent) pbpAdd(e.text, "half"); }
   else if(e.t === "chg"){ if(!silent) pbpAdd(e.text, "chg"); }
   else if(e.t === "pa"){
@@ -2484,15 +2502,32 @@ function liveApply(e, silent){
   }
   else if(e.t === "x"){ c.shownB = 9; }
 }
+function eventDelay(e){
+  const base = liveMs();
+  if(!e) return base;
+  if(e.t === "pitch") return Math.max(70, base * 0.30);
+  if(e.t === "pa"){
+    if(e.cls === "hr") return base * 1.9;
+    if(e.cls === "run") return base * 1.5;
+    return base * 0.9;
+  }
+  if(e.t === "half" || e.t === "chg") return base * 1.1;
+  if(e.t === "end") return base * 1.0;
+  return base;
+}
 function liveStep(){
   const c = liveCtx; if(!c) return;
   if(c.i >= c.script.length){ liveFinish(); return; }
-  liveApply(c.script[c.i++], false);
-  if(c.i >= c.script.length) liveFinish();
+  const e = c.script[c.i++];
+  liveApply(e, false);
+  if(c.i >= c.script.length){ liveFinish(); return; }
+  // 次のイベントまでの間を状況に応じて変える(山場で溜める)
+  if(c.timer){ clearTimeout(c.timer); }
+  c.timer = setTimeout(liveStep, eventDelay(c.script[c.i]));
 }
 function liveFinish(){
   const c = liveCtx; if(!c) return;
-  if(c.timer){ clearInterval(c.timer); c.timer = null; }
+  if(c.timer){ clearTimeout(c.timer); c.timer = null; }
   while(c.i < c.script.length) liveApply(c.script[c.i++], true);
   c.shownA = 9; c.shownB = 9;
   renderLiveBoard();
@@ -3056,230 +3091,224 @@ function snapPaper(){
   $("paper-bg").classList.add("show");
 }
 
+function initEngagement(){
+  state.rouletteResume = null;
+  state.parts.forEach(function(t){ t.budgetFrozen = false; });
+}
+
+
+
+// ---- 結果画面: パーティー総合順位 ----
+
 // ============================================================
-// 【関与レイヤー1】采配カードと開幕予想
-// ドラフト後の「見ているだけ」を解消するための決定ポイント
+// 月例ルーレット(球団運営の運命。吉凶が混ざった12マス)
 // ============================================================
-const TACTIC_CARDS = [
-  {id:"training", icon:"練", name:"猛特訓", desc:"チーム全員の調子が一段上がる",
+const ROULETTE = [
+  {id:"training", label:"猛特訓", icon:"練", cls:"good", color:"#2c5c34",
    run(t){ formShift([...lineupOf(t), ...pitchersOf(t)], 1);
-     partyNews("練","good","【猛特訓】"+t.name+"が地獄の特別練習を敢行。ナイン全体の動きが見違えた"); }},
-  {id:"batting", icon:"打", name:"打撃改造", desc:"野手を1人選び、能力を引き上げる",
-   pickPlayer:t=>lineupOf(t).filter(p=>p.ovr<97),
-   run(t,p){ if(!p) return; p.ovr=Math.min(99,p.ovr+3); p.form=2; p.awakened=true;
-     partyNews("打","good","【打撃改造】"+p.name+"（"+t.name+"）がフォーム改造に成功！ 打球の質が変わった"); }},
-  {id:"pitching", icon:"投", name:"投手改造", desc:"投手を1人選び、能力を引き上げる",
-   pickPlayer:t=>pitchersOf(t).filter(p=>p.ovr<97),
-   run(t,p){ if(!p) return; p.ovr=Math.min(99,p.ovr+3); p.form=2; p.awakened=true;
-     partyNews("投","good","【新球種習得】"+p.name+"（"+t.name+"）が決め球を手にした！ 打者の反応が鈍る"); }},
-  {id:"geki", icon:"檄", name:"檄を飛ばす", desc:"チームの士気が大きく上がる",
-   run(t){ moodSet(t, 1.7, 22, "監督の檄");
-     const m=t.slots.MGR;
-     partyNews("檄","good","【大喝】"+(m?m.name+"監督":"指揮官")+"が"+t.name+"ナインに雷を落とした。目の色が変わる"); }},
-  {id:"provoke", icon:"挑", name:"挑発", desc:"相手球団を1つ選び、その士気を下げる",
-   pickTeam:true,
-   run(t,_,tgt){ if(!tgt) return; moodSet(tgt, -1.5, 20, "挑発を受けた");
-     partyNews("挑","bad","【舌戦】"+t.name+"が"+tgt.name+"を名指しで挑発！ "+tgt.name+"ベンチは動揺を隠せない"); }},
-  {id:"scout", icon:"補", name:"補強スカウト", desc:"未指名の選手を控えと入れ替えて獲得",
+     return "【猛特訓】"+t.name+"が地獄の強化合宿を敢行。ナイン全体の動きが見違えた"; }},
+  {id:"awake", label:"主力が覚醒", icon:"覚", cls:"good", color:"#2c5c34",
+   run(t){ const c=lineupOf(t).filter(p=>p.ovr<97); if(!c.length) return null;
+     const p=pick1(c); p.ovr=Math.min(99,p.ovr+4); p.form=2; p.awakened=true;
+     return "【覚醒】"+p.name+"（"+t.name+"）が突如、別人のような打球を飛ばし始めた"; }},
+  {id:"newpitch", label:"新球種を習得", icon:"球", cls:"good", color:"#2c5c34",
+   run(t){ const c=pitchersOf(t).filter(p=>p.ovr<97); if(!c.length) return null;
+     const p=pick1(c); p.ovr=Math.min(99,p.ovr+4); p.form=2; p.awakened=true;
+     return "【新球種】"+p.name+"（"+t.name+"）が"+pick1(["高速スライダー","ツーシーム","フォーク","カットボール"])+"を習得。打者の的が絞れない"; }},
+  {id:"cheer", label:"満員御礼", icon:"満", cls:"good", color:"#2c5c34",
+   run(t){ moodSet(t, 1.6, 22, "本拠地の大声援");
+     return "【満員御礼】"+t.name+"の本拠地が超満員。地鳴りのような声援がナインを後押しする"; }},
+  {id:"scout", label:"補強成功", icon:"補", cls:"good", color:"#9a7714",
    run(t){
      const key = BENCH_KEYS.find(k=>t.slots[k]) || BENCH_KEYS[0];
      const cur = t.slots[key];
      const cands = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat==="B" && !p.twoWay)
-       .sort((a,b)=>b.ovr-a.ovr).slice(0,12);
-     if(!cands.length || !cur) return;
-     const p = pick1(cands.slice(0,5));
+       .sort((a,b)=>b.ovr-a.ovr).slice(0,8);
+     if(!cands.length || !cur) return null;
+     const p = pick1(cands);
      state.taken.add(p.id);
      if(state.seasonStats) state.seasonStats = state.seasonStats.filter(x=>!(x.p===cur && x.t===t));
      t.slots[key] = p; p.joined = true; p.form = 1;
      if(state.seasonStats) state.seasonStats.push(genBatLine(p, t, true));
-     partyNews("補","good","【緊急獲得】"+t.name+"がスカウト網を駆使し"+p.name+"を獲得！ "+cur.name+"と入れ替わる"); }},
+     return "【緊急補強】"+t.name+"が"+p.name+"の獲得に成功！ "+cur.name+"と入れ替わる"; }},
+  {id:"calm", label:"平穏無事", icon:"平", cls:"none", color:"#6e675a",
+   run(t){ return "【平穏】"+t.name+"に特筆すべき動きなし。粛々と調整が進む"; }},
+  {id:"calm2", label:"報道なし", icon:"静", cls:"none", color:"#6e675a",
+   run(t){ return "【静観】"+t.name+"の番記者いわく「今月は書くことがない」。それも悪くない"; }},
+  {id:"keiei", label:"親会社が経営不振", icon:"経", cls:"bad", color:"#8c2412",
+   run(t){ moodSet(t, -1.6, 26, "親会社の経営不振"); t.budgetFrozen = true;
+     return "【経営不振】"+t.name+"の親会社が大幅減益を発表。補強凍結の噂が流れ、ロッカーに不安が広がる"; }},
+  {id:"scandal", label:"主力にスキャンダル", icon:"醜", cls:"bad", color:"#8c2412",
+   leave:true,
+   run(t){ return null; }},
+  {id:"injury", label:"主砲が故障", icon:"傷", cls:"bad", color:"#8c2412",
+   run(t){ const c=lineupOf(t).sort((a,b)=>b.ovr-a.ovr).slice(0,3); if(!c.length) return null;
+     const p=pick1(c); p.ovr=Math.max(60,p.ovr-5); p.form=-2;
+     return "【離脱危機】"+p.name+"（"+t.name+"）が"+pick1(["右手薬指を骨折","脇腹を痛め","右膝に違和感を訴え"])+"戦線を離れかける"; }},
+  {id:"naifun", label:"チーム内紛", icon:"紛", cls:"bad", color:"#8c2412",
+   run(t){ const ps=lineupOf(t); if(ps.length<2) return null;
+     const two=shuffle(ps).slice(0,2); moodSet(t,-1.5,20,"チーム内紛");
+     return "【内紛】"+two[0].name+"と"+two[1].name+"（"+t.name+"）が衝突。ベンチの空気が凍りついた"; }},
+  {id:"slump", label:"謎の大不振", icon:"不", cls:"bad", color:"#8c2412",
+   run(t){ formShift([...lineupOf(t)], -1);
+     return "【謎の不振】"+t.name+"打線が球団史上最悪の貧打に陥る。誰にも原因が分からない"; }},
 ];
-const MEETING_LABEL = ["4月","5月","6月","7月","8月","9月"];
 
-function initEngagement(){
-  state.cardsLeft = {}; state.cardsUsed = {}; state.bets = {}; state.pts = {}; state.ptLog = [];
-  state.parts.forEach((t,i)=>{ state.cardsLeft[i] = 3; state.cardsUsed[i] = []; state.pts[i] = 0; });
-}
-function addPts(t, n, why){
-  const i = state.parts.indexOf(t);
-  state.pts[i] = (state.pts[i]||0) + n;
-  (state.ptLog = state.ptLog || []).push({t:t.name, n, why});
-}
-
-// ---- 開幕前: 優勝予想(端末を回してひとりずつ) ----
-function startPredict(done){
-  const humans = state.parts.filter(t=>!t.cpu);
-  if(!humans.length){ done(); return; }
-  state.predictCtx = {queue:humans, idx:0, done};
-  predictNext();
-}
-function predictNext(){
-  const c = state.predictCtx;
-  if(!c) return;
-  if(c.idx >= c.queue.length){
-    state.parts.forEach((t,i)=>{ if(t.cpu && state.bets[i]===undefined) state.bets[i] = Math.floor(rnd()*state.parts.length); });
-    const d = c.done; state.predictCtx = null;
-    $("event-bg").classList.remove("show");
-    d();
-    return;
-  }
-  const t = c.queue[c.idx];
-  $("event-panel").innerHTML =
-    '<h2><span class="kicker">開幕前</span>優勝予想 ── ' + esc(t.name) + '</h2>' +
-    '<div class="sub">今season、どの球団が優勝すると思いますか？ <b>的中で +25点</b>（自分の球団でも可）。順位とは別の<b>総合成績</b>に加算されるので、最下位でも逆転の目があります。</div>' +
-    '<div class="pred-grid">' +
-    state.parts.map((x,i)=>
-      '<button class="pred-btn" onclick="pickPredict(' + i + ')" style="--tc:' + x.color + '">' +
-        '<span class="pd-n">' + esc(x.name) + '</span>' +
-        '<span class="pd-s">攻 ' + teamAtt(x).toFixed(0) + ' ／ 守 ' + teamDef(x).toFixed(0) + '</span>' +
-        (x===t ? '<span class="pd-me">自軍</span>' : '') +
-      '</button>').join("") +
-    '</div>';
-  $("event-bg").classList.add("show");
-}
-function pickPredict(i){
-  const c = state.predictCtx;
-  if(!c) return;
-  const t = c.queue[c.idx];
-  state.bets[state.parts.indexOf(t)] = i;
-  seTap();
-  c.idx++;
-  const more = c.idx < c.queue.length;
-  curtain(more ? "予想を受理しました" : "全員の予想が出揃いました",
-    more ? "端末を伏せて、次の方へお回しください。" : "いよいよ開幕です。",
-    more ? "次の球団へ" : "プレイボール！",
-    function(){ predictNext(); });
-}
-
-// ---- 月末ミーティング: 采配カードを切る ----
-function startMeeting(no){
-  cpuMeeting();
-  const humans = state.parts.filter(t=>!t.cpu && state.cardsLeft[state.parts.indexOf(t)] > 0);
-  if(!humans.length){ endEventPhase(); return; }
-  state.eventCtx = {type:"meeting", queue:humans, idx:0, no:no, sel:null};
+const MONTH_LABEL = ["4月","5月","6月","7月","8月","9月"];
+function startRoulette(no){
+  state.eventCtx = {type:"roulette", queue:state.parts.slice(), idx:0, no:no, spinning:false, result:null};
   $("s-play").disabled = true; $("s-skip").disabled = true;
-  meetingRender();
+  rouletteRender();
   $("event-bg").classList.add("show");
 }
-function cpuMeeting(){
-  for(let i=0;i<state.parts.length;i++){
-    const t = state.parts[i];
-    if(!t.cpu || state.cardsLeft[i] <= 0) continue;
-    if(rnd() < 0.45) continue;
-    const avail = TACTIC_CARDS.filter(c=>!state.cardsUsed[i].includes(c.id));
-    if(!avail.length) continue;
-    const c = pick1(avail);
-    applyCard(t, c, null, c.pickTeam ? pick1(state.parts.filter(x=>x!==t)) : null);
-  }
-}
-function meetingRender(){
+function rouletteRender(){
   const ctx = state.eventCtx;
+  if(!ctx) return;
   const t = ctx.queue[ctx.idx];
-  const i = state.parts.indexOf(t);
-  const used = state.cardsUsed[i];
-  const left = state.cardsLeft[i];
-  const sel = ctx.sel ? TACTIC_CARDS.find(c=>c.id===ctx.sel) : null;
-  let sub = "";
-  if(sel && sel.pickTeam){
-    sub = '<div class="mt-sub">「' + sel.name + '」── どの球団を挑発しますか？</div><div class="pred-grid">' +
-      state.parts.filter(x=>x!==t).map(x=>
-        '<button class="pred-btn" onclick="playCard(\'' + sel.id + '\',null,' + state.parts.indexOf(x) + ')" style="--tc:' + x.color + '">' +
-        '<span class="pd-n">' + esc(x.name) + '</span><span class="pd-s">' + x.W + '勝' + x.L + '敗</span></button>').join("") + '</div>';
-  }else if(sel && sel.pickPlayer){
-    const list = sel.pickPlayer(t).sort((a,b)=>b.ovr-a.ovr).slice(0,9);
-    sub = '<div class="mt-sub">「' + sel.name + '」── 誰を鍛えますか？</div><div class="pred-grid">' +
-      list.map(p=>
-        '<button class="pred-btn" onclick="playCard(\'' + sel.id + '\',\'' + p.id + '\')" style="--tc:' + t.color + '">' +
-        '<span class="pd-n">' + esc(p.name) + '</span><span class="pd-s">' + rankOf(p.ovr) + '　' + (statLineLive(statOf(t, p, p.cat==="P" ? "SP" : "DH")) || "") + '</span></button>').join("") + '</div>';
-  }
+  const seg = 360 / ROULETTE.length;
+  const stops = ROULETTE.map(function(r,i){ return r.color + " " + (i*seg) + "deg " + ((i+1)*seg) + "deg"; }).join(",");
+  const labels = ROULETTE.map(function(r,i){
+    const a = i*seg + seg/2;
+    return '<span class="rl-lb" style="transform:rotate(' + a + 'deg) translateY(var(--rl-r, -84px)) rotate(' + (-a) + 'deg)">' + r.icon + '</span>';
+  }).join("");
+  const res = ctx.result;
   $("event-panel").innerHTML =
-    '<h2><span class="kicker">' + (MEETING_LABEL[ctx.no]||"") + '末</span>監督ミーティング ── ' + esc(t.name) + '</h2>' +
-    '<div class="sub">シーズン中に切れる采配は残り <b>' + left + '回</b>。ここぞの場面で使ってください（温存も可）。</div>' +
-    '<div class="card-grid">' +
-    TACTIC_CARDS.map(c=>{
-      const done = used.indexOf(c.id) >= 0;
-      return '<button class="tcard' + (done?" used":"") + (ctx.sel===c.id?" sel":"") + '" ' +
-        (done ? "disabled" : 'onclick="selCard(\'' + c.id + '\')"') + '>' +
-        '<span class="tc-i">' + c.icon + '</span>' +
-        '<span class="tc-n">' + c.name + '</span>' +
-        '<span class="tc-d">' + (done ? "使用済み" : c.desc) + '</span></button>';
-    }).join("") + '</div>' + sub +
+    '<h2><span class="kicker">' + (MONTH_LABEL[ctx.no]||"") + '末</span>球団運営ルーレット ── ' + esc(t.name) + '</h2>' +
+    '<div class="sub">今月、あなたの球団に何が起こるか。吉と凶が同じ数だけ入っています。</div>' +
+    '<div class="rl-stage">' +
+      '<div class="rl-needle"></div>' +
+      '<div class="rl-wheel" id="rl-wheel" style="background:conic-gradient(' + stops + ')">' + labels + '</div>' +
+    '</div>' +
+    '<div class="rl-result ' + (res ? res.cls : "") + '" id="rl-result">' + (res ? ('<span class="rl-ri">' + res.icon + '</span>' + esc(res.label)) : "運命やいかに") + '</div>' +
+    '<div class="rl-msg" id="rl-msg">' + (res && res.msg ? esc(res.msg) : "") + '</div>' +
     '<div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">' +
-    '<button class="btn ghost sm" onclick="meetingPass()">今月は温存する</button>' +
-    (sel && !sel.pickTeam && !sel.pickPlayer ? '<button class="btn sm" onclick="playCard(\'' + sel.id + '\')">' + sel.name + 'を実行</button>' : '') +
+      (res
+        ? '<button class="btn sm" onclick="rouletteNext()">' + (ctx.idx + 1 >= ctx.queue.length ? "試合再開" : "次の球団へ") + '</button>'
+        : '<button class="btn" id="rl-btn" onclick="rouletteSpin()">ルーレットを回す</button>') +
     '</div>';
 }
-function selCard(id){ state.eventCtx.sel = id; seTap(); meetingRender(); }
-function meetingPass(){ state.eventCtx.sel = null; meetingAdvance(); }
-function applyCard(t, card, playerId, tgtTeam){
-  const i = state.parts.indexOf(t);
-  const p = playerId ? findPlayer(playerId) : null;
-  try{ card.run(t, p, tgtTeam); }catch(e){ console.error("card", card.id, e); }
-  state.cardsUsed[i].push(card.id);
-  state.cardsLeft[i]--;
-  addPts(t, 4, "采配「" + card.name + "」");
-  renderRosterLive(); renderTeamStrip();
-}
-function playCard(id, playerId, tgtIdx){
+function rouletteSpin(){
   const ctx = state.eventCtx;
-  if(!ctx || ctx.type !== "meeting") return;
+  if(!ctx || ctx.spinning) return;
+  ctx.spinning = true;
   const t = ctx.queue[ctx.idx];
-  const card = TACTIC_CARDS.find(c=>c.id===id);
-  if(!card) return;
-  const tgt = (tgtIdx !== undefined && tgtIdx !== null) ? state.parts[tgtIdx] : null;
-  applyCard(t, card, playerId, tgt);
-  seTap();
-  meetingAdvance();
+  const i = Math.floor(rnd() * ROULETTE.length);
+  const seg = 360 / ROULETTE.length;
+  const turns = 5 + Math.floor(rnd()*3);
+  const deg = turns*360 + (360 - (i*seg + seg/2));
+  const w = $("rl-wheel");
+  const b = $("rl-btn");
+  if(b) b.disabled = true;
+  if(w){
+    w.style.transition = "transform 3.4s cubic-bezier(.12,.72,.16,1)";
+    w.style.transform = "rotate(" + deg + "deg)";
+  }
+  seRollStart();
+  setTimeout(function(){
+    seRollStop();
+    const r = ROULETTE[i];
+    let msg = null;
+    if(r.leave){
+      // スキャンダル → 緊急補強へ
+      const ds = droppableDefs(t);
+      if(ds.length){
+        ctx.result = {icon:r.icon, label:r.label, cls:r.cls, msg:"写真週刊誌が主力の私生活を報道。球団は対応に追われる"};
+        rouletteRender();
+        setTimeout(function(){
+          const d = pick1(ds);
+          state.eventCtx = null;
+          startEmergency(t, d.key, "写真週刊誌のスキャンダル直撃で無期限謹慎");
+          // 緊急補強のあと、残りの球団のルーレットへ戻す
+          const rest = {type:"roulette", queue:ctx.queue, idx:ctx.idx+1, no:ctx.no, spinning:false, result:null};
+          state.rouletteResume = (rest.idx < rest.queue.length) ? rest : null;
+        }, 1400);
+        return;
+      }
+      msg = "【小康】"+t.name+"に不穏な噂が流れたが、球団は火消しに成功した";
+    }
+    if(msg === null) msg = r.run(t);
+    if(!msg) msg = "【平穏】"+t.name+"に大きな動きはなかった";
+    partyNews(r.icon, r.cls === "none" ? "fun" : r.cls, msg);
+    if(r.cls === "good") seWin(); else if(r.cls === "bad") seMiss(); else seTap();
+    ctx.result = {icon:r.icon, label:r.label, cls:r.cls, msg:msg};
+    ctx.spinning = false;
+    renderRosterLive(); renderTeamStrip();
+    rouletteRender();
+  }, 3500);
 }
-function meetingAdvance(){
+function rouletteNext(){
   const ctx = state.eventCtx;
-  ctx.idx++; ctx.sel = null;
+  if(!ctx) return;
+  ctx.idx++; ctx.result = null; ctx.spinning = false;
   if(ctx.idx >= ctx.queue.length){ endEventPhase(); return; }
-  meetingRender();
+  rouletteRender();
 }
 
-// ---- 総合スコア(順位以外の勝ち筋) ----
-const RANK_PTS = [40, 25, 12, 5, 2, 0];
-function computePartyScore(){
-  if(state.scored) return state.scoreBoard;
-  state.scored = true;
-  const s = standingsSorted();
-  s.forEach((t,i)=>{ addPts(t, RANK_PTS[i] !== undefined ? RANK_PTS[i] : 0, "リーグ" + (i+1) + "位"); });
-  if(state.seriesWinner) addPts(state.seriesWinner, 30, "日本一");
-  const champIdx = state.parts.indexOf(s[0]);
-  state.parts.forEach((t,i)=>{
-    if(state.bets && state.bets[i] === champIdx) addPts(t, 25, "優勝予想 的中");
-  });
-  for(const ti of (state.titleList||[])){ if(ti.team) addPts(ti.team, 4, ti.tt + "輩出"); }
-  state.scoreBoard = state.parts.map((t,i)=>({t:t, pts: state.pts[i]||0})).sort((a,b)=>b.pts - a.pts);
-  return state.scoreBoard;
+// ============================================================
+// 投球単位の中継(B-S-Oカウント/球種/球速/コース)
+// ============================================================
+const PITCH_TYPES = [
+  {n:"ストレート", v:[142,158], w:34},
+  {n:"スライダー", v:[128,142], w:16},
+  {n:"フォーク",   v:[130,143], w:12},
+  {n:"カーブ",     v:[110,126], w:9},
+  {n:"チェンジアップ", v:[118,132], w:9},
+  {n:"シュート",   v:[133,147], w:7},
+  {n:"ツーシーム", v:[138,150], w:7},
+  {n:"カットボール", v:[136,148], w:6},
+];
+const ZONES = ["外角低め","外角高め","内角低め","内角高め","真ん中低め","外角いっぱい","内角ぎりぎり","真ん中"];
+function pickPitchType(p){
+  const era = (p.twoWay ? p.twoWay.era : p.era) || 3.2;
+  const total = PITCH_TYPES.reduce(function(s,x){ return s + x.w; }, 0);
+  let r = rnd()*total;
+  for(const x of PITCH_TYPES){ r -= x.w; if(r <= 0){
+    const lo = x.v[0], hi = x.v[1];
+    const bonus = clamp(Math.round((3.4 - era)*2.5), -4, 6);
+    return {name:x.n, kmh: clamp(Math.round(lo + rnd()*(hi-lo)) + bonus, 105, 165)};
+  }}
+  return {name:"ストレート", kmh:145};
 }
-
-// ---- 結果画面: パーティー総合順位 ----
-function renderPartyScore(){
-  const el = $("r-party");
-  if(!el) return;
-  const board = computePartyScore();
-  const champIdx = state.parts.indexOf(standingsSorted()[0]);
-  const rows = board.map(function(x, i){
-    const ti = state.parts.indexOf(x.t);
-    const bet = state.bets ? state.bets[ti] : undefined;
-    const betName = (bet !== undefined && state.parts[bet]) ? state.parts[bet].name : "—";
-    const hit = bet === champIdx;
-    const used = (state.cardsUsed[ti]||[]).map(function(id){
-      const c = TACTIC_CARDS.find(function(y){ return y.id===id; });
-      return c ? c.name : id;
-    });
-    return '<tr class="' + (i===0 ? "ps-top" : "") + '">' +
-      '<td class="ps-r">' + (i+1) + '</td>' +
-      '<td class="ps-n"><span style="color:' + x.t.color + '">●</span> ' + esc(x.t.name) + '</td>' +
-      '<td class="ps-b">' + esc(betName) + (hit ? '<span class="ps-hit">的中</span>' : '') + '</td>' +
-      '<td class="ps-c">' + (used.length ? used.map(esc).join("・") : "—") + '</td>' +
-      '<td class="ps-p">' + x.pts + '</td></tr>';
-  }).join("");
-  const win = board[0];
-  el.innerHTML =
-    '<div class="ps-lead">最優秀オーナーは <b style="color:' + win.t.color + '">' + esc(win.t.name) + '</b>（' + win.pts + '点）</div>' +
-    '<table class="ps-table"><tr><th></th><th>球団</th><th>優勝予想</th><th>切った采配</th><th>総合点</th></tr>' + rows + '</table>' +
-    '<div class="sub" style="margin-top:8px;">内訳：リーグ順位 40/25/12/5/2点　日本一 +30　優勝予想的中 +25　采配1回 +4　個人タイトル輩出 +4</div>';
+// 打席結果に至るまでの投球シーケンスを組み立てる
+function genPitchSeq(key, bat, pit){
+  const seq = [];
+  let b = 0, st = 0;
+  const foulish = function(){ return st === 2 && rnd() < 0.45; };
+  const push = function(res){
+    const pt = pickPitchType(pit);
+    seq.push({b:b, s:st, type:pt.name, kmh:pt.kmh, zone:pick1(ZONES), res:res});
+  };
+  if(key === "BB"){
+    while(b < 3 || st > 0){
+      if(b < 3 && (st >= 2 || rnd() < 0.62)){ push("ボール"); b++; }
+      else if(st < 2){ push(pick1(["見逃しストライク","空振り","ファウル"])); st++; }
+      else { push("ファウル"); }
+      if(b >= 3 && st <= 2 && seq.length > 3) break;
+      if(seq.length > 9) break;
+    }
+    push("ボール（四球）"); return seq;
+  }
+  if(key === "HBP"){
+    const n = Math.floor(rnd()*3);
+    for(let i=0;i<n;i++){ if(rnd()<0.5){ push("ボール"); b++; } else if(st<2){ push("空振り"); st++; } }
+    push("死球"); return seq;
+  }
+  if(key === "K"){
+    while(st < 2){
+      if(b < 3 && rnd() < 0.4){ push("ボール"); b++; }
+      else { push(pick1(["見逃しストライク","空振り","ファウル"])); st++; }
+      if(seq.length > 8) break;
+    }
+    while(foulish()){ push("ファウル"); if(seq.length > 11) break; }
+    push(pick1(["空振り三振","見逃し三振"])); return seq;
+  }
+  // インプレー(打った)
+  const pre = Math.floor(rnd()*4);
+  for(let i=0;i<pre;i++){
+    if(b < 3 && rnd() < 0.45){ push("ボール"); b++; }
+    else if(st < 2){ push(pick1(["見逃しストライク","空振り","ファウル"])); st++; }
+    else { push("ファウル"); }
+  }
+  push("打った");
+  return seq;
 }

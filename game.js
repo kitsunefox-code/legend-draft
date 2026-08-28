@@ -864,7 +864,8 @@ function mgrBonus(t){
   if(t.mgrRest) return -1.0; // 監督休養中はヘッドコーチ代行
   return (m.ovr-85)*0.10;
 }
-function morale(t){ return (state.day < (t.moraleUntil||0)) ? -1.2 : 0; }
+function morale(t){ return (t.mood && state.day < t.mood.until) ? t.mood.val : 0; }
+function moodSet(t, val, days, label){ t.mood = {until: state.day + days, val, label}; }
 function fw(p){ return (p && p.form ? p.form : 0) * 1.3; } // 調子の波
 function teamAtt(t){
   let s=0;
@@ -966,6 +967,7 @@ function startSeason(){
   state.pairGames = clamp(Math.round(143/(n-1)), 8, 143); // NPBと同じ143試合基準
   state.schedule = buildSchedule(n, state.pairGames);
   state.day = 0; state.news = []; state.lastScores = [];
+  state.partyLog = []; state.choiceCount = 0;
   state.playing = false; state.timer = null; state.finished = false;
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.eventQueue = [];
@@ -976,9 +978,11 @@ function startSeason(){
   rollForms();
   state.rosterTab = 0;
   show("scr-season");
+  renderTeamStrip();
   renderStandings("standings");
   renderLeaders();
   renderRosterLive();
+  renderPartyLog();
   renderChart();
   renderNews();
   $("s-date").textContent = "開幕前";
@@ -1034,7 +1038,7 @@ function tick(){
   renderLive();
   // パーティーモードの波乱イベント(緊急補強は一時停止して選択待ち)
   rollPartyEvent();
-  if(state.eventCtx && state.eventCtx.type === "emergency") return;
+  if(state.eventCtx) return; // 緊急補強・選択イベントは入力待ち
   // 生中継: 開幕戦と優勝決定試合だけ、イニングごとにスコアが動く
   let broadcast = null;
   if(state.day === 1 && !state.openingShown){
@@ -1158,11 +1162,58 @@ function renderLive(){
   $("s-scores").textContent = state.lastScores.join("　／　");
   const lead = standingsSorted()[0];
   $("s-note").textContent = `首位: ${lead.name}（${lead.W}勝${lead.L}敗${lead.T?lead.T+"分":""}）`;
+  renderTeamStrip();
   renderStandings("standings");
   renderLeaders();
   renderRosterLive();
   renderChart();
   renderNews();
+}
+
+// ---- 上部の球団ストリップ(順位・貯金・調子・状態を一望) ----
+function renderTeamStrip(){
+  const el = $("team-strip");
+  if(!el) return;
+  const total = (state.schedule && state.schedule.length) || 1;
+  const pct = clamp(state.day/total, 0, 1)*100;
+  const bar = $("season-bar");
+  if(bar) bar.style.width = pct.toFixed(1) + "%";
+  const lbl = $("season-bar-lbl");
+  if(lbl) lbl.textContent = state.finished ? "全日程終了" : `${Math.round(pct)}% 消化`;
+  const s = standingsSorted();
+  el.innerHTML = s.map((t,i)=>{
+    const gap = t.W - t.L;
+    const forms = [...LINEUP_KEYS, ...SP_KEYS].map(k=>t.slots[k]).filter(Boolean);
+    const avgF = forms.reduce((a,p)=>a+(p.form||0),0)/(forms.length||1);
+    const fIcon = avgF > 0.45 ? `<span class="form f2">▲▲</span>` : avgF > 0.15 ? `<span class="form f1">▲</span>`
+      : avgF < -0.45 ? `<span class="form fm2">▽▽</span>` : avgF < -0.15 ? `<span class="form fm1">▽</span>` : `<span class="form f0">─</span>`;
+    const badges = (t.mgrRest ? `<span class="ts-b bad">監督休養</span>` : "")
+      + (t.mood && state.day < t.mood.until ? `<span class="ts-b ${t.mood.val>0?"good":"bad"}">${esc(t.mood.label)}</span>` : "");
+    return `<div class="ts-card ${i===0?"lead":""}" style="--tc:${t.color}" onclick="state.rosterTab=${state.parts.indexOf(t)};renderRosterLive();document.getElementById('roster-live').scrollIntoView({behavior:'smooth',block:'center'})">
+      <div class="ts-rank">${i+1}</div>
+      <div class="ts-main">
+        <div class="ts-name">${esc(t.name)} ${fIcon}</div>
+        <div class="ts-rec">${t.W}<span>勝</span>${t.L}<span>敗</span>${t.T?`${t.T}<span>分</span>`:""}</div>
+        <div class="ts-gap ${gap>0?"plus":gap<0?"minus":""}">${gap>0?"貯金"+gap:gap<0?"借金"+(-gap):"五分"}</div>
+        ${badges?`<div class="ts-badges">${badges}</div>`:""}
+      </div>
+    </div>`;
+  }).join("");
+}
+
+// ---- 事件簿(パーティーモード) ----
+function renderPartyLog(){
+  const box = $("party-box"), el = $("party-log");
+  if(!box || !el) return;
+  if(!state.opts.party){ box.style.display = "none"; return; }
+  box.style.display = "";
+  const log = state.partyLog || [];
+  el.innerHTML = log.length ? log.slice(0,24).map(x=>`
+    <div class="plog ${x.cls}">
+      <span class="pl-icon">${x.icon}</span>
+      <span class="pl-d">${x.d}</span>
+      <span class="pl-t">${esc(x.txt)}</span>
+    </div>`).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
 }
 
 function makeMonthlyNews(mi){
@@ -2166,59 +2217,283 @@ function finishSeries(){
 function isForeignName(name){
   return /^[ァ-ヶーｦ-ﾟ・()A-Za-z0-9\.\-]+$/.test(name.replace(/\s/g,""));
 }
-function rollPartyEvent(){
-  if(!state.opts.party || state.eventCtx || liveCtx || state.finished) return;
-  if(state.day < 15 || rnd() > 0.016) return;
-  const teams = state.parts;
-  const dl = dateLabel(state.day-1);
-  const kind = rnd();
-  if(kind < 0.22){ // 監督休養(最下位・大型借金)
-    const s = standingsSorted();
-    const t = s[s.length-1];
-    if(t.mgrRest || (t.W - t.L) > -8 || !t.slots.MGR) return;
-    t.mgrRest = true;
-    const txt = `【監督休養】成績不振の責任を取り、${t.slots.MGR.name}監督（${t.name}）が無期限休養へ。指揮はヘッドコーチが代行`;
-    state.news.unshift({mo:dl, txt}); telop(txt);
-    return;
-  }
-  if(kind < 0.30){ // 休養明け(復帰)
-    const t = teams.find(x=>x.mgrRest);
-    if(!t) return;
-    t.mgrRest = false;
-    const txt = `【電撃復帰】${t.slots.MGR.name}監督（${t.name}）がベンチに帰ってきた！ ナインの表情が引き締まる`;
-    state.news.unshift({mo:dl, txt}); telop(txt);
-    return;
-  }
-  if(kind < 0.52){ // 選手同士のケンカ(士気低下)
-    const t = teams[Math.floor(rnd()*teams.length)];
-    if(state.day < (t.moraleUntil||0)) return;
-    const ps = LINEUP_KEYS.map(k=>t.slots[k]).filter(Boolean);
-    const a = ps[Math.floor(rnd()*ps.length)];
-    let b = ps[Math.floor(rnd()*ps.length)];
-    if(a===b) b = ps[(ps.indexOf(a)+1)%ps.length];
-    t.moraleUntil = state.day + 15;
-    const txt = `【不穏】${a.name}と${b.name}（${t.name}）がベンチ裏で衝突。しばらくチームの空気は最悪…`;
-    state.news.unshift({mo:dl, txt}); telop(txt);
-    return;
-  }
-  // スキャンダル謹慎 or 助っ人帰国 → 緊急補強
-  const t = teams[Math.floor(rnd()*teams.length)];
-  const candDefs = SLOT_DEFS.filter(d=>{
+// ---- 汎用ヘルパー ----
+const pick1 = arr => arr[Math.floor(rnd()*arr.length)];
+function anyTeam(){ return pick1(state.parts); }
+function lineupOf(t){ return LINEUP_KEYS.map(k=>t.slots[k]).filter(Boolean); }
+function pitchersOf(t){ return [...SP_KEYS, ...RP_KEYS, "CL"].map(k=>t.slots[k]).filter(Boolean); }
+function benchOf(t){ return BENCH_KEYS.map(k=>t.slots[k]).filter(Boolean); }
+function moodFree(t){ return !(t.mood && state.day < t.mood.until); }
+function droppableDefs(t){
+  return SLOT_DEFS.filter(d=>{
     if(d.key==="MGR") return false;
     const p = t.slots[d.key];
-    return p && !p.twoWay && !(p.joined!==undefined && p.joined!==false);
+    return p && !p.twoWay;
   });
-  if(!candDefs.length) return;
-  let d, reason;
-  if(kind < 0.80){
-    d = candDefs[Math.floor(rnd()*candDefs.length)];
-    reason = "写真週刊誌のスキャンダル直撃で無期限謹慎";
-  }else{
-    const fDefs = candDefs.filter(x=>isForeignName(t.slots[x.key].name));
-    if(!fDefs.length){ d = candDefs[Math.floor(rnd()*candDefs.length)]; reason = "写真週刊誌のスキャンダル直撃で無期限謹慎"; }
-    else { d = fDefs[Math.floor(rnd()*fDefs.length)]; reason = "家庭の事情により電撃帰国"; }
+}
+// 事件簿へ記録しつつ紙面とテロップに流す
+function partyNews(icon, cls, txt){
+  state.news.unshift({mo: dateLabel(state.day-1), txt});
+  state.partyLog = state.partyLog || [];
+  state.partyLog.unshift({d: dateLabel(state.day-1), icon, cls, txt});
+  telop(txt);
+  renderPartyLog();
+}
+function formShift(list, delta){
+  for(const p of list) p.form = clamp((p.form||0) + delta, -2, 2);
+}
+
+// ---- 選択式イベント(パーティーの華) ----
+function startChoice(kicker, title, body, options){
+  const wasPlaying = state.playing;
+  stopTimer();
+  state.resumeAfterEvent = wasPlaying;
+  state.eventCtx = {type:"choice", options};
+  $("s-play").disabled = true; $("s-skip").disabled = true;
+  $("event-panel").innerHTML = `
+    <h2><span class="kicker">${kicker}</span>${title}</h2>
+    <div class="ev-body">${body}</div>
+    <div class="ev-choices">${options.map((o,i)=>`
+      <button class="ev-choice" onclick="pickChoice(${i})">
+        <span class="ec-t">${o.label}</span>
+        <span class="ec-d">${o.desc}</span>
+      </button>`).join("")}</div>`;
+  $("event-bg").classList.add("show");
+}
+function pickChoice(i){
+  const ctx = state.eventCtx;
+  if(!ctx || ctx.type !== "choice") return;
+  const o = ctx.options[i];
+  seTap();
+  endEventPhase();
+  if(o.run) o.run();
+}
+
+// ============================================================
+// イベント表(重み付き抽選。needがtrueのものだけ候補になる)
+// ============================================================
+const PARTY_EVENTS = [
+  // ── 離脱・緊急補強系 ─────────────────────────
+  { id:"scandal", w:7,
+    need:()=>state.parts.some(t=>droppableDefs(t).length),
+    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+      startEmergency(t, pick1(droppableDefs(t)).key, "写真週刊誌のスキャンダル直撃で無期限謹慎"); } },
+  { id:"gaijin", w:5,
+    need:()=>state.parts.some(t=>droppableDefs(t).some(d=>isForeignName(t.slots[d.key].name))),
+    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).some(d=>isForeignName(x.slots[d.key].name))));
+      const ds = droppableDefs(t).filter(d=>isForeignName(t.slots[d.key].name));
+      startEmergency(t, pick1(ds).key, "家庭の事情により電撃帰国"); } },
+  { id:"kega", w:7,
+    need:()=>state.parts.some(t=>droppableDefs(t).length),
+    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+      startEmergency(t, pick1(droppableDefs(t)).key, pick1(["死球で右手を骨折し全治3か月","走塁中に肉離れを起こし戦線離脱","アキレス腱を痛めて今季絶望"])); } },
+  { id:"monge", w:4,
+    need:()=>state.parts.some(t=>droppableDefs(t).length),
+    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+      startEmergency(t, pick1(droppableDefs(t)).key, "門限破りが発覚し無期限の出場停止処分"); } },
+  { id:"kaigai", w:3,
+    need:()=>state.parts.some(t=>droppableDefs(t).length),
+    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+      startEmergency(t, pick1(droppableDefs(t)).key, "海外移籍を電撃表明しチームを去った"); } },
+
+  // ── 監督系 ───────────────────────────────
+  { id:"mgrRest", w:6,
+    need:()=>{ const s = standingsSorted(); const t = s[s.length-1]; return t && !t.mgrRest && t.slots.MGR && (t.W-t.L) <= -8; },
+    run(){ const s = standingsSorted(); const t = s[s.length-1]; t.mgrRest = true;
+      partyNews("休","bad",`【監督休養】成績不振の責任を取り、${t.slots.MGR.name}監督（${t.name}）が無期限休養へ。指揮はヘッドコーチが代行`); } },
+  { id:"mgrBack", w:5,
+    need:()=>state.parts.some(t=>t.mgrRest),
+    run(){ const t = state.parts.find(x=>x.mgrRest); t.mgrRest = false;
+      moodSet(t, 1.0, 20, "監督復帰");
+      partyNews("復","good",`【電撃復帰】${t.slots.MGR.name}監督（${t.name}）がベンチに帰ってきた！ ナインの表情が引き締まる`); } },
+  { id:"taijou", w:5, need:()=>true,
+    run(){ const t = anyTeam(); if(!t.slots.MGR) return;
+      partyNews("退","warn",`【退場処分】${t.slots.MGR.name}監督（${t.name}）が判定を巡って猛抗議、一発退場。スタンドは騒然`); } },
+  { id:"kakushitsu", w:5, need:()=>state.parts.some(moodFree),
+    run(){ const t = pick1(state.parts.filter(moodFree)); if(!t.slots.MGR) return;
+      const p = pick1(lineupOf(t)); moodSet(t, -1.4, 18, "監督と確執");
+      partyNews("確","bad",`【確執】${t.slots.MGR.name}監督が${p.name}（${t.name}）の起用法を巡って対立。ロッカーに重い空気が流れる`); } },
+  { id:"kiai", w:5, need:()=>state.parts.some(moodFree),
+    run(){ const t = pick1(state.parts.filter(moodFree)); if(!t.slots.MGR) return;
+      moodSet(t, 1.5, 18, "監督の檄");
+      partyNews("檄","good",`【一喝】${t.slots.MGR.name}監督（${t.name}）が臨時ミーティングでナインに大喝。チームの目の色が変わった`); } },
+
+  // ── チーム士気系 ─────────────────────────
+  { id:"kenka", w:7, need:()=>state.parts.some(moodFree),
+    run(){ const t = pick1(state.parts.filter(moodFree)); const ps = lineupOf(t);
+      const a = pick1(ps); const b = ps[(ps.indexOf(a)+1+Math.floor(rnd()*(ps.length-1)))%ps.length];
+      moodSet(t, -1.4, 15, "チーム内不和");
+      partyNews("乱","bad",`【不穏】${a.name}と${b.name}（${t.name}）がベンチ裏で衝突。しばらくチームの空気は最悪…`); } },
+  { id:"rantou", w:4, need:()=>state.parts.length>=2,
+    run(){ const [a,b] = shuffle(state.parts).slice(0,2);
+      const pa = pick1(lineupOf(a)), pb = pick1(pitchersOf(b));
+      moodSet(a, 1.2, 12, "乱闘で結束");
+      partyNews("闘","warn",`【乱闘】${pb.name}の内角球に${pa.name}が激高、両軍入り乱れる大乱闘に。${a.name}ナインは結束を強めた`); } },
+  { id:"shokuchudoku", w:4, need:()=>true,
+    run(){ const t = anyTeam(); formShift([...lineupOf(t), ...pitchersOf(t)], -1);
+      partyNews("菌","bad",`【集団食中毒】遠征先の弁当が原因で${t.name}ナインが体調不良を訴える。全員のコンディションが急降下`); renderRosterLive(); } },
+  { id:"moushou", w:4, need:()=>state.day > 60,
+    run(){ const t = anyTeam(); formShift([...lineupOf(t)], -1);
+      partyNews("暑","warn",`【猛暑】記録的な酷暑で${t.name}打線がバテ気味。ベンチには氷嚢の山が築かれた`); renderRosterLive(); } },
+  { id:"manin", w:5, need:()=>state.parts.some(moodFree),
+    run(){ const t = pick1(state.parts.filter(moodFree)); moodSet(t, 1.3, 16, "本拠地の大声援");
+      partyNews("満","good",`【満員御礼】${t.name}の本拠地が超満員。地鳴りのような大声援がナインを後押しする`); } },
+  { id:"renpai", w:5, need:()=>state.parts.some(t=>moodFree(t) && (t.stk===0) && (t.W-t.L) < -5),
+    run(){ const t = pick1(state.parts.filter(x=>moodFree(x) && x.stk===0 && (x.W-x.L) < -5));
+      moodSet(t, -1.3, 14, "連敗で重い空気");
+      partyNews("闇","bad",`【泥沼】${t.name}が出口の見えない連敗地獄。ベンチからは笑顔が消えた`); } },
+  { id:"magic", w:4, need:()=>{ const s=standingsSorted(); return state.day > state.schedule.length*0.6 && s[0] && (s[0].W-s[1].W) >= 8; },
+    run(){ const t = standingsSorted()[0]; moodSet(t, 1.4, 20, "マジック点灯");
+      partyNews("M","good",`【マジック点灯】${t.name}に優勝マジックが点灯！ 街は早くも優勝ムードに包まれる`); } },
+
+  // ── 個人の成長・不調 ─────────────────────
+  { id:"kakusei2", w:6, need:()=>true,
+    run(){ const t = anyTeam(); const cands = [...lineupOf(t), ...benchOf(t)].filter(p=>p.ovr < 92);
+      if(!cands.length) return; const p = pick1(cands);
+      p.ovr = Math.min(99, p.ovr + 3); p.awakened = true; p.form = 2;
+      partyNews("覚","good",`【急成長】${p.name}（${t.name}）が打撃改造に成功！ 別人のような打球を飛ばし始めた`); renderRosterLive(); } },
+  { id:"newpitch", w:6, need:()=>true,
+    run(){ const t = anyTeam(); const cands = pitchersOf(t).filter(p=>p.ovr < 92);
+      if(!cands.length) return; const p = pick1(cands);
+      p.ovr = Math.min(99, p.ovr + 3); p.awakened = true; p.form = 2;
+      partyNews("新","good",`【新球種】${p.name}（${t.name}）が${pick1(["高速スライダー","ツーシーム","チェンジアップ","フォークボール","カットボール"])}を習得。打者の的が絞れなくなった`); renderRosterLive(); } },
+  { id:"slump", w:6, need:()=>true,
+    run(){ const t = anyTeam(); const p = pick1(lineupOf(t));
+      p.ovr = Math.max(60, p.ovr - 3); p.form = -2;
+      partyNews("不","bad",`【深刻なスランプ】${p.name}（${t.name}）がフォーム改造に失敗。出口の見えない不振に苦しむ`); renderRosterLive(); } },
+  { id:"kekkon", w:5, need:()=>true,
+    run(){ const t = anyTeam(); const p = pick1([...lineupOf(t), ...pitchersOf(t)]);
+      p.form = 2;
+      partyNews("祝","good",`【祝福】${p.name}（${t.name}）が電撃結婚を発表！ 幸せいっぱいのバットが火を噴く`); renderRosterLive(); } },
+  { id:"inFire", w:5, need:()=>true,
+    run(){ const t = anyTeam(); const p = pick1([...lineupOf(t), ...pitchersOf(t)]);
+      p.form = 2;
+      partyNews("神","good",`【神懸かり】${p.name}（${t.name}）が「ボールが止まって見える」と語るほどの絶好調モードに突入`); renderRosterLive(); } },
+
+  // ── 珍事件(実害なしの笑い担当) ───────────────
+  { id:"neko", w:4, need:()=>true,
+    run(){ const t = anyTeam();
+      partyNews("猫","fun",`【珍事】${t.name}戦のグラウンドに猫が乱入。捕獲されるまで7分間の中断となった`); } },
+  { id:"mascot", w:4, need:()=>true,
+    run(){ const t = anyTeam();
+      partyNews("珍","fun",`【珍事】${t.name}のマスコットがバック転に失敗して着地失敗。球場は温かい拍手に包まれた`); } },
+  { id:"garasu", w:3, need:()=>true,
+    run(){ const t = anyTeam(); const p = pick1(lineupOf(t));
+      partyNews("砲","fun",`【怪力】${p.name}（${t.name}）の場外弾が球場外の車のガラスを直撃。球団が全額弁償することに`); } },
+  { id:"nebou", w:3, need:()=>true,
+    run(){ const t = anyTeam(); const p = pick1(lineupOf(t));
+      partyNews("眠","fun",`【珍事】${p.name}（${t.name}）が寝坊で試合開始に遅刻。罰金と反省文で決着した`); } },
+  { id:"oiokoshi", w:3, need:()=>true,
+    run(){ const t = anyTeam(); const [a,b] = shuffle(lineupOf(t)).slice(0,2);
+      partyNews("珍","fun",`【珍プレー】${a.name}が${b.name}を追い越してアウト（${t.name}）。ベンチは頭を抱えた`); } },
+];
+
+// ---- 人間チーム向けの選択式イベント ----
+const PARTY_CHOICES = [
+  { id:"slumpChoice",
+    need:t=>benchOf(t).length && lineupOf(t).length,
+    run(t){
+      const starter = lineupOf(t).slice().sort((a,b)=>(a.form||0)-(b.form||0))[0];
+      const sub = benchOf(t).slice().sort((a,b)=>b.ovr-a.ovr)[0];
+      const key = LINEUP_KEYS.find(k=>t.slots[k]===starter);
+      const bkey = BENCH_KEYS.find(k=>t.slots[k]===sub);
+      startChoice("監督采配", `${t.name} ── 主力の大不振`,
+        `<b>${esc(starter.name)}</b>（${rankOf(starter.ovr)}・調子${formIcon(starter)}）が深刻な不振に陥っています。<br>
+         控えの <b>${esc(sub.name)}</b>（${rankOf(sub.ovr)}）を使う手もありますが、指揮官の判断は？`,
+        [
+          {label:"我慢して起用を続ける", desc:"復調すれば恩返し。信頼はナインに伝わる", run(){
+            starter.form = clamp((starter.form||0)+2, -2, 2); moodSet(t, 0.8, 14, "信頼の起用");
+            partyNews("信","good",`【采配】${t.name}は${starter.name}を四番に据え続けた。期待に応えるように打球が上がり始める`); renderRosterLive();
+          }},
+          {label:"控えとスタメンを入れ替える", desc:"即効性はあるが、外された選手は不満を抱くかも", run(){
+            if(key && bkey){ t.slots[key] = sub; t.slots[bkey] = starter; }
+            sub.form = 1;
+            partyNews("替","warn",`【采配】${t.name}がスタメンを再編。${sub.name}が${starter.name}に代わって定位置を奪った`); renderRosterLive();
+          }},
+        ]);
+    } },
+  { id:"fightChoice",
+    need:t=>lineupOf(t).length >= 2,
+    run(t){
+      const [a,b] = shuffle(lineupOf(t)).slice(0,2);
+      startChoice("緊急事態", `${t.name} ── ロッカーの衝突`,
+        `<b>${esc(a.name)}</b> と <b>${esc(b.name)}</b> が練習中の些細なことから殴り合い寸前に。<br>報道陣が球団事務所に押し寄せています。監督としてどう収めますか？`,
+        [
+          {label:"二人まとめて謹慎処分", desc:"けじめは付くが、しばらく戦力を欠く", run(){
+            formShift([a,b], -2); moodSet(t, 0.6, 12, "けじめ");
+            partyNews("罰","warn",`【処分】${t.name}が${a.name}と${b.name}に厳重処分。チームには緊張感が戻った`); renderRosterLive();
+          }},
+          {label:"焼肉に連れて行って手打ち", desc:"昭和の解決法。うまくいけばチームは一つに", run(){
+            if(rnd() < 0.65){ moodSet(t, 1.6, 20, "結束"); formShift([a,b], 1);
+              partyNews("肉","good",`【和解】${t.name}の三人は焼肉屋で完全和解。翌日から異様な結束力を見せ始めた`);
+            }else{ moodSet(t, -1.5, 16, "火に油");
+              partyNews("炎","bad",`【逆効果】${t.name}の手打ちの席で口論が再燃。火に油を注ぐ結果になった`); }
+            renderRosterLive();
+          }},
+        ]);
+    } },
+  { id:"gaijinChoice",
+    need:t=>droppableDefs(t).some(d=>isForeignName(t.slots[d.key].name)),
+    run(t){
+      const d = pick1(droppableDefs(t).filter(x=>isForeignName(t.slots[x.key].name)));
+      const p = t.slots[d.key];
+      startChoice("海外通信", `${t.name} ── ${esc(p.name)}の帰国要請`,
+        `<b>${esc(p.name)}</b> が「家族が母国で待っている」と一時帰国を申し出ました。<br>認めれば信頼は保たれますが、その間は戦えません。`,
+        [
+          {label:"快く送り出す", desc:"数試合の離脱と引き換えに、帰国後は奮起", run(){
+            p.form = -2; moodSet(t, 0.9, 10, "温情");
+            partyNews("情","warn",`【温情】${t.name}は${p.name}の一時帰国を承諾。「必ず恩返しする」と男は誓った`);
+            setTimeout(()=>{ p.form = 2; renderRosterLive(); }, 0);
+          }},
+          {label:"慰留して残ってもらう", desc:"戦力は保てるが、本人の心はここにあらず", run(){
+            p.form = -1; moodSet(t, -0.8, 14, "不協和音");
+            partyNews("留","bad",`【慰留】${t.name}が${p.name}を引き止めた。だが心ここにあらずのプレーが続く`); renderRosterLive();
+          }},
+        ]);
+    } },
+  { id:"aceChoice",
+    need:t=>SP_KEYS.every(k=>t.slots[k]),
+    run(t){
+      const ace = SP_KEYS.map(k=>t.slots[k]).sort((a,b)=>ovrFor(b,"SP")-ovrFor(a,"SP"))[0];
+      startChoice("緊急事態", `${t.name} ── エースの右肘に違和感`,
+        `<b>${esc(ace.name)}</b> が登板後に右肘の張りを訴えました。<br>精密検査の結果は「軽度」。ここが勝負どころですが……`,
+        [
+          {label:"連投させてでも勝ちに行く", desc:"当たれば大きい。壊れれば取り返しがつかない", run(){
+            if(rnd() < 0.55){ ace.form = 2; moodSet(t, 1.2, 16, "エースの気迫");
+              partyNews("鉄","good",`【気迫】${ace.name}（${t.name}）が痛みを押して連投。チームを引っ張る鬼気迫る快投を演じた`);
+            }else{ ace.ovr = Math.max(60, ace.ovr-5); ace.form = -2;
+              partyNews("傷","bad",`【誤算】${ace.name}（${t.name}）の状態が悪化。かつての球威は影を潜めてしまった`); }
+            renderRosterLive();
+          }},
+          {label:"大事を取って休ませる", desc:"目先の勝ちは失うが、終盤に万全の姿で戻る", run(){
+            ace.form = -1;
+            partyNews("養","warn",`【休養】${t.name}は${ace.name}を登板回避させた。復帰は終盤戦の見込み`);
+            setTimeout(()=>{ ace.form = 2; renderRosterLive(); }, 0);
+          }},
+        ]);
+    } },
+];
+
+function rollPartyEvent(){
+  if(!state.opts.party || state.eventCtx || liveCtx || state.finished) return;
+  if(state.day < 8) return;
+  // 選択式イベント(人間チームのみ・シーズン中3回まで)
+  const humans = state.parts.filter(t=>!t.cpu);
+  if(humans.length && (state.choiceCount||0) < 3 && rnd() < 0.030){
+    const t = pick1(humans);
+    const cands = PARTY_CHOICES.filter(c=>c.need(t));
+    if(cands.length){
+      state.choiceCount = (state.choiceCount||0) + 1;
+      pick1(cands).run(t);
+      return;
+    }
   }
-  startEmergency(t, d.key, reason);
+  if(rnd() > 0.13) return;
+  const cands = PARTY_EVENTS.filter(e=>{ try{ return e.need(); }catch(err){ return false; } });
+  if(!cands.length) return;
+  const total = cands.reduce((s,e)=>s+e.w, 0);
+  let r = rnd()*total;
+  for(const e of cands){ r -= e.w; if(r <= 0){ try{ e.run(); }catch(err){ console.error(e.id, err); } return; } }
 }
 function startEmergency(t, slotKey, reason){
   const d = SLOT_DEFS.find(x=>x.key===slotKey);
@@ -2230,8 +2505,7 @@ function startEmergency(t, slotKey, reason){
     .sort((a,b)=>b.ovr-a.ovr);
   const watch = t.watch || new Set();
   const list = [...cands.filter(p=>watch.has(p.id)), ...cands.filter(p=>!watch.has(p.id))].slice(0,10);
-  const txt = `【緊急事態】${victim.name}（${t.name}・${d.label}）が${reason}！`;
-  state.news.unshift({mo:dateLabel(state.day-1), txt}); telop(txt);
+  partyNews("急","bad",`【緊急事態】${victim.name}（${t.name}・${d.label}）が${reason}！`);
   if(!list.length){ // 代役なし→騒動は沈静化
     state.news.unshift({mo:dateLabel(state.day-1), txt:`${t.name}球団が謝罪会見。${victim.name}は厳重注意で決着した`});
     if(state.resumeAfterEvent){ state.resumeAfterEvent=false; startTimer(); }
@@ -2270,8 +2544,7 @@ function emergencySign(pid){
   p.joined = true;
   if(["SP","RP","CL"].includes(d.grp)) state.seasonStats.push(genPitLine(p, t, d.grp, projWins(t)*0.2));
   else state.seasonStats.push(genBatLine(p, t, d.grp==="BN"));
-  const txt = `【緊急補強】${t.name}が${p.name}を電撃獲得！ ${ctx.victim.name}の穴を埋める`;
-  state.news.unshift({mo:dateLabel(state.day-1), txt}); telop(txt);
+  partyNews("補","good",`【緊急補強】${t.name}が${p.name}を電撃獲得！ ${ctx.victim.name}の穴を埋める`);
   seTap();
   endEventPhase();
 }

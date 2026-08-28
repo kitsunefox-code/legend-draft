@@ -738,6 +738,116 @@ td{padding:7px 9px;}
 .tr-item{background:transparent;}
 footer{margin-top:56px;}
 @media (max-width:680px){ h1 .en{display:none;} }
+
+/* ============================================================
+   設定タイル / 球団ストリップ / 事件簿 / 選択イベント
+   ============================================================ */
+.en-s{font-family:"Oswald",sans-serif;font-size:9px;letter-spacing:3px;color:#a89c7d;margin-left:10px;font-weight:500;}
+.opt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(268px,1fr));gap:9px;margin-top:10px;}
+.opt-tile{
+  display:flex;gap:11px;align-items:flex-start;cursor:pointer;user-select:none;
+  background:linear-gradient(180deg,#fffdf6,#f7f1e0);border:1px solid #d6ccb1;border-left:4px solid #cabf9f;
+  padding:12px 13px;border-radius:3px;transition:border-color .12s, box-shadow .12s, transform .1s;
+  box-shadow:0 1px 0 #fff inset;
+}
+.opt-tile:hover{transform:translateY(-1px);box-shadow:0 1px 0 #fff inset, 0 10px 18px -14px rgba(70,58,32,.7);}
+.opt-tile input{position:absolute;opacity:0;pointer-events:none;}
+.ot-box{
+  flex:none;width:20px;height:20px;margin-top:1px;border:1.5px solid var(--rule2);background:#fffdf6;
+  border-radius:2px;position:relative;transition:background .12s, border-color .12s;
+}
+.ot-box::after{
+  content:"";position:absolute;left:6px;top:2px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2.5px 2.5px 0;transform:rotate(42deg) scale(0);
+  transition:transform .16s cubic-bezier(.2,1.4,.4,1);
+}
+.opt-tile input:checked ~ .ot-box{background:var(--red);border-color:var(--red2);}
+.opt-tile input:checked ~ .ot-box::after{transform:rotate(42deg) scale(1);}
+.opt-tile:has(input:checked){border-left-color:var(--red);background:linear-gradient(180deg,#fffdf6,#faf1e2);}
+.opt-tile.party:has(input:checked){border-left-color:var(--goldseal);}
+.ot-main{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.ot-t{font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:14.5px;letter-spacing:1px;}
+.ot-tag{font-size:9.5px;background:var(--goldseal);color:#fff;padding:1px 6px;margin-left:7px;border-radius:2px;letter-spacing:2px;vertical-align:2px;font-family:"Yu Gothic",sans-serif;}
+.ot-d{font-size:11.5px;color:var(--ink2);line-height:1.65;}
+
+/* 進行バー */
+.season-prog{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.sp-track{flex:1;height:6px;background:#0c2418;border:1px solid #2c5742;border-radius:2px;overflow:hidden;}
+.sp-fill{height:100%;width:0;background:linear-gradient(90deg,#7fae8c,var(--amber));box-shadow:0 0 10px rgba(243,184,60,.55);transition:width .4s ease;}
+.sp-lbl{font-family:"Oswald",sans-serif;font-size:11px;color:#9fbfa8;letter-spacing:1px;flex:none;}
+
+/* 球団ストリップ */
+.ts-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:12px;}
+.ts-card{
+  display:flex;gap:9px;align-items:flex-start;cursor:pointer;
+  background:linear-gradient(180deg,#123526,#0d2418);border:1px solid #2c5742;
+  border-left:4px solid var(--tc);padding:9px 10px;border-radius:3px;
+  transition:transform .12s, box-shadow .12s, border-color .12s;
+}
+.ts-card:hover{transform:translateY(-2px);box-shadow:0 10px 18px -12px rgba(0,0,0,.8);}
+.ts-card.lead{background:linear-gradient(180deg,#1a4430,#10301f);box-shadow:inset 0 0 0 1px rgba(243,184,60,.35);}
+.ts-rank{
+  flex:none;width:22px;height:22px;line-height:21px;text-align:center;border-radius:2px;
+  font-family:"Oswald",sans-serif;font-weight:600;font-size:13px;
+  background:#0a1c13;color:#9fbfa8;border:1px solid #2c5742;
+}
+.ts-card.lead .ts-rank{background:var(--amber);color:var(--ink);border-color:var(--amber);}
+.ts-main{min-width:0;flex:1;}
+.ts-name{font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:700;font-size:13px;color:var(--boardtxt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ts-rec{font-family:"Oswald",sans-serif;font-size:17px;color:var(--boardtxt);letter-spacing:.5px;margin-top:1px;}
+.ts-rec span{font-size:10px;color:#8fae99;margin:0 3px 0 1px;font-family:"Yu Gothic",sans-serif;}
+.ts-gap{font-size:11px;color:#8fae99;}
+.ts-gap.plus{color:var(--amber);} .ts-gap.minus{color:#e08a7a;}
+.ts-badges{margin-top:3px;display:flex;gap:4px;flex-wrap:wrap;}
+.ts-b{font-size:9px;padding:1px 5px;border-radius:2px;letter-spacing:1px;}
+.ts-b.good{background:#2c5c34;color:#d9f0dd;}
+.ts-b.bad{background:#7a2418;color:#f6ded8;}
+
+/* 事件簿 */
+.plog{
+  display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border-bottom:1px dashed var(--rule);
+  font-size:12.5px;line-height:1.7;animation:plogIn .35s ease;
+}
+@keyframes plogIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
+.plog:last-child{border-bottom:none;}
+.pl-icon{
+  flex:none;width:22px;height:22px;line-height:22px;text-align:center;color:#fff;border-radius:2px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:12px;
+  box-shadow:1px 1px 0 rgba(34,30,23,.3);
+}
+.plog.good .pl-icon{background:var(--green);}
+.plog.bad .pl-icon{background:var(--red);}
+.plog.warn .pl-icon{background:var(--goldseal);}
+.plog.fun .pl-icon{background:var(--navy);}
+.pl-d{flex:none;font-size:10.5px;color:var(--rule2);width:52px;padding-top:3px;font-family:"Oswald",sans-serif;}
+.pl-t{flex:1;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.plog.good .pl-t{color:#2c5c34;}
+.plog.bad .pl-t{color:#8c2412;}
+
+/* 選択イベント */
+.ev-body{
+  background:#fff;border:1px solid var(--rule);padding:14px 16px;margin:12px 0 14px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14.5px;line-height:2;
+}
+.ev-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;}
+.ev-choice{
+  text-align:left;cursor:pointer;font-family:inherit;
+  background:linear-gradient(180deg,#fffdf6,#f7f1e0);border:1px solid var(--rule2);border-top:4px solid var(--red);
+  padding:14px 15px;border-radius:3px;transition:transform .12s, box-shadow .12s, border-color .12s;
+  box-shadow:0 1px 0 #fff inset;
+}
+.ev-choice:hover{transform:translateY(-2px);border-color:var(--red);box-shadow:0 14px 22px -14px rgba(70,58,32,.75);}
+.ec-t{display:block;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:15.5px;letter-spacing:1px;margin-bottom:5px;}
+.ec-d{display:block;font-size:11.5px;color:var(--ink2);line-height:1.7;}
+
+@media (max-width:680px){
+  .ts-row{grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:6px;}
+  .ts-card{padding:7px 8px;gap:7px;}
+  .ts-rec{font-size:15px;}
+  .opt-grid{grid-template-columns:1fr;}
+  .ev-body{font-size:13.5px;padding:11px 12px;}
+  .pl-d{display:none;}
+}
 @media (max-width:680px){
   #gogai{padding:30px 72px 26px 24px;}
   #gogai .gg-go{font-size:38px;right:12px;letter-spacing:8px;}
@@ -803,17 +913,31 @@ footer{margin-top:56px;}
 
   <div class="panel">
     <b>シーズンイベント</b>
-    <div style="margin-top:8px;">
-      <label style="cursor:pointer;"><input type="checkbox" id="opt-trade" checked> トレードタイム（6月末に自動で一時停止、1チーム1回まで選手交換を提案できる）</label>
-    </div>
-    <div style="margin-top:8px;">
-      <label style="cursor:pointer;"><input type="checkbox" id="opt-mlb" checked> MLBスター補強（7月末に自動で一時停止、最下位チームから順に歴代メジャーリーガーを1人指名できる。コスト不要）</label>
-    </div>
-    <div style="margin-top:8px;">
-      <label style="cursor:pointer;"><input type="checkbox" id="opt-party"> パーティーモード（監督休養・スキャンダル謹慎→緊急補強・助っ人の電撃帰国・選手のケンカなど波乱イベントが起こる）</label>
-    </div>
-    <div style="margin-top:8px;">
-      <label style="cursor:pointer;"><input type="checkbox" id="opt-cpu" checked> 参加者が3人以下のとき、CPU球団を足して4球団リーグにする</label>
+    <div class="opt-grid">
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-trade" checked>
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">トレードタイム</span>
+        <span class="ot-d">6月末に自動停止。1チーム1回まで選手交換を提案できる</span></span>
+      </label>
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-mlb" checked>
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">MLBスター補強</span>
+        <span class="ot-d">7月末に自動停止。最下位から順に歴代メジャーリーガーを指名（コスト不要）</span></span>
+      </label>
+      <label class="opt-tile party">
+        <input type="checkbox" id="opt-party">
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">パーティーモード<span class="ot-tag">波乱</span></span>
+        <span class="ot-d">監督休養・スキャンダル謹慎→緊急補強・助っ人帰国・乱闘・食中毒・珍事件など30種の事件が発生。あなたの決断を迫る選択イベントも</span></span>
+      </label>
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-cpu" checked>
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">CPU球団で補充</span>
+        <span class="ot-d">参加者が3人以下のとき、CPU球団を足して4球団リーグにする</span></span>
+      </label>
     </div>
   </div>
 
@@ -900,6 +1024,8 @@ footer{margin-top:56px;}
       <button class="btn ghost sm" id="s-skip" onclick="skipAhead()">次のイベントまで進める</button>
       <button class="btn ghost sm snd-btn" onclick="toggleSnd()">音:ON</button>
     </div>
+    <div class="season-prog"><div class="sp-track"><div class="sp-fill" id="season-bar"></div></div><span class="sp-lbl" id="season-bar-lbl">開幕前</span></div>
+    <div class="ts-row" id="team-strip"></div>
   </div>
 
   <div class="board">
@@ -921,6 +1047,12 @@ footer{margin-top:56px;}
   <div class="panel" id="chart-box">
     <b>ペナントの軌跡（貯金の推移）</b>
     <div id="chart"></div>
+  </div>
+
+  <div class="panel" id="party-box" style="display:none;">
+    <b>球界事件簿<span class="en-s">SCANDAL FILE</span></b>
+    <div class="sub" style="margin:2px 0 8px;">パーティーモードで起きた波乱の記録</div>
+    <div id="party-log"></div>
   </div>
 
   <div class="panel">

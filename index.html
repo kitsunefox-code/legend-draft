@@ -1002,6 +1002,58 @@ footer{margin-top:56px;}
   .dm-field{width:66px;height:56px;}
   .dm-mt{font-size:11.5px;}
 }
+
+/* ---- 優勝予想 / 采配カード / 総合順位 ---- */
+.pred-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:9px;margin:12px 0;}
+.pred-btn{
+  position:relative;text-align:left;cursor:pointer;font-family:inherit;
+  background:linear-gradient(180deg,#fffdf6,#f7f1e0);border:1px solid var(--rule2);
+  border-left:5px solid var(--tc,#999);padding:13px 14px;border-radius:3px;
+  transition:transform .12s, box-shadow .12s, border-color .12s;box-shadow:0 1px 0 #fff inset;
+}
+.pred-btn:hover{transform:translateY(-2px);box-shadow:0 12px 20px -14px rgba(70,58,32,.7);}
+.pd-n{display:block;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:15px;letter-spacing:1px;}
+.pd-s{display:block;font-size:11px;color:var(--ink2);margin-top:4px;font-family:"Oswald",sans-serif;}
+.pd-me{position:absolute;top:8px;right:8px;font-size:9px;background:var(--ink);color:var(--paper);padding:2px 6px;border-radius:2px;letter-spacing:1px;}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin:12px 0;}
+.tcard{
+  text-align:left;cursor:pointer;font-family:inherit;
+  background:linear-gradient(180deg,#fffdf6,#f6efdc);border:1px solid var(--rule2);border-top:4px solid var(--goldseal);
+  padding:11px 12px;border-radius:3px;transition:transform .12s, box-shadow .12s, border-color .12s;
+}
+.tcard:hover:not(.used){transform:translateY(-2px);border-color:var(--red);box-shadow:0 12px 20px -14px rgba(70,58,32,.7);}
+.tcard.sel{border-color:var(--red);border-top-color:var(--red);background:#fdf3ef;box-shadow:0 0 0 2px rgba(167,44,24,.25);}
+.tcard.used{opacity:.35;cursor:default;}
+.tc-i{
+  display:inline-block;min-width:26px;height:26px;line-height:26px;text-align:center;
+  background:var(--ink);color:var(--paper);border-radius:2px;font-size:13px;font-weight:900;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;margin-bottom:6px;padding:0 4px;
+}
+.tc-n{display:block;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:14px;letter-spacing:1px;}
+.tc-d{display:block;font-size:11px;color:var(--ink2);margin-top:3px;line-height:1.6;}
+.mt-sub{margin:14px 0 2px;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14px;border-left:4px solid var(--red);padding-left:9px;}
+.ps-lead{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:19px;font-weight:800;letter-spacing:1px;
+  border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:10px;
+}
+.ps-table{width:100%;border-collapse:collapse;}
+.ps-table th{font-size:10px;color:var(--ink2);letter-spacing:2px;border-bottom:1.5px solid var(--rule2);padding:5px 6px;text-align:left;}
+.ps-table td{padding:8px 6px;border-bottom:1px solid var(--rule);font-size:12.5px;vertical-align:middle;}
+.ps-table tr.ps-top td{background:#fdf6df;}
+.ps-r{font-family:"Oswald",sans-serif;font-size:17px;color:var(--goldseal);width:26px;font-weight:600;}
+.ps-n{font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;font-size:14px;white-space:nowrap;}
+.ps-b,.ps-c{color:var(--ink2);font-size:11.5px;}
+.ps-hit{background:var(--red);color:#fff;font-size:9px;padding:1px 6px;margin-left:6px;border-radius:2px;letter-spacing:1px;}
+.ps-p{font-family:"Oswald",sans-serif;font-size:19px;color:var(--red);text-align:right;font-weight:600;}
+@media (max-width:680px){
+  .pred-grid,.card-grid{grid-template-columns:1fr 1fr;gap:7px;}
+  .pred-btn{padding:11px 10px;}
+  .pd-n{font-size:13.5px;}
+  .tcard{padding:9px 10px;}
+  .ps-table td{padding:7px 4px;font-size:11.5px;}
+  .ps-c{display:none;}
+  .ps-table th:nth-child(4){display:none;}
+}
 </style>
 </head>
 <body>
@@ -1220,6 +1272,12 @@ footer{margin-top:56px;}
   <div class="panel" style="text-align:left;">
     <b>最終順位</b>
     <table id="r-standings"></table>
+  </div>
+
+  <div class="panel" style="text-align:left;">
+    <b>総合成績<span class="en-s">OWNER RANKING</span></b>
+    <div class="sub" style="margin:2px 0 8px;">順位・予想・采配を合算した、このゲームの最終順位です</div>
+    <div id="r-party"></div>
   </div>
 
   <div class="panel" style="text-align:left;">

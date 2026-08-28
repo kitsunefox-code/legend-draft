@@ -2334,6 +2334,8 @@ function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
     const r = simOutcome(key, bases, outs, b, pitInfo.p);
     bases = r.bases; outs += r.outsAdd; runs += r.runs;
     ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
+      inn, top, outs, on:[!!bases[0], !!bases[1], !!bases[2]],
+      bat:b.name, batNo:b.no, pit:pitInfo.p.name, pitRole:pitInfo.label,
       sit:`${inn}回${top?"表":"裏"}　${outs}死　${basesLabel(bases)}`});
     if(walkoff && runs >= target && target > 0){
       ev.push({t:"pa", text:`サヨナラ！ ${bat.name}が試合を決めた！`, cls:"hr", runs:0, sit:"試合終了"});
@@ -2384,7 +2386,7 @@ function showLiveGame(label, g, done){
   liveCtx = {g, ia:built.ia, ib:built.ib, skipBottom9:built.skipBottom9,
     script:built.script, i:0, shownA:0, shownB:0, done, timer:null};
   $("lv-k").textContent = label;
-  $("lv-sit").textContent = "まもなくプレイボール";
+  renderDiamond(null);
   $("lv-pbp").innerHTML = "";
   $("lv-msg").textContent = "";
   $("lv-btn").textContent = "結果まで飛ばす";
@@ -2421,6 +2423,31 @@ function pbpAdd(text, cls){
   while(box.children.length > 60) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
 }
+// ---- 一球速報のダイヤモンド図(走者・アウト・打者/投手) ----
+function renderDiamond(e){
+  const box = $("lv-sit");
+  if(!box) return;
+  if(!e){ box.innerHTML = `<div class="dm-wrap"><div class="dm-note">まもなくプレイボール</div></div>`; return; }
+  const on = e.on || [false,false,false];
+  const outs = Math.min(3, e.outs || 0);
+  const base = (i, cx, cy) => `<div class="dm-b ${on[i]?"on":""}" style="left:${cx}%;top:${cy}%"></div>`;
+  box.innerHTML = `
+    <div class="dm-wrap">
+      <div class="dm-field">
+        <div class="dm-inf"></div>
+        ${base(1, 50, 6)}
+        ${base(0, 82, 38)}
+        ${base(2, 18, 38)}
+        <div class="dm-home"></div>
+      </div>
+      <div class="dm-info">
+        <div class="dm-inn">${e.inn}回${e.top?"表":"裏"}</div>
+        <div class="dm-outs">${[0,1,2].map(i=>`<span class="dm-o ${i<outs?"on":""}"></span>`).join("")}<span class="dm-olbl">OUT</span></div>
+        <div class="dm-mt"><span class="dm-k">打</span>${esc(e.bat||"")}${e.batNo!==undefined?`<span class="dm-no">#${e.batNo}</span>`:""}</div>
+        <div class="dm-mt"><span class="dm-k p">投</span>${esc(e.pit||"")}<span class="dm-role">${esc(e.pitRole||"")}</span></div>
+      </div>
+    </div>`;
+}
 function liveApply(e, silent){
   const c = liveCtx;
   if(e.t === "half"){ if(!silent) pbpAdd(e.text, "half"); }
@@ -2428,7 +2455,7 @@ function liveApply(e, silent){
   else if(e.t === "pa"){
     if(!silent){
       pbpAdd(e.text, e.cls);
-      $("lv-sit").textContent = e.sit;
+      renderDiamond(e);
       if(sndOn && e.runs > 0){ const x = ac(); if(x) tone(x.currentTime, e.cls === "hr" ? 900 : 780, 0.18, 0.10, "triangle"); }
       if(e.cls === "hr" && sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 0.55, 5200, 0.09); }
     }
@@ -2454,7 +2481,7 @@ function liveFinish(){
   const g = c.g;
   const win = g.rA > g.rB ? g.A : g.rB > g.rA ? g.B : null;
   const wp = win ? pitcherForInning(win, 1).p : null;
-  $("lv-sit").textContent = "試合終了";
+  $("lv-sit").innerHTML = `<div class="dm-wrap"><div class="dm-note">試合終了</div></div>`;
   $("lv-msg").textContent = win
     ? `試合終了 ―― ${win.name}、${Math.max(g.rA,g.rB)}対${Math.min(g.rA,g.rB)}で勝利！${wp?`（先発 ${wp.name}）`:""}`
     : `試合終了 ―― ${g.rA}対${g.rB}の引き分け`;

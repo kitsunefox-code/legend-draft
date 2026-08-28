@@ -331,11 +331,18 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
   transition:transform .8s cubic-bezier(.2,.9,.25,1.05);
   box-shadow:0 -1px 4px rgba(20,16,8,.15);
 }
-/* 引くまでは当落が分からないよう、色も文字も伏せておく */
-.kuji .slip{color:transparent;}
-.kuji.drawn .slip{transform:translateY(-62%) rotate(-3deg);color:var(--gray);}
-.kuji.drawn .slip.win{background:var(--red);color:#fdf3e3;border-color:var(--red2);}
-.kuji.drawn .slip.win{box-shadow:0 0 26px rgba(167,44,24,.65);animation:winPulse 1.1s ease infinite alternate;}
+/* 引く → 一斉開封 の2段階。開けるまで当落は完全に伏せる */
+.kuji .slip .sl-t{opacity:0;transition:opacity .2s;}
+.kuji .slip::before{
+  content:"";position:absolute;inset:5px;border:1px solid #d9cdae;border-radius:1px;
+  background:repeating-linear-gradient(45deg, transparent 0 6px, rgba(154,119,20,.10) 6px 7px);
+}
+.kuji.drawn .slip{transform:translateY(-62%) rotate(-3deg);}
+.kuji.opened .slip::before{display:none;}
+.kuji.opened .slip .sl-t{opacity:1;}
+.kuji.opened .slip.win{background:var(--red);color:#fdf3e3;border-color:var(--red2);
+  box-shadow:0 0 26px rgba(167,44,24,.65);animation:winPulse 1.1s ease infinite alternate;}
+.t-luck{font-size:10px;color:var(--red);margin-top:2px;letter-spacing:.5px;}
 .kuji .env-front{
   position:absolute;left:0;right:0;bottom:0;height:78px;z-index:2;
   background:
@@ -1123,6 +1130,51 @@ footer{margin-top:56px;}
   .dm-c{width:8px;height:8px;}
   .dm-pitch{font-size:10.5px;}
 }
+
+/* ---- 抽選のヒーロー表示(競合数でスケール) ---- */
+.lot-hero{
+  display:flex;gap:11px;align-items:center;margin:12px 0 10px;padding:11px 13px;
+  background:linear-gradient(180deg,#fffdf6,#f6efdc);border:1px solid var(--rule2);
+  border-left:5px solid var(--rule2);border-radius:3px;
+}
+.lot-hero.heat3{border-left-color:var(--goldseal);}
+.lot-hero.heat4{border-left-color:var(--red);box-shadow:0 0 0 1px rgba(167,44,24,.25);}
+.lot-hero.heat5{border-left-color:var(--red);box-shadow:0 0 0 2px rgba(167,44,24,.4), 0 0 22px -6px rgba(167,44,24,.5);}
+.lh-main{flex:1;min-width:0;}
+.lh-n{font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:17px;letter-spacing:1px;}
+.lh-s{font-size:11.5px;color:var(--ink2);margin-top:3px;}
+.lh-c{
+  flex:none;font-family:"Oswald",sans-serif;font-size:30px;font-weight:600;color:var(--red);
+  line-height:1;text-align:center;
+}
+.lh-c span{display:block;font-size:9.5px;color:var(--ink2);letter-spacing:2px;font-family:"Yu Gothic",sans-serif;margin-top:2px;}
+.lot-hero.heat4 .lh-c,.lot-hero.heat5 .lh-c{text-shadow:0 0 14px rgba(167,44,24,.45);}
+.lot-msg{text-align:center;min-height:1.4em;letter-spacing:1px;}
+.kr-win{
+  display:inline-block;background:var(--red);color:#fff;font-size:11px;padding:3px 10px;
+  margin-right:9px;letter-spacing:3px;border-radius:2px;font-family:"Yu Gothic",sans-serif;vertical-align:2px;
+}
+.kr-note{font-size:11.5px;color:var(--goldseal);}
+.kr-cry{margin-top:7px;font-size:12px;color:var(--ink2);font-family:"Zen Old Mincho","Yu Mincho",serif;}
+@media (max-width:680px){
+  .lot-hero{padding:9px 10px;gap:8px;}
+  .lh-n{font-size:15px;}
+  .lh-c{font-size:24px;}
+}
+
+/* ---- 勝利確率バー ---- */
+.lv-wp{margin-top:8px;}
+.wp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.wp-l{font-family:"Oswald",sans-serif;font-size:9.5px;color:#8fae99;letter-spacing:3px;}
+.wp-swing{font-size:10px;color:var(--amber);letter-spacing:1px;animation:wpFlash 1.2s ease;}
+@keyframes wpFlash{0%{opacity:0;transform:translateY(-3px);}30%{opacity:1;}100%{opacity:1;transform:none;}}
+.wp-bar{display:flex;height:16px;border:1px solid #2c5742;border-radius:2px;overflow:hidden;background:#0a1f16;}
+.wp-a,.wp-b{
+  display:flex;align-items:center;transition:width .55s cubic-bezier(.3,.8,.3,1);
+  font-family:"Oswald",sans-serif;font-size:10.5px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);
+}
+.wp-a span{padding-left:6px;} .wp-b{justify-content:flex-end;} .wp-b span{padding-right:6px;}
+.wp-names{display:flex;justify-content:space-between;font-size:10px;color:#8fae99;margin-top:2px;}
 </style>
 </head>
 <body>
@@ -1428,6 +1480,7 @@ footer{margin-top:56px;}
     <div class="lv-k" id="lv-k"></div>
     <div id="lv-board"></div>
     <div class="lv-sit" id="lv-sit"></div>
+    <div class="lv-wp" id="lv-wp"></div>
     <div class="lv-pbp" id="lv-pbp"></div>
     <div class="lv-msg" id="lv-msg"></div>
     <div class="lv-foot">

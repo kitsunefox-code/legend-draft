@@ -347,6 +347,7 @@ function nextTurn(first=false){
 }
 
 function renderDraft(){
+  if(state.bulk) return;              // 一括自動指名の最中は描画しない
   const t = currentTeam();
   const {lifted, over} = validPool(t);
   const ph = currentPhase();
@@ -355,7 +356,9 @@ function renderDraft(){
   $("d-who").innerHTML = `<span style="color:${t.color}">●</span> ${esc(t.name)} の${bidding?"入札":"指名"}`;
   const openLabels = [...new Set(open.map(d=>d.label))].join("・");
   if(bidding){
-    $("d-round").innerHTML = `<b style="color:#e2b13c">【${PART_LABEL[state.bid.part]}ドラフト・第1巡 入札】</b>選択希望選手を1人選ぶ（重複したら抽選）｜<b style="color:#e2b13c">残りコスト ${budgetLeft(t)}pt</b>` +
+    const miss = state.bidMiss;
+    const lost = t.lostTo ? `｜<span style="color:#ff8f7a">${esc(t.lostTo)}を逃した</span>` : "";
+    $("d-round").innerHTML = `<b style="color:#e2b13c">【${PART_LABEL[state.bid.part]}ドラフト・${miss?"外れ1位":"第1巡"} 入札】</b>選択希望選手を1人選ぶ（重複したら抽選）${lost}｜<b style="color:#e2b13c">残りコスト ${budgetLeft(t)}pt</b>` +
       (t.fr ? `｜${t.fr}縛り${lifted?"（該当選手なし→今回は解除）":""}` : "");
   }else{
     $("d-round").innerHTML = `<b style="color:#e2b13c">【${PHASE_NAME[ph]||"ドラフト"}】</b>第${state.round}巡｜<b style="color:#e2b13c">残りコスト ${budgetLeft(t)}pt</b>｜この部の残り枠: ${openLabels}` +
@@ -432,8 +435,12 @@ function renderPool(){
   else if(sort==="year") list.sort((a,b)=>a.year-b.year);
   else if(sort==="cost") list.sort((a,b)=>a.cost-b.cost || b.ovr-a.ovr);
   else list.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
-  $("pool-count").textContent = `${list.length}名`;
-  $("pool").innerHTML = list.map(p=>`
+  const LIMIT = 140;
+  const shown = list.slice(0, LIMIT);
+  $("pool-count").textContent = list.length > LIMIT
+    ? `${list.length}名中 ${LIMIT}名を表示（絞り込み・検索で全員に到達できます）`
+    : `${list.length}名`;
+  $("pool").innerHTML = shown.map(p=>`
     <div class="pcard spine-${p.cat==="M"?"M":p.twoWay?"W":p.cat}" onclick="openModal('${p.id}')">
       <span class="rank rank-${rankOf(p.ovr)}">${rankOf(p.ovr)}</span>
       ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')">★</span>`}
@@ -636,6 +643,11 @@ function autoPick(){
   doPick(t,p);
 }
 function autoAll(){
+  state.bulk = true;
+  try{ autoAllInner(); } finally { state.bulk = false; }
+  if(!state.parts.every(rosterFull)) renderDraft();
+}
+function autoAllInner(){
   let guard = 500;
   while(!state.parts.every(rosterFull) && guard-->0){
     const ph = currentPhase();
@@ -669,7 +681,13 @@ function autoAll(){
 const PART_LABEL = {M:"監督", P:"投手", B:"野手"};
 function startBidRound(part, teamIdxs){
   state.bid = {part, pending:teamIdxs, bids:{}, ptr:0, stage:"collect", losers:[]};
-  announceLine("入札", `${PART_LABEL[part]}ドラフト第1巡 ―― 各球団、選択希望選手の入札に入ります`);
+  if(state.partBidDone && !state.bidMiss) state.parts.forEach(function(t){ t.lostTo = null; });
+  if(state.bidMiss){
+    const nm = teamIdxs.map(function(i){ return state.parts[i].name; }).join("・");
+    announceLine("外れ1位", `${nm} が外れ1位指名へ。悔しさを胸に、次の1人を選ぶ`);
+  }else{
+    announceLine("入札", `${PART_LABEL[part]}ドラフト第1巡 ―― 各球団、選択希望選手の入札に入ります`);
+  }
   bidShowNext();
 }
 function curtain(title, sub, btnLabel, cb){
@@ -693,9 +711,12 @@ function bidShowNext(){
       continue;
     }
     state.currentIdx = idx;
-    curtain(`${t.name} の入札`,
-      `他の人に画面が見えないように端末を受け取ってください。<br>選択希望選手が重複した場合は<b>抽選</b>になります。`,
-      "入札をはじめる", ()=>{ renderDraft(); });
+    const miss = state.bidMiss;
+    curtain(miss ? `${t.name} の外れ1位指名` : `${t.name} の入札`,
+      miss
+        ? `${t.lostTo ? `<b>${esc(t.lostTo)}</b>の交渉権を逃しました。<br>` : ""}気持ちを切り替えて、次の1人を選んでください。`
+        : `他の人に画面が見えないように端末を受け取ってください。<br>選択希望選手が重複した場合は<b>抽選</b>になります。`,
+      miss ? "外れ1位を指名する" : "入札をはじめる", ()=>{ renderDraft(); });
     return;
   }
   resolveBids();
@@ -760,64 +781,130 @@ function nextBidResolution(){
   }
   finishBidRound();
 }
+function lotteryHeat(n){
+  if(n >= 5) return {k:"大混戦", cls:"heat5", msg:n+"球団が競合！ 会場がどよめく"};
+  if(n === 4) return {k:"4球団競合", cls:"heat4", msg:"4球団が名乗りを上げた。ざわめきが止まらない"};
+  if(n === 3) return {k:"3球団競合", cls:"heat3", msg:"3球団が競合。抽選の行方に注目が集まる"};
+  return {k:"抽選", cls:"heat2", msg:"2球団が競合。運命の抽選へ"};
+}
 function startLottery(g){
   const bid = state.bid;
   const order = shuffle(g.idxs);
   const winner = order[Math.floor(rnd()*order.length)];
-  bid.lot = {g, order, winner, flipped:0};
-  $("event-panel").innerHTML = `
-    <h2><span class="kicker">抽選</span>${esc(g.p.name)} ── 交渉権抽選</h2>
-    <div class="sub" style="text-align:center;">${g.idxs.length}球団が競合。封筒をタップしてめくってください。</div>
-    <div class="kuji-row">
-      ${order.map((idx,i)=>{
-        const t = state.parts[idx];
-        return `<div class="kuji" id="kuji-${i}" onclick="kujiFlip(${i})">
-          <div class="env">
-            <div class="slip ${idx===winner?"win":""}">${idx===winner?"当":"外"}</div>
-            <div class="env-front">選択希望選手</div>
-          </div>
-          <div class="t-name"><span style="color:${t.color}">●</span> ${esc(t.name)}</div>
-        </div>`;
-      }).join("")}
-    </div>
-    <div class="kuji-result" id="kuji-result"></div>
-    <div style="text-align:right;"><button class="btn" id="kuji-next" style="display:none;" onclick="lotteryDone()">交渉権確定</button></div>`;
+  bid.lot = {g, order, winner, drawn:0, opened:false};
+  const heat = lotteryHeat(g.idxs.length);
+  const p = g.p;
+  $("event-panel").innerHTML =
+    '<h2><span class="kicker">' + heat.k + '</span>' + esc(p.name) + ' ── 交渉権抽選</h2>' +
+    '<div class="lot-hero ' + heat.cls + '">' +
+      '<div class="lh-av">' + avatarBox(p, 46) + '</div>' +
+      '<div class="lh-main">' +
+        '<div class="lh-n">' + esc(p.name) + titleBadge(p) + '</div>' +
+        '<div class="lh-s">' + roleLabel(p) + '　' + esc(p.team) + '　' + p.year + '年　' + statShort(p) + '</div>' +
+      '</div>' +
+      '<div class="lh-c">' + g.idxs.length + '<span>球団</span></div>' +
+    '</div>' +
+    '<div class="sub lot-msg">' + heat.msg + ' ―― 各球団、封筒から抽選券を引いてください（まだ開けないこと）</div>' +
+    '<div class="kuji-row">' +
+    order.map(function(idx,i){
+      const t = state.parts[idx];
+      const luck = lotLuckLabel(t);
+      return '<div class="kuji" id="kuji-' + i + '" onclick="kujiDraw(' + i + ')">' +
+        '<div class="env">' +
+          '<div class="slip ' + (idx===winner?"win":"") + '"><span class="sl-t">' + (idx===winner?"当":"外") + '</span></div>' +
+          '<div class="env-front">選択希望選手</div>' +
+        '</div>' +
+        '<div class="t-name"><span style="color:' + t.color + '">●</span> ' + esc(t.name) + '</div>' +
+        (luck ? '<div class="t-luck">' + luck + '</div>' : '') +
+      '</div>';
+    }).join("") +
+    '</div>' +
+    '<div class="kuji-result" id="kuji-result"></div>' +
+    '<div style="text-align:right;">' +
+      '<button class="btn" id="kuji-open" style="display:none;" onclick="kujiOpenAll()">一斉に開封する</button>' +
+      '<button class="btn" id="kuji-next" style="display:none;" onclick="lotteryDone()">交渉権確定</button>' +
+    '</div>';
   $("event-bg").classList.add("show");
-  seRollStart();
 }
-function kujiFlip(i){
-  const lot = state.bid.lot;
+function lotLuckLabel(t){
+  const l = t.lotLose || 0;
+  if(l >= 3) return "抽選" + l + "連敗中";
+  if(l === 2) return "2度続けて涙";
+  if((t.lotWin||0) >= 2) return "くじ運" + t.lotWin + "連勝";
+  return "";
+}
+// 第1段階: 封筒から引く(中身は伏せたまま)
+function kujiDraw(i){
+  const lot = state.bid && state.bid.lot;
+  if(!lot || lot.opened) return;
   const el = $("kuji-"+i);
   if(!el || el.classList.contains("drawn") || el.classList.contains("drawing")) return;
-  el.classList.add("drawing"); // 封筒を振る
-  lot.flipped++;
-  const idx = lot.order[i];
-  setTimeout(()=>{
+  el.classList.add("drawing");
+  seTap();
+  lot.drawn++;
+  setTimeout(function(){
     el.classList.remove("drawing");
-    el.classList.add("drawn"); // 紙を引き抜く
-    if(idx === lot.winner){
-      seRollStop();
-      setTimeout(seWin, 380);
-      setTimeout(()=>{
-        const t = state.parts[idx];
-        $("kuji-result").innerHTML = `交渉権獲得 ―― <span style="color:${t.color}">●</span> ${esc(t.name)}！`;
-      }, 820);
-    }else{
-      setTimeout(seMiss, 420);
-    }
-    if(lot.flipped >= lot.order.length){
-      setTimeout(()=>{ const b=$("kuji-next"); if(b) b.style.display = ""; }, 950);
+    el.classList.add("drawn");
+    if(lot.drawn >= lot.order.length){
+      const b = $("kuji-open");
+      if(b){ b.style.display = ""; }
+      const m = document.querySelector(".lot-msg");
+      if(m) m.textContent = "全球団が引き終えました。息を合わせて、一斉に開封します";
     }
   }, 340);
+}
+// 第2段階: 全員同時に開封(ドラムロール→無音→開封)
+function kujiOpenAll(){
+  const lot = state.bid && state.bid.lot;
+  if(!lot || lot.opened) return;
+  lot.opened = true;
+  const ob = $("kuji-open"); if(ob) ob.style.display = "none";
+  const m = document.querySelector(".lot-msg");
+  const n = lot.order.length;
+  const roll = 900 + n * 220;   // 競合が多いほど長く溜める
+  if(m) m.textContent = "――― 運命の瞬間 ―――";
+  seRollStart();
+  setTimeout(function(){
+    seRollStop();                 // 一拍の無音を置く
+    setTimeout(function(){
+      lot.order.forEach(function(idx, i){
+        const el = $("kuji-"+i);
+        if(el) el.classList.add("opened");
+      });
+      const wt = state.parts[lot.winner];
+      seWin();
+      if(m) m.textContent = "";
+      $("kuji-result").innerHTML =
+        '<span class="kr-win">交渉権獲得</span><span style="color:' + wt.color + '">●</span> ' + esc(wt.name) +
+        (n >= 4 ? '　<span class="kr-note">' + n + '球団競合を制した</span>' : '');
+      const losers = lot.order.filter(function(x){ return x !== lot.winner; })
+        .map(function(x){ return state.parts[x]; });
+      const cry = losers.filter(function(t){ return (t.lotLose||0) >= 2; });
+      if(cry.length){
+        $("kuji-result").innerHTML += '<div class="kr-cry">' + esc(cry[0].name) + 'は' + ((cry[0].lotLose||0)+1) + '度続けて抽選を外した…</div>';
+      }
+      setTimeout(function(){ const b = $("kuji-next"); if(b) b.style.display = ""; }, 700);
+    }, 700);
+  }, roll);
 }
 function lotteryDone(){
   seRollStop();
   const bid = state.bid;
   const lot = bid.lot;
   const wt = state.parts[lot.winner];
+  wt.lotWin = (wt.lotWin||0) + 1;
+  wt.lotLose = 0;
   assignPick(wt, lot.g.p);
-  pickAnnounce(wt, lot.g.p, `第1巡・${lot.g.idxs.length}球団競合の抽選を制し`);
-  for(const idx of lot.g.idxs) if(idx !== lot.winner) bid.losers.push(idx);
+  pickAnnounce(wt, lot.g.p, '第1巡・' + lot.g.idxs.length + '球団競合の抽選を制し');
+  for(const idx of lot.g.idxs){
+    if(idx !== lot.winner){
+      const t = state.parts[idx];
+      t.lotLose = (t.lotLose||0) + 1;
+      t.lotWin = 0;
+      t.lostTo = lot.g.p.name;
+      bid.losers.push(idx);
+    }
+  }
   bid.qi++;
   nextBidResolution();
 }
@@ -825,10 +912,11 @@ function finishBidRound(){
   const bid = state.bid;
   $("event-bg").classList.remove("show");
   if(bid.losers.length){
-    announceLine("入札", `抽選に外れた${bid.losers.length}球団による再入札を行います`);
+    state.bidMiss = true;
     startBidRound(bid.part, bid.losers);
     return;
   }
+  state.bidMiss = false;
   state.partBidDone[bid.part] = true;
   state.bid = null;
   announceLine("実況", `${PART_LABEL[bid.part]}ドラフト第1巡、全球団の交渉権が確定。2巡目以降はウェーバー方式で進行します`);
@@ -2409,6 +2497,8 @@ function showLiveGame(label, g, done){
     script:built.script, i:0, shownA:0, shownB:0, done, timer:null};
   $("lv-k").textContent = label;
   renderDiamond(null);
+  liveCtx.lastWp = undefined;
+  renderWinBar(null);
   $("lv-pbp").innerHTML = "";
   $("lv-msg").textContent = "";
   $("lv-btn").textContent = "結果まで飛ばす";
@@ -2492,13 +2582,14 @@ function liveApply(e, silent){
     if(!silent){
       pbpAdd(e.text, e.cls);
       renderDiamond(e);
+      renderWinBar(e);
       if(sndOn && e.runs > 0){ const x = ac(); if(x) tone(x.currentTime, e.cls === "hr" ? 900 : 780, 0.18, 0.10, "triangle"); }
       if(e.cls === "hr" && sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 0.55, 5200, 0.09); }
     }
   }
   else if(e.t === "end"){
     if(e.top) c.shownA = e.inn; else c.shownB = e.inn;
-    if(!silent){ pbpAdd(e.text, "end"); renderLiveBoard(); }
+    if(!silent){ pbpAdd(e.text, "end"); renderLiveBoard(); renderWinBar({inn:e.inn, top:e.top, outs:3, on:[]}); }
   }
   else if(e.t === "x"){ c.shownB = 9; }
 }
@@ -3311,4 +3402,41 @@ function genPitchSeq(key, bat, pit){
   }
   push("打った");
   return seq;
+}
+
+// ============================================================
+// 勝利確率バー(試合の熱量を可視化)
+// ============================================================
+function winProbA(rA, rB, inn, top, outs, on){
+  const diff = rA - rB;                       // 先攻(A)から見た点差
+  const outsTotal = (inn - 1) * 6 + (top ? 0 : 3) + Math.min(3, outs);
+  const remain = Math.max(0.6, (54 - outsTotal) / 6);   // 残りイニング相当
+  let z = 0.92 * diff / Math.sqrt(remain);
+  // 走者と1死以内のアドバンテージは攻撃側に加算
+  const runner = (on && on[0] ? 0.30 : 0) + (on && on[1] ? 0.45 : 0) + (on && on[2] ? 0.55 : 0);
+  const adv = (runner + (2 - Math.min(2, outs)) * 0.16) / Math.sqrt(remain) * 0.42;
+  z += top ? adv : -adv;                      // 表はAの攻撃、裏はBの攻撃
+  return clamp(1 / (1 + Math.exp(-z)), 0.005, 0.995);
+}
+function renderWinBar(e){
+  const box = $("lv-wp");
+  const c = liveCtx;
+  if(!box || !c) return;
+  const g = c.g;
+  const rA = c.ia.slice(0, c.shownA).reduce(function(s,x){ return s + x; }, 0);
+  const rB = c.ib.slice(0, c.shownB).reduce(function(s,x){ return s + x; }, 0);
+  const p = e
+    ? winProbA(rA, rB, e.inn || 1, !!e.top, e.outs || 0, e.on || [])
+    : winProbA(rA, rB, 1, true, 0, []);
+  const pa = Math.round(p * 100), pb = 100 - pa;
+  const swing = c.lastWp === undefined ? 0 : Math.abs(pa - c.lastWp);
+  c.lastWp = pa;
+  box.innerHTML =
+    '<div class="wp-head"><span class="wp-l">勝利確率</span>' +
+      (swing >= 14 ? '<span class="wp-swing">形勢が大きく動いた</span>' : '') + '</div>' +
+    '<div class="wp-bar">' +
+      '<div class="wp-a" style="width:' + pa + '%;background:' + g.A.color + '"><span>' + pa + '%</span></div>' +
+      '<div class="wp-b" style="width:' + pb + '%;background:' + g.B.color + '"><span>' + pb + '%</span></div>' +
+    '</div>' +
+    '<div class="wp-names"><span>' + esc(g.A.name) + '</span><span>' + esc(g.B.name) + '</span></div>';
 }

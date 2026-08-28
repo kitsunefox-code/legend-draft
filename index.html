@@ -362,6 +362,31 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
 #live .lv-msg{min-height:1.6em;margin-top:12px;font-size:14px;letter-spacing:1px;font-family:"Zen Old Mincho","Yu Mincho",serif;color:#e9e2ce;}
 #live .lv-foot{margin-top:12px;text-align:right;}
 
+/* ---- リーダー5傑・チーム成績・自由契約候補 ---- */
+.lead-grid{grid-template-columns:repeat(auto-fill,minmax(196px,1fr));}
+.lead-row{display:flex;align-items:baseline;gap:6px;padding:2px 0;border-bottom:1px dashed #21453466;font-size:12px;}
+.lead-row:last-child{border-bottom:none;}
+.lead-row .lead-rk{flex:none;width:14px;font-family:"Oswald",sans-serif;font-size:11px;color:#9fbfa8;}
+.lead-row .lead-n{flex:1;font-size:12px;font-weight:normal;margin:0;}
+.lead-row .lead-v{font-size:13px;margin-left:auto;}
+.lead-row.first .lead-n{font-weight:bold;}
+.lead-row.first .lead-v{font-size:15px;}
+.lead-row.first .lead-rk{color:var(--amber);}
+#team-bg{position:fixed;inset:0;background:rgba(30,25,15,.6);display:none;align-items:center;justify-content:center;z-index:95;padding:14px;overflow-y:auto;}
+#team-bg.show{display:flex;}
+#team-box{background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:18px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;}
+#team-box h3{font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:1px;font-size:16px;margin-bottom:8px;}
+#team-box td{font-size:12px;padding:4px 6px;}
+.rel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:7px;margin-top:8px;}
+.rel-btn{
+  text-align:left;background:#fff;border:1px solid var(--rule2);border-radius:2px;padding:8px 10px;
+  cursor:pointer;font-family:inherit;display:block;
+}
+.rel-btn:hover{border-color:var(--red);background:#fdf3ef;}
+.rel-hd{display:flex;align-items:center;gap:6px;font-weight:bold;font-size:13px;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.rel-st{display:block;font-size:11.5px;color:var(--ink2);margin-top:3px;font-variant-numeric:tabular-nums;}
+.tr-st{display:block;font-size:10.5px;color:var(--ink2);font-weight:normal;font-family:"Yu Gothic",sans-serif;}
+
 /* ---- 注目リスト ---- */
 .wstar{
   position:absolute;top:30px;right:6px;font-size:15px;color:#cfc4a5;cursor:pointer;z-index:2;
@@ -811,7 +836,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 <!-- ================= RESULT ================= -->
 <div id="scr-result" class="screen">
   <div class="champ-box">
-    <div class="champ-label">優　勝</div>
+    <div class="champ-label" id="r-champlabel">優　勝</div>
     <div class="champ-name" id="r-champ"></div>
     <div class="sub" id="r-record"></div>
   </div>
@@ -880,6 +905,15 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
   <div id="event-panel"></div>
 </div>
 
+<!-- チーム別成績(順位表タップ) -->
+<div id="team-bg" onclick="if(event.target===this)this.classList.remove('show')">
+  <div id="team-box">
+    <h3 id="ts-title"></h3>
+    <div id="ts-body"></div>
+    <div style="margin-top:10px;text-align:right;"><button class="btn ghost sm" onclick="document.getElementById('team-bg').classList.remove('show')">閉じる</button></div>
+  </div>
+</div>
+
 <!-- ライブ中継(開幕戦・優勝決定試合) -->
 <div id="live-bg">
   <div id="live">
@@ -896,7 +930,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
     <div class="gg-go">號外</div>
     <div class="gg-k">球史新聞社 ── 特別號外</div>
     <div class="gg-team" id="gg-team"></div>
-    <div class="gg-v">優　勝</div>
+    <div class="gg-v" id="gg-v">優　勝</div>
     <div class="gg-sub" id="gg-sub"></div>
     <div class="gg-tap">── 画面をタップして紙面へ ──</div>
   </div>

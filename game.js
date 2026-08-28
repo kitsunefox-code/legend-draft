@@ -932,7 +932,7 @@ function dateLabel(d){
 
 function startSeason(){
   const n = state.parts.length;
-  state.pairGames = clamp(Math.round(130/(n-1)), 8, 60);
+  state.pairGames = clamp(Math.round(143/(n-1)), 8, 143); // NPBと同じ143試合基準
   state.schedule = buildSchedule(n, state.pairGames);
   state.day = 0; state.news = []; state.lastScores = [];
   state.playing = false; state.timer = null; state.finished = false;
@@ -969,11 +969,14 @@ function startTimer(){
 function stopTimer(){
   if(state.timer) clearInterval(state.timer);
   state.timer = null; state.playing = false;
-  $("s-play").textContent = state.finished ? "結果発表へ" : "再開";
+  $("s-play").textContent = state.finished ? (state.seriesDone ? "結果発表へ" : "日本シリーズへ") : "再開";
 }
 function changeSpeed(){ if(state.playing) startTimer(); }
 function togglePlay(){
-  if(state.finished){ showResult(); return; }
+  if(state.finished){
+    if(!state.seriesDone){ startSeries(); return; }
+    showResult(); return;
+  }
   if(state.playing) stopTimer(); else startTimer();
 }
 function checkClinch(){
@@ -1035,12 +1038,15 @@ function skipAhead(){
   finishSeason();
 }
 function finishSeason(){
+  if(state.finished) return;
   state.finished = true;
   stopTimer();
-  $("s-play").textContent = "結果発表へ";
+  $("s-play").textContent = "日本シリーズへ";
   $("s-skip").disabled = true;
   $("s-date").textContent = "シーズン終了";
-  $("s-note").textContent = `全${state.pairGames*(state.parts.length-1)}試合を戦い抜きました！`;
+  const s = standingsSorted();
+  $("s-note").textContent = `全${state.pairGames*(state.parts.length-1)}試合を完走。1位${s[0].name}と2位${s[1].name}が日本シリーズで激突！`;
+  telop(`レギュラーシーズン終了 ―― 日本シリーズは ${s[0].name} 対 ${s[1].name}`);
 }
 function dueEvent(){
   return state.eventQueue.find(e=>!e.done && e.after <= state.monthsCompleted);
@@ -1137,32 +1143,52 @@ function renderNews(){
   $("news").innerHTML = state.news.slice(0,50).map(n=>`<div class="nw"><span class="mo">${n.mo}</span>${esc(n.txt)}</div>`).join("");
 }
 
-// ---- 部門リーダー(順位表下) ----
+// ---- 個人成績ヘルパー ----
+function seasonProg(){ return state.schedule && state.schedule.length ? clamp(state.day/state.schedule.length, 0, 1) : 0; }
+function statOf(t, p, grp){
+  if(!state.seasonStats) return null;
+  const pit = ["SP","RP","CL"].includes(grp);
+  return state.seasonStats.find(x=>x.t===t && x.p===p && (pit ? x.kind==="P" : x.kind==="B"));
+}
+function statLineLive(s){ // 消化試合数ぶんに換算した現在成績
+  if(!s) return "";
+  const c = v => Math.round(v*seasonProg());
+  if(s.kind==="B") return `${avg3(s.avg)}・${c(s.hr)}本・${c(s.rbi)}点` + (s.sb>=10?`・${c(s.sb)}盗`:"");
+  if(s.role==="CL") return `${c(s.sv)}S・防${s.era.toFixed(2)}`;
+  if(s.role==="RP") return `${c(s.hld)}H・防${s.era.toFixed(2)}`;
+  return `${c(s.w)}勝・防${s.era.toFixed(2)}・${c(s.so)}K`;
+}
+
+// ---- 部門リーダー(順位表下・各部門5位まで) ----
+function leadersHtml(entries, prog){
+  const B = entries.filter(s=>s.kind==="B" && !s.bench);
+  const P = entries.filter(s=>s.kind==="P");
+  const topN = (arr, key, asc=false) => arr.slice().sort((a,b)=>asc?a[key]-b[key]:b[key]-a[key]).slice(0,5);
+  const c = v => Math.round(v*prog);
+  const defs = [
+    ["打率", topN(B,"avg"), s=>avg3(s.avg)],
+    ["本塁打", topN(B,"hr"), s=>c(s.hr)+"本"],
+    ["打点", topN(B,"rbi"), s=>c(s.rbi)+"点"],
+    ["盗塁", topN(B,"sb"), s=>c(s.sb)+"個"],
+    ["勝利", topN(P.filter(x=>x.role==="SP"),"w"), s=>c(s.w)+"勝"],
+    ["防御率", topN(P.filter(x=>x.role==="SP"),"era",true), s=>s.era.toFixed(2)],
+    ["セーブ", topN(P.filter(x=>x.role==="CL"),"sv"), s=>c(s.sv)+"S"],
+    ["ホールド", topN(P.filter(x=>x.role==="RP"),"hld"), s=>c(s.hld)+"H"],
+  ];
+  return `<div class="lead-grid">` + defs.map(([label, arr, fmt])=>{
+    if(!arr.length) return "";
+    return `<div class="lead-cell"><div class="lead-k">${label}</div>` +
+      arr.map((s,i)=>`<div class="lead-row${i===0?" first":""}">
+        <span class="lead-rk">${i+1}</span>
+        <span class="lead-n"><span style="color:${s.t.color}">●</span> ${esc(s.p.name)}</span>
+        <span class="lead-v">${fmt(s)}</span></div>`).join("") +
+    `</div>`;
+  }).join("") + `</div>`;
+}
 function renderLeaders(){
   const el = $("leaders");
   if(!el || !state.seasonStats) return;
-  const S = state.seasonStats;
-  const prog = state.schedule && state.schedule.length ? clamp(state.day/state.schedule.length, 0, 1) : 0;
-  const B = S.filter(s=>s.kind==="B" && !s.bench);
-  const P = S.filter(s=>s.kind==="P");
-  const top = (arr, key, asc=false) => arr.slice().sort((a,b)=>asc?a[key]-b[key]:b[key]-a[key])[0];
-  const c = v => Math.round(v*prog); // 消化試合数ぶんに換算
-  const defs = [
-    ["打率", top(B,"avg"), s=>avg3(s.avg)],
-    ["本塁打", top(B,"hr"), s=>c(s.hr)+"本"],
-    ["打点", top(B,"rbi"), s=>c(s.rbi)+"点"],
-    ["盗塁", top(B,"sb"), s=>c(s.sb)+"個"],
-    ["勝利", top(P.filter(x=>x.role==="SP"),"w"), s=>c(s.w)+"勝"],
-    ["防御率", top(P.filter(x=>x.role==="SP"),"era",true), s=>s.era.toFixed(2)],
-    ["セーブ", top(P.filter(x=>x.role==="CL"),"sv"), s=>c(s.sv)+"S"],
-    ["ホールド", top(P.filter(x=>x.role==="RP"),"hld"), s=>c(s.hld)+"H"],
-  ];
-  el.innerHTML = `<div class="lead-grid">` + defs.map(([label, s, fmt])=>{
-    if(!s) return "";
-    return `<div class="lead-cell"><div class="lead-k">${label}</div>
-      <div class="lead-n"><span style="color:${s.t.color}">●</span> ${esc(s.p.name)}</div>
-      <div class="lead-v">${fmt(s)}</div></div>`;
-  }).join("") + `</div>`;
+  el.innerHTML = leadersHtml(state.seasonStats, seasonProg());
 }
 
 // ---- 速報テロップ ----
@@ -1197,14 +1223,39 @@ function standingsSorted(){
 function renderStandings(elId){
   const s = standingsSorted();
   const top = s[0];
+  const clickable = elId === "standings" && state.seasonStats;
   $(elId).innerHTML = `<tr><th>順位</th><th>チーム</th><th>試合</th><th>勝</th><th>敗</th><th>分</th><th>勝率</th><th>差</th></tr>` +
     s.map((t,i)=>{
       const pct = t.W+t.L ? (t.W/(t.W+t.L)).toFixed(3).replace(/^0/,"") : "---";
       const gb = i===0 ? "─" : (((top.W-t.W)+(t.L-top.L))/2).toFixed(1);
-      return `<tr class="${i===0?"st-first":""}"><td>${i+1}</td>
-        <td style="text-align:left;"><span style="color:${t.color}">●</span> ${esc(t.name)}</td>
+      return `<tr class="${i===0?"st-first":""}" ${clickable?`style="cursor:pointer;" onclick="openTeamStats(${state.parts.indexOf(t)})"`:""}><td>${i+1}</td>
+        <td style="text-align:left;"><span style="color:${t.color}">●</span> ${esc(t.name)}${clickable?' <span style="font-size:10px;color:#9fbfa8;">▶成績</span>':""}</td>
         <td>${t.W+t.L+t.T}</td><td>${t.W}</td><td>${t.L}</td><td>${t.T}</td><td>${pct}</td><td>${gb}</td></tr>`;
     }).join("");
+}
+
+// ---- チーム別 選手成績(順位表の行をタップ。自由契約やトレードの判断材料に) ----
+function openTeamStats(idx){
+  const t = state.parts[idx];
+  if(!t || !state.seasonStats) return;
+  const doneP = new Set();
+  const rows = [];
+  const mgr = t.slots.MGR;
+  if(mgr) rows.push(`<tr><td>監督</td><td style="text-align:left;">${esc(mgr.name)}</td><td style="text-align:left;">采配${((mgr.ovr-85)*0.1>=0?"+":"")}${((mgr.ovr-85)*0.1).toFixed(1)}・育成${devStars(mgr)}</td></tr>`);
+  for(const d of SLOT_DEFS){
+    if(d.key==="MGR") continue;
+    const p = t.slots[d.key];
+    if(!p) continue;
+    const pit = ["SP","RP","CL"].includes(d.grp);
+    const dupKey = p.id + (pit?"P":"B");
+    if(doneP.has(dupKey)) continue;
+    doneP.add(dupKey);
+    const st = statOf(t, p, d.grp);
+    rows.push(`<tr><td>${d.label}</td><td style="text-align:left;">${esc(p.name)}${titleBadge(p)}${p.awakened?" <span class='seal g'>覚</span>":""}${p.traded?" <span class='seal b'>交</span>":""}${p.joined!==undefined&&p.joined!==false?" <span class='seal b'>米</span>":""}</td><td style="text-align:left;">${statLineLive(st)}</td></tr>`);
+  }
+  $("ts-title").innerHTML = `<span style="color:${t.color}">●</span> ${esc(t.name)} ── ここまでの成績（${t.W}勝${t.L}敗${t.T?t.T+"分":""}）`;
+  $("ts-body").innerHTML = `<table><tr><th>位置</th><th>選手</th><th>成績</th></tr>${rows.join("")}</table>`;
+  $("team-bg").classList.add("show");
 }
 
 function renderChart(){
@@ -1276,11 +1327,12 @@ function endEventPhase(){
   }
 }
 
-function tradeRow(x, sel, dim, clickJs){
+function tradeRow(x, sel, dim, clickJs, team){
   const p = x.p;
+  const st = team ? statLineLive(statOf(team, p, x.d.grp)) : "";
   return `<div class="tr-item ${sel?"sel":""} ${dim?"dim":""}" ${dim?"":`onclick="${clickJs}"`}>
     <span class="tr-pos">${x.d.label}</span>
-    <span class="tr-nm">${esc(p.name)}${titleBadge(p)}</span>
+    <span class="tr-nm">${esc(p.name)}${titleBadge(p)}${st?`<span class="tr-st">${st}</span>`:""}</span>
     <span class="rank rank-${rankOf(ovrFor(p,x.d.grp))}" style="position:static;flex:none;">${rankOf(ovrFor(p,x.d.grp))}</span>
   </div>`;
 }
@@ -1305,12 +1357,12 @@ function renderTradePanel(){
     <div class="tr-cols">
       <div class="tr-col">
         <div class="tr-head">放出する選手（${esc(me.name)}）</div>
-        ${myList.map(x=>tradeRow(x, mine&&x.d.key===ctx.sel.mine, false, `tradeSel('mine','${x.d.key}')`)).join("")}
+        ${myList.map(x=>tradeRow(x, mine&&x.d.key===ctx.sel.mine, false, `tradeSel('mine','${x.d.key}')`, me)).join("")}
       </div>
       <div class="tr-col">
         <div class="tr-head">${partner?`獲得したい選手（${esc(partner.name)}）`:"← まず相手チームを選択"}</div>
         ${partner ? (mine
-          ? theirList.map(x=>tradeRow(x, theirs&&x.d.key===ctx.sel.theirs, !compat(x), `tradeSel('theirs','${x.d.key}')`)).join("")
+          ? theirList.map(x=>tradeRow(x, theirs&&x.d.key===ctx.sel.theirs, !compat(x), `tradeSel('theirs','${x.d.key}')`, partner)).join("")
           : `<div class="sub" style="padding:10px;">← 先に放出する選手を選んでください</div>`) : ""}
       </div>
     </div>
@@ -1425,9 +1477,15 @@ function renderMlbPanel(){
   if(star){
     const slots = mlbCompatSlots(t, star);
     slotHtml = slots.length ? `
-      <div style="margin-top:10px;"><b>${esc(star.name)}</b> と入れ替える（自由契約にする）選手を選択：</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-        ${slots.map(d=>`<button class="btn ghost sm" onclick="mlbSignClick('${d.key}')">[${d.label}] ${esc(t.slots[d.key].name)} (${rankOf(ovrFor(t.slots[d.key],d.grp))})</button>`).join("")}
+      <div style="margin-top:10px;"><b>${esc(star.name)}</b> と入れ替える（自由契約にする）選手を選択。今季成績を見て決めてください：</div>
+      <div class="rel-grid">
+        ${slots.map(d=>{
+          const cur = t.slots[d.key];
+          return `<button class="rel-btn" onclick="mlbSignClick('${d.key}')">
+            <span class="rel-hd">[${d.label}] ${esc(cur.name)} <span class="rank rank-${rankOf(ovrFor(cur,d.grp))}" style="position:static;">${rankOf(ovrFor(cur,d.grp))}</span></span>
+            <span class="rel-st">${statLineLive(statOf(t, cur, d.grp)) || "─"}</span>
+          </button>`;
+        }).join("")}
       </div>` :
       `<div class="sub" style="margin-top:10px;color:var(--red)">この選手と入れ替えられる枠がありません</div>`;
   }
@@ -1487,7 +1545,7 @@ function projWins(t){
   return clamp(Math.round(G*(0.5 + diff*0.012)), Math.round(G*0.25), Math.round(G*0.72));
 }
 function genBatLine(p, t, bench){
-  const vol = (totalG()/130) * (bench?0.4:1) * joinScale(p);
+  const vol = (totalG()/143) * (bench?0.4:1) * joinScale(p);
   const avg = clamp(p.avg - 0.012 + gauss()*0.016, 0.210, 0.402);
   const hr = Math.max(0, Math.round(p.hr*vol*(0.82+rnd()*0.35)));
   const rbi = Math.max(hr, Math.round(p.rbi*vol*(0.82+rnd()*0.35)));
@@ -1495,7 +1553,7 @@ function genBatLine(p, t, bench){
   return {p, t, kind:"B", bench, avg, hr, rbi, sb};
 }
 function genPitLine(p, t, role, wShare){
-  const scale = totalG()/130;
+  const scale = totalG()/143;
   const src = p.twoWay || p;
   if(role==="SP"){
     const era = Math.max(0.85, src.era*(0.9+rnd()*0.45) + 0.25);
@@ -1590,11 +1648,18 @@ function statLineOf(s){
 function showResult(){
   if(!state.seasonStats) simulateAllPlayerStats();
   const s = standingsSorted();
-  const champ = s[0];
+  const champ = state.seriesWinner || s[0];
   show("scr-result");
   $("r-champ").textContent = champ.name;
   const pct=(champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
-  $("r-record").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}（勝率${pct}）で優勝！`;
+  if(state.seriesWinner){
+    const rank = s.indexOf(champ)+1;
+    $("r-champlabel").textContent = "日　本　一";
+    $("r-record").textContent = `リーグ${rank}位（${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct}）から日本シリーズを${state.seriesScore}で制覇！`;
+  }else{
+    $("r-champlabel").textContent = "優　勝";
+    $("r-record").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}（勝率${pct}）で優勝！`;
+  }
   renderStandings("r-standings");
   const titles = computeTitles();
   $("r-titles").innerHTML = titles.map(t=>`
@@ -1749,21 +1814,7 @@ function renderSpectator(snap){
       }
     });
   });
-  const B = entries.filter(s=>s.kind==="B" && !s.bench), P = entries.filter(s=>s.kind==="P");
-  const topOf = (arr,key,asc=false)=>arr.slice().sort((a,b)=>asc?a[key]-b[key]:b[key]-a[key])[0];
-  const c = v=>Math.round(v*prog);
-  const defs = [
-    ["打率", topOf(B,"avg"), s=>avg3(s.avg)], ["本塁打", topOf(B,"hr"), s=>c(s.hr)+"本"],
-    ["打点", topOf(B,"rbi"), s=>c(s.rbi)+"点"], ["盗塁", topOf(B,"sb"), s=>c(s.sb)+"個"],
-    ["勝利", topOf(P.filter(x=>x.role==="SP"),"w"), s=>c(s.w)+"勝"],
-    ["防御率", topOf(P.filter(x=>x.role==="SP"),"era",true), s=>s.era.toFixed(2)],
-    ["セーブ", topOf(P.filter(x=>x.role==="CL"),"sv"), s=>c(s.sv)+"S"],
-    ["ホールド", topOf(P.filter(x=>x.role==="RP"),"hld"), s=>c(s.hld)+"H"],
-  ];
-  $("spec-leaders").innerHTML = `<div class="lead-grid">` + defs.map(([label,s,fmt])=> s?`
-    <div class="lead-cell"><div class="lead-k">${label}</div>
-    <div class="lead-n"><span style="color:${s.t.color}">●</span> ${esc(s.p.name)}</div>
-    <div class="lead-v">${fmt(s)}</div></div>`:"").join("") + `</div>`;
+  $("spec-leaders").innerHTML = leadersHtml(entries, prog);
   $("spec-tabs").innerHTML = teams.map((t,i)=>`<span class="chip" id="spec-tab-${i}" onclick="specShowTeam(${i})"><span style="color:${t.color}">●</span> ${esc(t.n)}</span>`).join("");
   window._specData = {teams, prog};
   specShowTeam(0);
@@ -1895,7 +1946,13 @@ function seFanfare(){
 function showGogai(champ){
   $("gg-team").textContent = champ.name;
   const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
-  $("gg-sub").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct} ―― 歓喜の胴上げ`;
+  if(state.seriesWinner){
+    $("gg-v").textContent = "日本一";
+    $("gg-sub").textContent = `日本シリーズを${state.seriesScore}で制覇（リーグ戦${champ.W}勝${champ.L}敗）―― 歓喜の胴上げ`;
+  }else{
+    $("gg-v").textContent = "優　勝";
+    $("gg-sub").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct} ―― 歓喜の胴上げ`;
+  }
   $("gogai-bg").classList.add("show");
   for(let i=0;i<10;i++){
     const m = document.createElement("span");
@@ -1976,4 +2033,45 @@ function liveSkip(){
   const done = c.done;
   liveCtx = null;
   if(done) done();
+}
+
+// ============================================================
+// 日本シリーズ(レギュラー1位×2位・4勝先取・全試合生中継)
+// ============================================================
+function simSeriesGame(A, B){
+  const expA = clamp(4.2*(1+0.022*(teamAtt(A)-teamDef(B))), 1.0, 11);
+  const expB = clamp(4.2*(1+0.022*(teamAtt(B)-teamDef(A))), 1.0, 11);
+  let rA = poisson(expA), rB = poisson(expB);
+  if(rA === rB){ if(rnd() < expA/(expA+expB)) rA++; else rB++; } // 延長決着
+  return {rA, rB};
+}
+function startSeries(){
+  const s = standingsSorted();
+  state.series = {A:s[0], B:s[1], w:[0,0], g:1};
+  const txt = `日本シリーズ開幕 ―― ${s[0].name}(1位) 対 ${s[1].name}(2位)`;
+  state.news.unshift({mo:"10月", txt});
+  telop(txt);
+  $("s-date").textContent = "日本シリーズ";
+  nextSeriesGame();
+}
+function nextSeriesGame(){
+  const S = state.series;
+  const label = `日本シリーズ 第${S.g}戦（${S.A.name} ${S.w[0]}勝${S.w[1]}敗 ${S.B.name}）`;
+  const r = simSeriesGame(S.A, S.B);
+  if(r.rA > r.rB) S.w[0]++; else S.w[1]++;
+  showLiveGame(label, {A:S.A, B:S.B, rA:r.rA, rB:r.rB}, ()=>{
+    state.news.unshift({mo:"日S", txt:`第${S.g}戦 ${S.A.name} ${r.rA}-${r.rB} ${S.B.name}（${S.w[0]}勝${S.w[1]}敗）`});
+    renderNews();
+    if(S.w[0] >= 4 || S.w[1] >= 4){ finishSeries(); }
+    else { S.g++; nextSeriesGame(); }
+  });
+}
+function finishSeries(){
+  const S = state.series;
+  state.seriesDone = true;
+  state.seriesWinner = S.w[0] > S.w[1] ? S.A : S.B;
+  state.seriesScore = `4勝${Math.min(S.w[0], S.w[1])}敗`;
+  const txt = `【日本一】${state.seriesWinner.name}が日本シリーズを${state.seriesScore}で制覇！`;
+  state.news.unshift({mo:"日S", txt});
+  showResult();
 }

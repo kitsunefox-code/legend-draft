@@ -113,6 +113,12 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
   padding:0 3px;margin-right:4px;border-radius:2px;vertical-align:1px;background:#fff;
 }
 .hand.lh{border-color:var(--red);color:var(--red);}
+.form{font-size:10px;font-weight:900;letter-spacing:-1px;margin-right:2px;font-family:"Oswald",sans-serif;}
+.form.f2{color:#e03a1e;text-shadow:0 0 6px rgba(224,58,30,.5);}
+.form.f1{color:#c96a1c;}
+.form.f0{color:#b3a988;}
+.form.fm1{color:#3a6ea8;}
+.form.fm2{color:#1d4e8f;text-shadow:0 0 6px rgba(29,78,143,.4);}
 
 /* ---- タイトル(一面) ---- */
 #scr-title{text-align:center;padding-top:44px;}
@@ -374,6 +380,8 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
 .lead-row.first .lead-rk{color:var(--amber);}
 #team-bg{position:fixed;inset:0;background:rgba(30,25,15,.6);display:none;align-items:center;justify-content:center;z-index:95;padding:14px;overflow-y:auto;}
 #team-bg.show{display:flex;}
+#paper-bg{position:fixed;inset:0;background:rgba(30,25,15,.7);display:none;align-items:center;justify-content:center;z-index:96;padding:14px;overflow-y:auto;}
+#paper-bg.show{display:flex;}
 #team-box{background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:18px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;}
 #team-box h3{font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:1px;font-size:16px;margin-bottom:8px;}
 #team-box td{font-size:12px;padding:4px 6px;}
@@ -802,6 +810,9 @@ footer{margin-top:56px;}
       <label style="cursor:pointer;"><input type="checkbox" id="opt-mlb" checked> MLBスター補強（7月末に自動で一時停止、最下位チームから順に歴代メジャーリーガーを1人指名できる。コスト不要）</label>
     </div>
     <div style="margin-top:8px;">
+      <label style="cursor:pointer;"><input type="checkbox" id="opt-party"> パーティーモード（監督休養・スキャンダル謹慎→緊急補強・助っ人の電撃帰国・選手のケンカなど波乱イベントが起こる）</label>
+    </div>
+    <div style="margin-top:8px;">
       <label style="cursor:pointer;"><input type="checkbox" id="opt-cpu" checked> 参加者が3人以下のとき、CPU球団を足して4球団リーグにする</label>
     </div>
   </div>
@@ -892,7 +903,7 @@ footer{margin-top:56px;}
   </div>
 
   <div class="board">
-    <div class="p-head-b">ＳＴＡＮＤＩＮＧＳ ─ 順位表　<a href="javascript:openQr()" style="color:#9fbfa8;font-size:11px;letter-spacing:1px;float:right;">▶ 観戦用QRを表示</a></div>
+    <div class="p-head-b">ＳＴＡＮＤＩＮＧＳ ─ 順位表　<span style="float:right;"><a href="javascript:snapPaper()" style="color:#9fbfa8;font-size:11px;letter-spacing:1px;">▶ 記念紙面を保存</a>　<a href="javascript:openQr()" style="color:#9fbfa8;font-size:11px;letter-spacing:1px;">▶ 観戦用QR</a></span></div>
     <table id="standings"></table>
   </div>
 
@@ -943,6 +954,7 @@ footer{margin-top:56px;}
   </div>
 
   <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <button class="btn ghost" onclick="snapPaper()">記念紙面を保存</button>
     <button class="btn ghost" onclick="openQr()">観戦用QRを表示</button>
     <button class="btn" onclick="location.reload()">もう一度あそぶ</button>
   </div>
@@ -988,6 +1000,16 @@ footer{margin-top:56px;}
 <!-- event panel (trade / MLB / 入札抽選) -->
 <div id="event-bg">
   <div id="event-panel"></div>
+</div>
+
+<!-- 記念紙面プレビュー -->
+<div id="paper-bg" onclick="if(event.target===this)this.classList.remove('show')">
+  <div style="background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:16px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;text-align:center;">
+    <div id="paper-img"></div>
+    <div class="sub" style="margin:8px 0;">スマホは画像を長押しで保存できます</div>
+    <a id="paper-dl" class="btn sm" style="text-decoration:none;" href="#">画像をダウンロード</a>
+    <button class="btn ghost sm" onclick="document.getElementById('paper-bg').classList.remove('show')">閉じる</button>
+  </div>
 </div>
 
 <!-- チーム別成績(順位表タップ) -->

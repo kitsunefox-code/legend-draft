@@ -100,7 +100,10 @@ function loadSeg(file){
 }
 
 // ---- main ----
-const NPB_SEGS = ["seg_base.json","seg_middle.json","seg_corner.json","seg_of_classic.json","seg_of_modern.json","seg_sp_classic.json","seg_sp_modern.json","seg_relief.json","seg_mgr.json","seg_prewar.json","seg_60s90s.json","seg_modern2.json","seg_bat3.json","seg_pit3.json","seg_mgr2.json"];
+const NPB_SEGS = ["seg_base.json","seg_middle.json","seg_corner.json","seg_of_classic.json","seg_of_modern.json","seg_sp_classic.json","seg_sp_modern.json","seg_relief.json","seg_mgr.json","seg_prewar.json","seg_60s90s.json","seg_modern2.json","seg_bat3.json","seg_pit3.json","seg_mgr2.json",
+  "seg_x_giants.json","seg_x_tigers.json","seg_x_dragons.json","seg_x_swallows.json","seg_x_carp.json","seg_x_baystars.json",
+  "seg_x_hawks.json","seg_x_lions.json","seg_x_marines.json","seg_x_fighters.json","seg_x_buffaloes.json","seg_x_kintetsu_eagles.json",
+  "seg_mgr3.json","seg_mgr4.json"];
 const seen = new Set();
 const db = [];
 console.log("NPB segments:");
@@ -118,7 +121,7 @@ for(const f of NPB_SEGS){
 console.log("MLB segments:");
 const mlb = [];
 const seenM = new Set();
-for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json"]){
+for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json","seg_mlb4.json","seg_mlb5.json","seg_mlb6.json","seg_mlb7.json"]){
   for(const raw of loadSeg(f)){
     const e = cleanEntry(raw, true);
     if(!e) continue;

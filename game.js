@@ -195,6 +195,7 @@ function startDraft(){
   state.opts.mlb = $("opt-mlb").checked && MLB_STARS.length > 0;
   state.budget = Number($("opt-budget").value) || 130;
   state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
+  state.opts.party = $("opt-party") ? $("opt-party").checked : false;
 
   if($("opt-cpu").checked){
     const cpuNames = ["CPU猛牛","CPU荒鷲","CPU海豚"];
@@ -857,18 +858,45 @@ function quietResolveFromBids(part, bids){
 // ============================================================
 // チーム力
 // ============================================================
-function mgrBonus(t){ const m=t.slots.MGR; return m ? (m.ovr-85)*0.10 : 0; }
+function mgrBonus(t){
+  const m = t.slots.MGR;
+  if(!m) return 0;
+  if(t.mgrRest) return -1.0; // 監督休養中はヘッドコーチ代行
+  return (m.ovr-85)*0.10;
+}
+function morale(t){ return (state.day < (t.moraleUntil||0)) ? -1.2 : 0; }
+function fw(p){ return (p && p.form ? p.form : 0) * 1.3; } // 調子の波
 function teamAtt(t){
   let s=0;
-  for(const k of LINEUP_KEYS) s += t.slots[k].ovr;
-  for(const k of BENCH_KEYS) s += t.slots[k].ovr*0.25;
-  return s/9.75 + mgrBonus(t);
+  for(const k of LINEUP_KEYS){ const p=t.slots[k]; s += p.ovr + fw(p); }
+  for(const k of BENCH_KEYS){ const p=t.slots[k]; s += (p.ovr + fw(p))*0.25; }
+  return s/9.75 + mgrBonus(t) + morale(t);
 }
 function teamDef(t){
-  const sp = SP_KEYS.reduce((s,k)=>s+ovrFor(t.slots[k],"SP"),0)/3;
-  const rp = RP_KEYS.reduce((s,k)=>s+ovrFor(t.slots[k],"RP"),0)/2;
-  const cl = ovrFor(t.slots.CL,"CL");
-  return sp*0.60 + rp*0.25 + cl*0.15 + mgrBonus(t);
+  const sp = SP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"SP")+fw(p);},0)/3;
+  const rp = RP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"RP")+fw(p);},0)/2;
+  const cl = ovrFor(t.slots.CL,"CL") + fw(t.slots.CL);
+  return sp*0.60 + rp*0.25 + cl*0.15 + mgrBonus(t) + morale(t);
+}
+// 調子の波: 約2週間ごとに引き直し
+function rollForms(){
+  for(const t of state.parts){
+    for(const d of SLOT_DEFS){
+      if(d.key==="MGR") continue;
+      const p = t.slots[d.key];
+      if(!p) continue;
+      const r = rnd();
+      p.form = r<0.08 ? 2 : r<0.30 ? 1 : r<0.70 ? 0 : r<0.92 ? -1 : -2;
+    }
+  }
+}
+function formIcon(p){
+  const f = p && p.form ? p.form : 0;
+  if(f===2) return `<span class="form f2">▲▲</span>`;
+  if(f===1) return `<span class="form f1">▲</span>`;
+  if(f===-1) return `<span class="form fm1">▽</span>`;
+  if(f===-2) return `<span class="form fm2">▽▽</span>`;
+  return `<span class="form f0">─</span>`;
 }
 
 // ============================================================
@@ -945,6 +973,7 @@ function startSeason(){
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
   const wokeCount = rollAwakenings();
   simulateAllPlayerStats();
+  rollForms();
   state.rosterTab = 0;
   show("scr-season");
   renderStandings("standings");
@@ -1003,6 +1032,9 @@ function tick(){
   if(state.day >= state.schedule.length){ finishSeason(); return; }
   playDay();
   renderLive();
+  // パーティーモードの波乱イベント(緊急補強は一時停止して選択待ち)
+  rollPartyEvent();
+  if(state.eventCtx && state.eventCtx.type === "emergency") return;
   // 生中継: 開幕戦と優勝決定試合だけ、イニングごとにスコアが動く
   let broadcast = null;
   if(state.day === 1 && !state.openingShown){
@@ -1065,7 +1097,9 @@ function simGame(A, B){
     if(rnd() < expA/(expA+expB)) rA++; else rB++;
   }
   A.RS+=rA; A.RA+=rB; B.RS+=rB; B.RA+=rA;
-  if(rA>rB){A.W++;B.L++;} else if(rB>rA){B.W++;A.L++;} else {A.T++;B.T++;}
+  if(rA>rB){A.W++;B.L++; A.stk=(A.stk||0)+1; B.stk=0;}
+  else if(rB>rA){B.W++;A.L++; B.stk=(B.stk||0)+1; A.stk=0;}
+  else {A.T++;B.T++;}
   return {rA, rB};
 }
 function playDay(){
@@ -1082,20 +1116,35 @@ function playDay(){
     const diff = Math.abs(g.rA-g.rB);
     const win = g.rA>g.rB ? A : B, lose = g.rA>g.rB ? B : A;
     let flash = null;
-    if(diff>=7 && rnd()<0.3){
-      flash = `${win.name}が${Math.max(g.rA,g.rB)}−${Math.min(g.rA,g.rB)}の大勝！ ${lose.name}は打つ手なし`;
-    }else if(diff===1 && g.rA+g.rB>0 && rnd()<0.05){
-      const hero = LINEUP_KEYS.map(k=>win.slots[k]).sort((x,y)=>y.ovr-x.ovr)[Math.floor(rnd()*3)];
-      flash = `${hero.name}（${win.name}）が劇的サヨナラ打！ 球場は大興奮`;
-    }else if(diff>0 && (g.rA===0||g.rB===0) && rnd()<0.12){
-      const ace = SP_KEYS.map(k=>win.slots[k]).sort((x,y)=>ovrFor(y,"SP")-ovrFor(x,"SP"))[Math.floor(rnd()*2)];
-      flash = `${ace.name}（${win.name}）が${lose.name}を完封！`;
+    const hero = LINEUP_KEYS.map(k=>win.slots[k]).sort((x,y)=>y.ovr-x.ovr)[Math.floor(rnd()*3)];
+    const ace = SP_KEYS.map(k=>win.slots[k]).sort((x,y)=>ovrFor(y,"SP")-ovrFor(x,"SP"))[Math.floor(rnd()*2)];
+    if(diff>0 && (g.rA===0||g.rB===0)){
+      const r = rnd();
+      if(r<0.008){ flash = `【完全試合】${ace.name}（${win.name}）が完全試合を達成！ 球史に残る一夜`; }
+      else if(r<0.05){ flash = `【ノーヒットノーラン】${ace.name}（${win.name}）が${lose.name}を無安打無得点に封じた！`; }
+      else if(r<0.16){ flash = `${ace.name}（${win.name}）が${lose.name}を完封！`; }
+    }
+    if(!flash && Math.max(g.rA,g.rB)>=6){
+      const r2 = rnd();
+      if(r2<0.015){ flash = `【サイクル安打】${hero.name}（${win.name}）がサイクルヒット達成！`; }
+      else if(r2<0.04){ flash = `【1試合3発】${hero.name}（${win.name}）が1試合3本塁打の固め打ち！`; }
+    }
+    if(!flash && diff>0 && [8,10,12,15].includes(win.stk||0)){
+      flash = `【${win.stk}連勝】${win.name}、破竹の${win.stk}連勝で球界を席巻！`;
+    }
+    if(!flash){
+      if(diff>=7 && rnd()<0.3){
+        flash = `${win.name}が${Math.max(g.rA,g.rB)}−${Math.min(g.rA,g.rB)}の大勝！ ${lose.name}は打つ手なし`;
+      }else if(diff===1 && g.rA+g.rB>0 && rnd()<0.05){
+        flash = `${hero.name}（${win.name}）が劇的サヨナラ打！ 球場は大興奮`;
+      }
     }
     if(flash){ state.news.unshift({mo:dl, txt:flash}); telop(flash); }
   }
   state.parts.forEach(t=>t.hist.push(t.W-t.L));
   state.lastScores = scores;
   state.lastGames = played;
+  if(state.day > 0 && state.day % 12 === 0) rollForms(); // 調子の波を引き直し
   const mPrev = monthOfDay(state.day);
   state.day++;
   const mNow = state.day >= state.schedule.length ? 7 : monthOfDay(state.day);
@@ -1254,7 +1303,7 @@ function teamStatRows(t, opts){
     if(doneP.has(dupKey)) continue;
     doneP.add(dupKey);
     const marks = (p.awakened?" <span class='seal g'>覚</span>":"")+(p.traded?" <span class='seal b'>交</span>":"")+((p.joined!==undefined&&p.joined!==false)?" <span class='seal b'>米</span>":"");
-    rows.push(`<tr><td>${d.label}</td><td style="text-align:left;">${esc(p.name)}${compact?"":titleBadge(p)}${marks}</td><td style="text-align:left;">${statLineLive(statOf(t, p, d.grp))}</td></tr>`);
+    rows.push(`<tr><td>${d.label}</td><td style="text-align:left;">${formIcon(p)} ${esc(p.name)}${compact?"":titleBadge(p)}${marks}</td><td style="text-align:left;">${statLineLive(statOf(t, p, d.grp))}</td></tr>`);
   }
   return rows.join("");
 }
@@ -2109,4 +2158,186 @@ function finishSeries(){
   const txt = `【日本一】${state.seriesWinner.name}が日本シリーズを${state.seriesScore}で制覇！`;
   state.news.unshift({mo:"日S", txt});
   showResult();
+}
+
+// ============================================================
+// パーティーモード(波乱イベント): 監督休養/スキャンダル謹慎/助っ人帰国/ケンカ
+// ============================================================
+function isForeignName(name){
+  return /^[ァ-ヶーｦ-ﾟ・()A-Za-z0-9\.\-]+$/.test(name.replace(/\s/g,""));
+}
+function rollPartyEvent(){
+  if(!state.opts.party || state.eventCtx || liveCtx || state.finished) return;
+  if(state.day < 15 || rnd() > 0.016) return;
+  const teams = state.parts;
+  const dl = dateLabel(state.day-1);
+  const kind = rnd();
+  if(kind < 0.22){ // 監督休養(最下位・大型借金)
+    const s = standingsSorted();
+    const t = s[s.length-1];
+    if(t.mgrRest || (t.W - t.L) > -8 || !t.slots.MGR) return;
+    t.mgrRest = true;
+    const txt = `【監督休養】成績不振の責任を取り、${t.slots.MGR.name}監督（${t.name}）が無期限休養へ。指揮はヘッドコーチが代行`;
+    state.news.unshift({mo:dl, txt}); telop(txt);
+    return;
+  }
+  if(kind < 0.30){ // 休養明け(復帰)
+    const t = teams.find(x=>x.mgrRest);
+    if(!t) return;
+    t.mgrRest = false;
+    const txt = `【電撃復帰】${t.slots.MGR.name}監督（${t.name}）がベンチに帰ってきた！ ナインの表情が引き締まる`;
+    state.news.unshift({mo:dl, txt}); telop(txt);
+    return;
+  }
+  if(kind < 0.52){ // 選手同士のケンカ(士気低下)
+    const t = teams[Math.floor(rnd()*teams.length)];
+    if(state.day < (t.moraleUntil||0)) return;
+    const ps = LINEUP_KEYS.map(k=>t.slots[k]).filter(Boolean);
+    const a = ps[Math.floor(rnd()*ps.length)];
+    let b = ps[Math.floor(rnd()*ps.length)];
+    if(a===b) b = ps[(ps.indexOf(a)+1)%ps.length];
+    t.moraleUntil = state.day + 15;
+    const txt = `【不穏】${a.name}と${b.name}（${t.name}）がベンチ裏で衝突。しばらくチームの空気は最悪…`;
+    state.news.unshift({mo:dl, txt}); telop(txt);
+    return;
+  }
+  // スキャンダル謹慎 or 助っ人帰国 → 緊急補強
+  const t = teams[Math.floor(rnd()*teams.length)];
+  const candDefs = SLOT_DEFS.filter(d=>{
+    if(d.key==="MGR") return false;
+    const p = t.slots[d.key];
+    return p && !p.twoWay && !(p.joined!==undefined && p.joined!==false);
+  });
+  if(!candDefs.length) return;
+  let d, reason;
+  if(kind < 0.80){
+    d = candDefs[Math.floor(rnd()*candDefs.length)];
+    reason = "写真週刊誌のスキャンダル直撃で無期限謹慎";
+  }else{
+    const fDefs = candDefs.filter(x=>isForeignName(t.slots[x.key].name));
+    if(!fDefs.length){ d = candDefs[Math.floor(rnd()*candDefs.length)]; reason = "写真週刊誌のスキャンダル直撃で無期限謹慎"; }
+    else { d = fDefs[Math.floor(rnd()*fDefs.length)]; reason = "家庭の事情により電撃帰国"; }
+  }
+  startEmergency(t, d.key, reason);
+}
+function startEmergency(t, slotKey, reason){
+  const d = SLOT_DEFS.find(x=>x.key===slotKey);
+  const victim = t.slots[slotKey];
+  const wasPlaying = state.playing;
+  stopTimer();
+  state.resumeAfterEvent = wasPlaying;
+  const cands = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat!=="M" && !p.twoWay && eligibleGrp(p, d.grp))
+    .sort((a,b)=>b.ovr-a.ovr);
+  const watch = t.watch || new Set();
+  const list = [...cands.filter(p=>watch.has(p.id)), ...cands.filter(p=>!watch.has(p.id))].slice(0,10);
+  const txt = `【緊急事態】${victim.name}（${t.name}・${d.label}）が${reason}！`;
+  state.news.unshift({mo:dateLabel(state.day-1), txt}); telop(txt);
+  if(!list.length){ // 代役なし→騒動は沈静化
+    state.news.unshift({mo:dateLabel(state.day-1), txt:`${t.name}球団が謝罪会見。${victim.name}は厳重注意で決着した`});
+    if(state.resumeAfterEvent){ state.resumeAfterEvent=false; startTimer(); }
+    return;
+  }
+  state.eventCtx = {type:"emergency", t, slotKey, victim, reason, list};
+  $("s-play").disabled = true; $("s-skip").disabled = true;
+  if(t.cpu){ emergencySign(list[0].id); return; }
+  $("event-panel").innerHTML = `
+    <h2><span class="kicker">緊急速報</span>${esc(t.name)} ── 緊急補強</h2>
+    <div class="sub"><b>${esc(victim.name)}</b>（${d.label}）が${reason}。支配下外から代役を1人選んでください（コスト不要・残り試合に出場）。★は注目リストの選手。</div>
+    <div class="mlb-grid" style="margin-top:10px;">
+      ${list.map(p=>`
+        <div class="mlb-card" onclick="emergencySign('${p.id}')">
+          <span class="rank rank-${rankOf(p.ovr)}" style="position:absolute;top:7px;right:8px;">${rankOf(p.ovr)}</span>
+          <div class="pc-row">${avatarBox(p,36)}
+            <div class="pc-main">
+              <div class="nm">${watch.has(p.id)?'<span class="tbadge">★</span>':''}${esc(p.name)}${titleBadge(p)}</div>
+              <div class="meta">${roleLabel(p)}・${handMark(p)}${esc(p.team)}・${p.year}年</div>
+              <div class="meta">${statShort(p)}</div>
+            </div>
+          </div>
+        </div>`).join("")}
+    </div>`;
+  $("event-bg").classList.add("show");
+}
+function emergencySign(pid){
+  const ctx = state.eventCtx;
+  if(!ctx || ctx.type!=="emergency") return;
+  const p = findPlayer(pid);
+  const t = ctx.t;
+  const d = SLOT_DEFS.find(x=>x.key===ctx.slotKey);
+  state.taken.add(p.id);
+  state.seasonStats = state.seasonStats.filter(s=>!(s.p===ctx.victim && s.t===t));
+  t.slots[ctx.slotKey] = p;
+  p.joined = true;
+  if(["SP","RP","CL"].includes(d.grp)) state.seasonStats.push(genPitLine(p, t, d.grp, projWins(t)*0.2));
+  else state.seasonStats.push(genBatLine(p, t, d.grp==="BN"));
+  const txt = `【緊急補強】${t.name}が${p.name}を電撃獲得！ ${ctx.victim.name}の穴を埋める`;
+  state.news.unshift({mo:dateLabel(state.day-1), txt}); telop(txt);
+  seTap();
+  endEventPhase();
+}
+
+// ============================================================
+// ドラフト記念紙面(画像保存)
+// ============================================================
+function snapPaper(){
+  if(!state.parts.length || !state.parts.every(rosterFull)){ alert("ドラフト完了後に使えます"); return; }
+  const n = state.parts.length;
+  const cols = n<=2 ? n : 2;
+  const rows = Math.ceil(n/cols);
+  const W = 1080, colW = (W-60)/cols;
+  const blockH = 520, headH = 170;
+  const H = headH + rows*blockH + 50;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext("2d");
+  const mincho = '"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif';
+  // 紙面
+  ctx.fillStyle = "#f2ecdd"; ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle = "#221e17"; ctx.lineWidth = 3; ctx.strokeRect(14,14,W-28,H-28);
+  ctx.lineWidth = 1; ctx.strokeRect(20,20,W-40,H-40);
+  // 見出し
+  ctx.fillStyle = "#a72c18"; ctx.fillRect(40,44,110,34);
+  ctx.fillStyle = "#fdf9ef"; ctx.font = `bold 20px ${mincho}`; ctx.fillText("球史特報", 52, 68);
+  ctx.fillStyle = "#221e17"; ctx.font = `900 52px ${mincho}`;
+  ctx.fillText("ドラフト会議 全指名選手", 170, 84);
+  ctx.font = `15px ${mincho}`; ctx.fillStyle = "#57503f";
+  const capLbl = state.rankCap ? `能力縛り:${state.rankCap===93?"S以下":state.rankCap===88?"A以下":"B以下"}　` : "";
+  ctx.fillText(`${capLbl}コスト上限${state.budget}pt　参加${n}球団 ―― 球史新聞社`, 172, 112);
+  ctx.strokeStyle = "#221e17"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(40,130); ctx.lineTo(W-40,130); ctx.stroke();
+  // 各チーム
+  state.parts.forEach((t,i)=>{
+    const cx = 40 + (i%cols)*colW;
+    const cy = headH + Math.floor(i/cols)*blockH;
+    ctx.fillStyle = t.color; ctx.fillRect(cx, cy, 8, 26);
+    ctx.fillStyle = "#221e17"; ctx.font = `900 26px ${mincho}`;
+    ctx.fillText(t.name, cx+16, cy+22);
+    ctx.font = `13px ${mincho}`; ctx.fillStyle = "#57503f";
+    ctx.fillText(`計${t.spent}pt`, cx+colW-90, cy+20);
+    let y = cy + 48;
+    const done = new Set();
+    for(const d of SLOT_DEFS){
+      const p = t.slots[d.key];
+      if(!p) continue;
+      const key = p.id + d.grp;
+      if(done.has(p.id) && d.grp==="SP" && p.twoWay){ /* 二刀流2行目もOK */ }
+      else if(done.has(p.id)) continue;
+      done.add(p.id);
+      ctx.fillStyle = "#8f8468"; ctx.font = `12px ${mincho}`;
+      ctx.fillText(d.label, cx+4, y);
+      ctx.fillStyle = "#221e17"; ctx.font = `bold 17px ${mincho}`;
+      ctx.fillText(`${p.name}`, cx+48, y);
+      ctx.fillStyle = "#57503f"; ctx.font = `12px ${mincho}`;
+      const extra = p.cat==="M" ? `優勝${p.pennants}回` : `'${String(p.year).slice(2)} ${p.no!==undefined?"#"+p.no:""}${p.tc?" 三冠":p.titles?" ★"+p.titles:""}`;
+      ctx.fillText(extra, cx+colW-118, y);
+      y += 23.5;
+    }
+  });
+  ctx.fillStyle = "#8f8468"; ctx.font = `12px ${mincho}`;
+  ctx.fillText("kusayakyu-navi.com/legend-draft ── 成績はキャリアハイ年の実測に基づく", 40, H-32);
+  const url = cv.toDataURL("image/png");
+  $("paper-img").innerHTML = `<img src="${url}" style="max-width:100%;border:1px solid var(--rule2);" alt="ドラフト記念紙面">`;
+  $("paper-dl").href = url;
+  $("paper-dl").download = "legend-draft-shimen.png";
+  $("paper-bg").classList.add("show");
 }

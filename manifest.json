@@ -1,0 +1,17 @@
+{
+  "name": "架空ドラフトバトル 〜球史 レジェンドドラフト〜",
+  "short_name": "ドラフトバトル",
+  "description": "歴代プロ野球の名選手をドラフトで指名し、自動ペナントで日本一を決めるパーティーゲーム",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d1420",
+  "theme_color": "#173d2d",
+  "lang": "ja",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

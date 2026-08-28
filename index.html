@@ -662,6 +662,74 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
   animation:ggFall linear forwards;box-shadow:2px 2px 0 rgba(0,0,0,.3);
 }
 @keyframes ggFall{to{transform:translateY(115vh) rotate(320deg);opacity:.55;}}
+
+/* ============================================================
+   上質化パス: 素材感・段差・余白・箔押し(安っぽさ退治)
+   ============================================================ */
+h1 .en{
+  float:right;font-family:"Oswald",sans-serif;font-size:10px;letter-spacing:6px;
+  color:#a89c7d;margin-top:18px;font-weight:500;
+}
+.panel{
+  background:linear-gradient(180deg,#fbf7ec 0%,#f8f2e2 100%);
+  border:1px solid #d6ccb1;border-top:3px double var(--ink);
+  padding:20px 22px;
+  box-shadow:0 1px 0 rgba(255,255,255,.75) inset, 0 14px 26px -20px rgba(70,58,32,.65);
+}
+.pcard{
+  background:linear-gradient(180deg,#fffdf6,#faf4e5);
+  border:1px solid #d9cfb4;
+  box-shadow:0 1px 0 #fff inset, 0 8px 16px -12px rgba(70,58,32,.55);
+  padding:10px 11px 10px 14px;overflow:hidden;
+}
+.pcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#b7ab8a;}
+.pcard.spine-B::before{background:var(--red2);}
+.pcard.spine-P::before{background:var(--navy);}
+.pcard.spine-M::before{background:#4a3568;}
+.pcard.spine-W::before{background:linear-gradient(180deg,var(--red2) 50%,var(--navy) 50%);}
+.pcard:hover{border-color:#b09a63;box-shadow:0 1px 0 #fff inset, 0 14px 22px -12px rgba(70,58,32,.6);}
+.pcard.rec{background:linear-gradient(180deg,#fdf8e2,#f8efd0);}
+.rank{
+  width:22px;height:22px;line-height:22px;border-radius:3px;
+  box-shadow:0 0 0 1.5px rgba(255,255,255,.5) inset, 1px 2px 3px rgba(34,30,23,.35);
+}
+.btn{
+  border-radius:3px;
+  box-shadow:0 1px 0 rgba(255,255,255,.3) inset, 0 6px 12px -6px rgba(120,30,15,.7);
+}
+.btn.ghost{box-shadow:0 1px 0 #fff inset, 0 6px 12px -8px rgba(70,58,32,.55);}
+select,input[type=text]{border-radius:3px;box-shadow:inset 0 2px 3px rgba(70,58,32,.09);background:#fffdf6;}
+.chip{border-radius:3px;background:#fffdf6;}
+.tag{background:transparent;border-color:#cec39f;}
+th{letter-spacing:2px;}
+td{padding:7px 9px;}
+.board{
+  border-radius:4px;border:1px solid #081810;border-top:3px solid #b98a1c;
+  box-shadow:inset 0 0 46px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.07), 0 16px 30px -20px rgba(0,0,0,.8);
+  outline-color:#38624c;
+}
+.board .p-head-b{color:#a8c8b0;border-bottom:1px solid #38624c66;}
+.board .chip{background:#0f2c20;color:#b8cbb9;border-color:#2c5742;}
+.board .chip.on{background:var(--amber);color:var(--ink);border-color:var(--amber);font-weight:bold;}
+.board table td{border-bottom:1px solid #21453422;}
+.lead-cell{border-radius:3px;background:linear-gradient(180deg,#123526,#0d281c);border-color:#2c5742;}
+.draft-banner{
+  padding:14px 20px;border-radius:3px 3px 0 0;
+  box-shadow:0 14px 26px -18px rgba(0,0,0,.75);
+}
+.roster-box{
+  background:linear-gradient(180deg,#faf5e8,#f5eeda);
+  box-shadow:0 10px 20px -16px rgba(70,58,32,.65);
+}
+#modal,#event-panel,#team-box,#qr-box,#live{
+  border-radius:3px;
+  box-shadow:0 40px 80px -34px rgba(20,16,8,.75), 0 0 0 1px rgba(255,255,255,.35) inset;
+}
+#news .nw:first-child{background:#fdf6df;border-left:3px solid var(--goldseal);padding-left:9px;border-bottom:1px solid var(--rule);}
+.tr-col,.mlb-card,.rel-btn,.tr-item{background:linear-gradient(180deg,#fffdf6,#faf4e5);}
+.tr-item{background:transparent;}
+footer{margin-top:56px;}
+@media (max-width:680px){ h1 .en{display:none;} }
 @media (max-width:680px){
   #gogai{padding:30px 72px 26px 24px;}
   #gogai .gg-go{font-size:38px;right:12px;letter-spacing:8px;}
@@ -689,7 +757,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 
 <!-- ================= SETUP ================= -->
 <div id="scr-setup" class="screen">
-  <h1><span class="kicker">第一面</span>球団結成</h1>
+  <h1><span class="kicker">第一面</span>球団結成<span class="en">FRANCHISE</span></h1>
 
   <div class="panel">
     <b>参加者（2〜6人）</b>
@@ -702,6 +770,17 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
     <b>年代縛り（全員共通）</b>
     <div class="sub" style="margin:4px 0 8px;">選んだ年代の選手だけがドラフト対象になります。何も選ばなければ全年代。</div>
     <div id="era-chips"></div>
+  </div>
+
+  <div class="panel">
+    <b>能力縛り</b>
+    <div class="sub" style="margin:4px 0 8px;">スター抜きの「いぶし銀ペナント」が楽しめます。監督・MLB補強にも適用（開幕時の覚醒による上振れはロマンとして許容）。</div>
+    <select id="opt-rank">
+      <option value="" selected>縛りなし（SS級もあり）</option>
+      <option value="93">SS級禁止（能力S以下で編成）</option>
+      <option value="88">A以下のみ（いぶし銀の戦い）</option>
+      <option value="83">B以下のみ（玄人志向）</option>
+    </select>
   </div>
 
   <div class="panel">
@@ -743,7 +822,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 
 <!-- ================= DRAFT ================= -->
 <div id="scr-draft" class="screen">
-  <h1><span class="kicker">第二面</span>ドラフト会議</h1>
+  <h1><span class="kicker">第二面</span>ドラフト会議<span class="en">THE DRAFT</span></h1>
   <div class="draft-banner">
     <div class="who" id="d-who"></div>
     <div class="sub" id="d-round"></div>
@@ -792,7 +871,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 
 <!-- ================= SEASON ================= -->
 <div id="scr-season" class="screen">
-  <h1><span class="kicker">第三面</span>ペナントレース</h1>
+  <h1><span class="kicker">第三面</span>ペナントレース<span class="en">PENNANT RACE</span></h1>
   <div class="board">
     <div class="month-head">
       <div class="month-big" id="s-date">開幕前</div>
@@ -820,6 +899,12 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
   <div class="board">
     <div class="p-head-b">ＬＥＡＤＥＲＳ ─ 部門トップ</div>
     <div id="leaders"></div>
+  </div>
+
+  <div class="board">
+    <div class="p-head-b">ＲＯＳＴＥＲ ─ 所属選手の成績</div>
+    <div id="roster-tabs" style="margin-bottom:6px;"></div>
+    <div id="roster-live"></div>
   </div>
 
   <div class="panel" id="chart-box">
@@ -865,7 +950,7 @@ h1{background:linear-gradient(180deg, transparent 82%, rgba(167,44,24,.08) 82%);
 
 <!-- ================= 観戦モード(URLスナップショット) ================= -->
 <div id="scr-spec" class="screen">
-  <h1><span class="kicker">観戦席</span>ペナント速報</h1>
+  <h1><span class="kicker">観戦席</span>ペナント速報<span class="en">LIVE BULLETIN</span></h1>
   <div class="spec-note" id="spec-note"></div>
   <div class="board">
     <div class="p-head-b">ＳＴＡＮＤＩＮＧＳ ─ 順位表</div>

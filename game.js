@@ -194,6 +194,7 @@ function startDraft(){
   state.opts.trade = $("opt-trade").checked;
   state.opts.mlb = $("opt-mlb").checked && MLB_STARS.length > 0;
   state.budget = Number($("opt-budget").value) || 130;
+  state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
 
   if($("opt-cpu").checked){
     const cpuNames = ["CPU猛牛","CPU荒鷲","CPU海豚"];
@@ -202,7 +203,7 @@ function startDraft(){
   }
   // プール枯渇チェック
   const n = state.parts.length;
-  const pool = PLAYERS.filter(p=>eraOK(p));
+  const pool = PLAYERS.filter(p=>poolOK(p));
   const needs = [
     ["監督", n, pool.filter(p=>p.cat==="M").length],
     ["捕手", n, pool.filter(p=>eligibleGrp(p,"捕")).length],
@@ -234,6 +235,8 @@ function startDraft(){
 }
 
 function eraOK(p){ return state.eras.size===0 || state.eras.has(p.decade); }
+function rankOK(p){ return !state.rankCap || p.ovr <= state.rankCap; }
+function poolOK(p){ return eraOK(p) && rankOK(p); }
 function openSlots(t){ return SLOT_DEFS.filter(d=>!t.slots[d.key]); }
 function rosterFull(t){ return SLOT_DEFS.every(d=>t.slots[d.key]); }
 
@@ -258,7 +261,7 @@ function currentPhase(){
 let cheapCache = {size:-1, map:null};
 function grpReserveMap(){
   if(cheapCache.size === state.taken.size) return cheapCache.map;
-  const avail = PLAYERS.filter(p=>!state.taken.has(p.id) && eraOK(p));
+  const avail = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p));
   // ポジションごとの残り需要(全チーム合計)
   const demand = {};
   for(const t of state.parts) for(const d of openSlots(t)) demand[d.grp] = (demand[d.grp]||0)+1;
@@ -307,10 +310,10 @@ function assign(t,p){
   if(d) t.slots[d.key] = p;
 }
 function validPool(t, respectFr=true){
-  let pool = PLAYERS.filter(p=>!state.taken.has(p.id) && eraOK(p) && canTake(t,p));
+  let pool = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && canTake(t,p));
   let over = false;
   if(!pool.length){ // 資金難で候補ゼロ→特例で予算超過を許可(最安値の選手を拾えるように)
-    pool = PLAYERS.filter(p=>!state.taken.has(p.id) && eraOK(p) && canTake(t,p,true));
+    pool = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && canTake(t,p,true));
     over = true;
   }
   if(respectFr && t.fr){
@@ -430,7 +433,7 @@ function renderPool(){
   else list.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
   $("pool-count").textContent = `${list.length}名`;
   $("pool").innerHTML = list.map(p=>`
-    <div class="pcard" onclick="openModal('${p.id}')">
+    <div class="pcard spine-${p.cat==="M"?"M":p.twoWay?"W":p.cat}" onclick="openModal('${p.id}')">
       <span class="rank rank-${rankOf(p.ovr)}">${rankOf(p.ovr)}</span>
       ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')">★</span>`}
       <div class="pc-row">
@@ -942,9 +945,11 @@ function startSeason(){
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
   const wokeCount = rollAwakenings();
   simulateAllPlayerStats();
+  state.rosterTab = 0;
   show("scr-season");
   renderStandings("standings");
   renderLeaders();
+  renderRosterLive();
   renderChart();
   renderNews();
   $("s-date").textContent = "開幕前";
@@ -1106,6 +1111,7 @@ function renderLive(){
   $("s-note").textContent = `首位: ${lead.name}（${lead.W}勝${lead.L}敗${lead.T?lead.T+"分":""}）`;
   renderStandings("standings");
   renderLeaders();
+  renderRosterLive();
   renderChart();
   renderNews();
 }
@@ -1234,6 +1240,35 @@ function renderStandings(elId){
     }).join("");
 }
 
+// ---- 所属選手の成績(順位表下の常設ボード・タブ切替・毎日更新) ----
+function teamStatRows(t, opts){
+  const compact = opts && opts.compact;
+  const doneP = new Set();
+  const rows = [];
+  for(const d of SLOT_DEFS){
+    if(d.key==="MGR") continue;
+    const p = t.slots[d.key];
+    if(!p) continue;
+    const pit = ["SP","RP","CL"].includes(d.grp);
+    const dupKey = p.id + (pit?"P":"B");
+    if(doneP.has(dupKey)) continue;
+    doneP.add(dupKey);
+    const marks = (p.awakened?" <span class='seal g'>覚</span>":"")+(p.traded?" <span class='seal b'>交</span>":"")+((p.joined!==undefined&&p.joined!==false)?" <span class='seal b'>米</span>":"");
+    rows.push(`<tr><td>${d.label}</td><td style="text-align:left;">${esc(p.name)}${compact?"":titleBadge(p)}${marks}</td><td style="text-align:left;">${statLineLive(statOf(t, p, d.grp))}</td></tr>`);
+  }
+  return rows.join("");
+}
+function renderRosterLive(){
+  const tabs = $("roster-tabs"), body = $("roster-live");
+  if(!tabs || !body || !state.seasonStats) return;
+  if(state.rosterTab === undefined) state.rosterTab = 0;
+  tabs.innerHTML = state.parts.map((t,i)=>
+    `<span class="chip ${state.rosterTab===i?"on":""}" onclick="state.rosterTab=${i};renderRosterLive()"><span style="color:${state.rosterTab===i?"#fff":t.color}">●</span> ${esc(t.name)}</span>`
+  ).join("");
+  const t = state.parts[state.rosterTab] || state.parts[0];
+  body.innerHTML = `<table><tr><th>位置</th><th>選手</th><th>ここまでの成績</th></tr>${teamStatRows(t, {compact:true})}</table>`;
+}
+
 // ---- チーム別 選手成績(順位表の行をタップ。自由契約やトレードの判断材料に) ----
 function openTeamStats(idx){
   const t = state.parts[idx];
@@ -1308,7 +1343,7 @@ function startEvent(type){
   }else if(type==="mlb"){
     // 最下位チームから順に指名(コストは不要)
     state.eventCtx = {type, queue:standingsSorted().reverse(), idx:0,
-      pool:shuffle(MLB_STARS.filter(p=>p.joined===undefined)).slice(0, state.parts.length+4), star:null};
+      pool:shuffle(MLB_STARS.filter(p=>p.joined===undefined && rankOK(p))).slice(0, state.parts.length+4), star:null};
     advanceMlb();
   }
 }

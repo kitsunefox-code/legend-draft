@@ -41,6 +41,7 @@ function cleanEntry(raw, isMLB){
     e.japan = clamp(Math.round(num(raw.japan)), 0, 11);
     e.wins = clamp(Math.round(num(raw.wins)), 0, 1800);
     e.desc = String(raw.desc||"").trim().slice(0, 100);
+    if(Number.isFinite(Number(raw.no))) e.no = clamp(Math.round(Number(raw.no)), 0, 199);
     return e;
   }
   // cat判定: 明示 or フィールドから推測
@@ -55,6 +56,9 @@ function cleanEntry(raw, isMLB){
   e.desc = String(raw.desc||"").trim().slice(0, 90);
   if(raw.titles !== undefined) e.titles = clamp(Math.round(num(raw.titles)), 0, 45);
   if(raw.tc) e.tc = true;
+  if(raw.th==="右"||raw.th==="左") e.th = raw.th;
+  if(["右","左","両"].includes(raw.bh)) e.bh = raw.bh;
+  if(Number.isFinite(Number(raw.no))) e.no = clamp(Math.round(Number(raw.no)), 0, 199);
   if(e.cat === "B"){
     e.pos = cleanPos(raw.pos) || "外";
     let avg = num(raw.avg);
@@ -96,7 +100,7 @@ function loadSeg(file){
 }
 
 // ---- main ----
-const NPB_SEGS = ["seg_base.json","seg_middle.json","seg_corner.json","seg_of_classic.json","seg_of_modern.json","seg_sp_classic.json","seg_sp_modern.json","seg_relief.json","seg_mgr.json","seg_prewar.json","seg_60s90s.json","seg_modern2.json"];
+const NPB_SEGS = ["seg_base.json","seg_middle.json","seg_corner.json","seg_of_classic.json","seg_of_modern.json","seg_sp_classic.json","seg_sp_modern.json","seg_relief.json","seg_mgr.json","seg_prewar.json","seg_60s90s.json","seg_modern2.json","seg_bat3.json","seg_pit3.json","seg_mgr2.json"];
 const seen = new Set();
 const db = [];
 console.log("NPB segments:");
@@ -114,7 +118,7 @@ for(const f of NPB_SEGS){
 console.log("MLB segments:");
 const mlb = [];
 const seenM = new Set();
-for(const f of ["seg_mlb.json","seg_mlb2.json"]){
+for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json"]){
   for(const raw of loadSeg(f)){
     const e = cleanEntry(raw, true);
     if(!e) continue;

@@ -2774,6 +2774,93 @@ const PARTY_CHOICES = [
     } },
 ];
 
+// ============================================================
+// 史実パロディ・イベント(データ駆動。data/party_*.json → PARTY_LORE)
+// ============================================================
+function loreTargets(e){
+  // 対象を解決。条件に合うチーム/選手が見つからなければ null
+  const teams = shuffle(state.parts);
+  for(const t of teams){
+    const bats = lineupOf(t).concat(benchOf(t));
+    const pits = pitchersOf(t);
+    const all = bats.concat(pits);
+    const drops = droppableDefs(t);
+    let P = null, P2 = null, T2 = null, slotKey = null;
+    switch(e.target){
+      case "team": break;
+      case "manager": if(!t.slots.MGR) continue; break;
+      case "player": if(!bats.length) continue; P = pick1(bats); break;
+      case "pitcher": if(!pits.length) continue; P = pick1(pits); break;
+      case "foreign": {
+        const fs = all.filter(p=>isForeignName(p.name));
+        if(!fs.length) continue;
+        P = pick1(fs); break;
+      }
+      case "twoPlayers": {
+        if(bats.length < 2) continue;
+        const two = shuffle(bats).slice(0,2); P = two[0]; P2 = two[1]; break;
+      }
+      case "twoTeams": {
+        const others = state.parts.filter(x=>x!==t);
+        if(!others.length) continue;
+        T2 = pick1(others); break;
+      }
+      default: if(!all.length) continue; P = pick1(all);
+    }
+    // leave は入れ替え可能な枠が必要
+    if(e.effect === "leave"){
+      let ds = drops;
+      if(e.target === "foreign") ds = drops.filter(d=>isForeignName(t.slots[d.key].name));
+      else if(e.target === "pitcher") ds = drops.filter(d=>["SP","RP","CL"].includes(d.grp));
+      else if(e.target === "player") ds = drops.filter(d=>!["SP","RP","CL"].includes(d.grp));
+      if(!ds.length) continue;
+      const d = P ? (ds.find(x=>t.slots[x.key] === P) || pick1(ds)) : pick1(ds);
+      slotKey = d.key; P = t.slots[d.key];
+    }
+    // 士気系は効果が重複しないように
+    if((e.effect === "moodUp" || e.effect === "moodDown") && !moodFree(t)) continue;
+    if(e.effect === "mgrRest" && (t.mgrRest || !t.slots.MGR)) continue;
+    if(e.effect === "mgrBack" && !t.mgrRest) continue;
+    return {t, P, P2, T2, slotKey};
+  }
+  return null;
+}
+function loreText(e, x){
+  return e.text
+    .replace(/\{P2\}/g, x.P2 ? x.P2.name : (x.P ? x.P.name : "ナイン"))
+    .replace(/\{P\}/g,  x.P ? x.P.name : "ナイン")
+    .replace(/\{T2\}/g, x.T2 ? x.T2.name : "相手球団")
+    .replace(/\{T\}/g,  x.t.name)
+    .replace(/\{M\}/g,  x.t.slots.MGR ? x.t.slots.MGR.name : "監督");
+}
+function runLore(e){
+  const x = loreTargets(e);
+  if(!x) return false;
+  const t = x.t;
+  const txt = loreText(e, x);
+  switch(e.effect){
+    case "moodUp":   moodSet(t, 1.3, 16, "好材料"); break;
+    case "moodDown": moodSet(t, -1.3, 16, "動揺"); break;
+    case "formUp":   if(x.P) x.P.form = 2; break;
+    case "formDown": if(x.P) x.P.form = -2; break;
+    case "formUpTeam":   formShift([...lineupOf(t), ...pitchersOf(t)], 1); break;
+    case "formDownTeam": formShift([...lineupOf(t), ...pitchersOf(t)], -1); break;
+    case "ovrUp":   if(x.P){ x.P.ovr = Math.min(99, x.P.ovr + 3); x.P.awakened = true; x.P.form = 2; } break;
+    case "ovrDown": if(x.P){ x.P.ovr = Math.max(60, x.P.ovr - 3); x.P.form = -2; } break;
+    case "mgrRest": t.mgrRest = true; break;
+    case "mgrBack": t.mgrRest = false; moodSet(t, 1.0, 18, "監督復帰"); break;
+    case "leave":
+      partyNews(e.icon || "急", e.cls || "bad", txt);
+      startEmergency(t, x.slotKey, "球界を揺るがす事態でチームを離れた");
+      renderRosterLive();
+      return true;
+    default: break;
+  }
+  partyNews(e.icon || "報", e.cls || "fun", txt);
+  if(["formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown"].includes(e.effect)) renderRosterLive();
+  return true;
+}
+
 function rollPartyEvent(){
   if(!state.opts.party || state.eventCtx || liveCtx || state.finished) return;
   if(state.day < 8) return;
@@ -2789,6 +2876,15 @@ function rollPartyEvent(){
     }
   }
   if(rnd() > 0.13) return;
+  // 史実パロディ(データ駆動)を優先抽選。対象が見つからなければ既存イベントへ
+  if(typeof PARTY_LORE !== "undefined" && PARTY_LORE.length && rnd() < 0.75){
+    const total = PARTY_LORE.reduce((s,e)=>s+(e.w||2), 0);
+    let r = rnd()*total;
+    for(const e of PARTY_LORE){
+      r -= (e.w||2);
+      if(r <= 0){ try{ if(runLore(e)) return; }catch(err){ console.error("lore", e.id, err); } break; }
+    }
+  }
   const cands = PARTY_EVENTS.filter(e=>{ try{ return e.need(); }catch(err){ return false; } });
   if(!cands.length) return;
   const total = cands.reduce((s,e)=>s+e.w, 0);

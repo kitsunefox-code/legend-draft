@@ -210,6 +210,39 @@ console.log("  SP", count(db,p=>p.role==="SP"), " RP", count(db,p=>p.role==="RP"
 console.log("=== MLB", mlb.length, "players ===");
 console.log("  野手", count(mlb,p=>p.cat==="B"), " SP", count(mlb,p=>p.role==="SP"), " RP/CL", count(mlb,p=>p.role==="RP"||p.role==="CL"));
 
+// ---- パーティーモードの史実パロディ・イベント ----
+const PARTY_FILES = ["party_npb_showa.json","party_npb_heisei.json","party_mlb.json","party_misc.json"];
+const VALID_EFFECT = new Set(["none","moodUp","moodDown","formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown","leave","mgrRest","mgrBack"]);
+const VALID_TARGET = new Set(["team","player","pitcher","foreign","manager","twoPlayers","twoTeams"]);
+const VALID_CLS = new Set(["good","bad","warn","fun"]);
+console.log("party events:");
+const lore = [], loreSeen = new Set();
+for(const f of PARTY_FILES){
+  let n = 0;
+  for(const raw of loadSeg(f)){
+    if(!raw || !raw.text || !raw.id) continue;
+    const id = String(raw.id).trim();
+    if(loreSeen.has(id)) continue;
+    loreSeen.add(id);
+    lore.push({
+      id,
+      icon: (String(raw.icon||"報").trim()[0]) || "報",
+      cls: VALID_CLS.has(raw.cls) ? raw.cls : "fun",
+      w: clamp(Math.round(num(raw.w, 2)), 1, 5),
+      target: VALID_TARGET.has(raw.target) ? raw.target : "team",
+      effect: VALID_EFFECT.has(raw.effect) ? raw.effect : "none",
+      text: String(raw.text).trim().slice(0, 140),
+    });
+    n++;
+  }
+  if(n) console.log("  ", f, n);
+}
+const byEffect = {};
+for(const e of lore) byEffect[e.effect] = (byEffect[e.effect]||0)+1;
+console.log("  total:", lore.length, JSON.stringify(byEffect));
+fs.writeFileSync(path.join(root, "party.js"),
+  "// 自動生成(tools/merge_db.js)。史実パロディ・イベント定義。\nconst PARTY_LORE = " + JSON.stringify(lore) + ";\n", "utf8");
+
 const header = "// このファイルは tools/merge_db.js が data/*.json から自動生成する。直接編集しないこと。\n";
 const body = "const DB = " + JSON.stringify(db) + ";\n\nconst MLB_DB = " + JSON.stringify(mlb) + ";\n";
 fs.writeFileSync(path.join(root, "players.js"), header + body, "utf8");

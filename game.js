@@ -2615,6 +2615,7 @@ function liveApply(e, silent){
   const c = liveCtx;
   if(e.t === "pitch"){
     if(!silent){
+      if(e.b === 0 && e.s === 0) showSuper(e);
       renderDiamond({inn:e.inn, top:e.top, outs:e.outs, on:e.on, bat:e.bat, batNo:e.batNo,
         pit:e.pit, pitRole:e.pitRole, bcnt:e.b, scnt:e.s,
         pitchTxt:`${e.kmh}km/h ${e.type}・${e.zone} → ${e.res}`});
@@ -3487,4 +3488,46 @@ function renderWinBar(e){
       '<div class="wp-b" style="width:' + pb + '%;background:' + g.B.color + '"><span>' + pb + '%</span></div>' +
     '</div>' +
     '<div class="wp-names"><span>' + esc(g.A.name) + '</span><span>' + esc(g.B.name) + '</span></div>';
+}
+
+// ============================================================
+// 選手紹介スーパー(打席入り時に2秒だけ出す)
+// ============================================================
+function poseFor(p, kind){
+  // 名前から安定した番号を作り、同じ選手には常に同じ絵を割り当てる
+  let h = 0;
+  const n = p.name || "";
+  for(let i=0;i<n.length;i++) h = (h*31 + n.charCodeAt(i)) & 0x7fffffff;
+  const idx = (h % 6) + 1;
+  return "assets/pose/" + kind + idx + ".png";
+}
+function showSuper(e){
+  if(!e || !e.bat) return;
+  const c = liveCtx; if(!c) return;
+  const t = e.top ? c.g.A : c.g.B;
+  // 打者本人の season 成績を引く
+  const p = LINEUP_KEYS.concat(BENCH_KEYS).map(function(k){ return t.slots[k]; })
+    .find(function(x){ return x && x.name === e.bat; });
+  const st = p ? statOf(t, p, "DH") : null;
+  const prog = seasonProg() || 1;
+  const cv = function(v){ return Math.round((v||0) * prog); };
+  const box = $("lv-super");
+  if(!box) return;
+  box.innerHTML =
+    '<img class="sp-fig" src="' + poseFor(p || {name:e.bat}, "bat") + '" alt="" onerror="this.style.display=\'none\'">' +
+    '<div class="sp-body">' +
+      '<div class="sp-top">' + (e.batNo !== undefined ? '<span class="sp-no">' + e.batNo + '</span>' : "") +
+        '<span class="sp-team">' + esc(t.name) + '</span>' +
+        (p ? '<span class="sp-hand">' + (p.th||"?") + '投' + (p.bh||"?") + '打</span>' : "") + '</div>' +
+      '<div class="sp-name">' + esc(e.bat) + '</div>' +
+      (st ? '<div class="sp-stats">' +
+        '<span><i>打率</i>' + avg3(st.avg) + '</span>' +
+        '<span><i>本</i>' + cv(st.hr) + '</span>' +
+        '<span><i>点</i>' + cv(st.rbi) + '</span>' +
+        '<span><i>OPS</i>' + (st.ops||0).toFixed(3).replace(/^0/,"") + '</span>' +
+      '</div>' : "") +
+    '</div>';
+  box.classList.add("in");
+  clearTimeout(state.superTimer);
+  state.superTimer = setTimeout(function(){ box.classList.remove("in"); }, 1900);
 }

@@ -69,6 +69,20 @@ function mgrOvr(m){
   return clamp(Math.round(66 + m.pennants*1.0 + m.japan*1.5 + m.wins/200), 72, 99);
 }
 function rankOf(o){ return o>=94?"SS":o>=89?"S":o>=84?"A":o>=79?"B":"C"; }
+// ランク章(画像)。読み込めない環境でも文字にフォールバックする
+function rankIcon(o, size){
+  const r = rankOf(o);
+  const px = size || 26;
+  return `<img class="rk-ic" src="assets/rank/${r.toLowerCase()}.png" alt="${r}" width="${px}" height="${px}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'rank rank-${r}',textContent:'${r}'}))">`;
+}
+// 球団エンブレム(30種)
+const EMBLEM_COUNT = 30;
+function emblemSrc(i){ return "assets/emblem/em" + String(((i||0)%EMBLEM_COUNT)+1).padStart(2,"0") + ".png"; }
+function teamEmblem(t, size){
+  const px = size || 22;
+  if(t.emblem === undefined) return `<span style="color:${t.color}">●</span>`;
+  return `<img class="tm-em" src="${emblemSrc(t.emblem)}" width="${px}" height="${px}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{textContent:'●',style:'color:${t.color}'}))">`;
+}
 
 // ---------- 年俸(コスト) ----------
 const MIN_COST = 2;
@@ -181,12 +195,18 @@ function renumber(){
 // ============================================================
 // ドラフト
 // ============================================================
+let emblemPool = null;
+function nextEmblem(){
+  if(!emblemPool || !emblemPool.length) emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i));
+  return emblemPool.pop();
+}
 function newTeam(name, fr, cpu, color){
-  return {name, fr, cpu, color, slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0, hist:[0], watch:new Set()};
+  return {name, fr, cpu, color, emblem:nextEmblem(), slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0, hist:[0], watch:new Set()};
 }
 function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
+  emblemPool = null;
   state.parts = rows.map((row,i)=>newTeam(
     row.querySelector("input").value.trim() || `参加者${i+1}`,
     row.querySelector("select").value, false, COLORS[i]));
@@ -353,7 +373,7 @@ function renderDraft(){
   const ph = currentPhase();
   const open = openSlots(t).filter(d=>!ph || PHASE_GRPS[ph].includes(d.grp));
   const bidding = state.bid && state.bid.stage === "collect";
-  $("d-who").innerHTML = `<span style="color:${t.color}">●</span> ${esc(t.name)} の${bidding?"入札":"指名"}`;
+  $("d-who").innerHTML = `${teamEmblem(t,26)} ${esc(t.name)} の${bidding?"入札":"指名"}`;
   const openLabels = [...new Set(open.map(d=>d.label))].join("・");
   if(bidding){
     const miss = state.bidMiss;
@@ -411,7 +431,7 @@ function renderRecs(){
         <div class="pc-main">
           <div class="nm">${esc(r.p.name)}${titleBadge(r.p)}</div>
           <div class="meta">${roleLabel(r.p)}・${esc(r.p.team)}・${r.p.year}年 <span style="float:right;color:var(--gold)">${r.p.cost}pt</span></div>
-          <div class="meta">${statShort(r.p)}<span style="float:right;font-weight:900;" class="rank-${rankOf(r.p.ovr)}">${rankOf(r.p.ovr)}</span></div>
+          <div class="meta">${statShort(r.p)}<span style="float:right;">${rankIcon(r.p.ovr, 22)}</span></div>
         </div>
       </div>
     </div>`).join("");
@@ -442,7 +462,7 @@ function renderPool(){
     : `${list.length}名`;
   $("pool").innerHTML = shown.map(p=>`
     <div class="pcard spine-${p.cat==="M"?"M":p.twoWay?"W":p.cat}" onclick="openModal('${p.id}')">
-      <span class="rank rank-${rankOf(p.ovr)}">${rankOf(p.ovr)}</span>
+      <span class="rank-wrap">${rankIcon(p.ovr, 30)}</span>
       ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')">★</span>`}
       <div class="pc-row">
         ${avatarBox(p)}
@@ -522,7 +542,7 @@ function renderRosters(){
       }
     }
     return `<div class="roster-box ${i===state.currentIdx?"turn":""}">
-      <h4><span style="color:${t.color}">●</span> ${esc(t.name)} <span class="tag" style="color:var(--gold)">残${budgetLeft(t)}pt</span>${t.fr?` <span class="tag">${t.fr}縛り</span>`:""}</h4>${html}</div>`;
+      <h4>${teamEmblem(t,20)} ${esc(t.name)} <span class="tag" style="color:var(--gold)">残${budgetLeft(t)}pt</span>${t.fr?` <span class="tag">${t.fr}縛り</span>`:""}</h4>${html}</div>`;
   }).join("");
 }
 function slotFilter(grp){
@@ -1284,7 +1304,7 @@ function renderTeamStrip(){
     return `<div class="ts-card ${i===0?"lead":""}" style="--tc:${t.color}" onclick="state.rosterTab=${state.parts.indexOf(t)};renderRosterLive();document.getElementById('roster-live').scrollIntoView({behavior:'smooth',block:'center'})">
       <div class="ts-rank">${i+1}</div>
       <div class="ts-main">
-        <div class="ts-name">${esc(t.name)} ${fIcon}</div>
+        <div class="ts-name">${teamEmblem(t,18)} ${esc(t.name)} ${fIcon}</div>
         <div class="ts-rec">${t.W}<span>勝</span>${t.L}<span>敗</span>${t.T?`${t.T}<span>分</span>`:""}</div>
         <div class="ts-gap ${gap>0?"plus":gap<0?"minus":""}">${gap>0?"貯金"+gap:gap<0?"借金"+(-gap):"五分"}</div>
         ${badges?`<div class="ts-badges">${badges}</div>`:""}
@@ -1427,7 +1447,7 @@ function renderStandings(elId){
       const pct = t.W+t.L ? (t.W/(t.W+t.L)).toFixed(3).replace(/^0/,"") : "---";
       const gb = i===0 ? "─" : (((top.W-t.W)+(t.L-top.L))/2).toFixed(1);
       return `<tr class="${i===0?"st-first":""}" ${clickable?`style="cursor:pointer;" onclick="openTeamStats(${state.parts.indexOf(t)})"`:""}><td>${i+1}</td>
-        <td style="text-align:left;"><span style="color:${t.color}">●</span> ${esc(t.name)}${clickable?' <span style="font-size:10px;color:#9fbfa8;">▶成績</span>':""}</td>
+        <td style="text-align:left;">${teamEmblem(t,20)} ${esc(t.name)}${clickable?' <span style="font-size:10px;color:#9fbfa8;">▶成績</span>':""}</td>
         <td>${t.W+t.L+t.T}</td><td>${t.W}</td><td>${t.L}</td><td>${t.T}</td><td>${pct}</td><td>${gb}</td></tr>`;
     }).join("");
 }
@@ -1509,7 +1529,7 @@ function renderRosterLive(){
   if(!tabs || !body || !state.seasonStats) return;
   if(state.rosterTab === undefined) state.rosterTab = 0;
   tabs.innerHTML = state.parts.map((t,i)=>
-    `<span class="chip ${state.rosterTab===i?"on":""}" onclick="state.rosterTab=${i};renderRosterLive()"><span style="color:${state.rosterTab===i?"#fff":t.color}">●</span> ${esc(t.name)}</span>`
+    `<span class="chip ${state.rosterTab===i?"on":""}" onclick="state.rosterTab=${i};renderRosterLive()">${teamEmblem(t,17)} ${esc(t.name)}</span>`
   ).join("");
   const t = state.parts[state.rosterTab] || state.parts[0];
   const m = t.slots.MGR;
@@ -1776,7 +1796,7 @@ function renderMlbPanel(){
     <div class="mlb-grid">
       ${ctx.pool.map(p=>`
         <div class="mlb-card ${star===p?"sel":""}" onclick="mlbStarClick('${p.id}')">
-          <span class="rank rank-${rankOf(p.ovr)}" style="position:absolute;top:7px;right:8px;font-weight:900;">${rankOf(p.ovr)}</span>
+          <span class="rank-wrap">${rankIcon(p.ovr, 28)}</span>
           <div class="pc-row">
             ${avatarBox(p, 36)}
             <div class="pc-main">
@@ -2516,7 +2536,7 @@ function renderLiveBoard(){
   const c = liveCtx; if(!c) return;
   const {g, ia, ib, shownA, shownB} = c;
   const row = (name, color, arr, n, other) => `<tr>
-    <td class="tn"><span style="color:${color}">●</span> ${esc(name)}</td>
+    <td class="tn">${esc(name)}</td>
     ${arr.map((v,i)=>`<td class="${i===n?"now":""}">${i<n ? (i===8 && other ? "X" : v) : ""}</td>`).join("")}
     <td class="r">${arr.slice(0,n).reduce((s,x)=>s+x,0)}</td></tr>`;
   $("lv-board").innerHTML = `<table>
@@ -2524,6 +2544,32 @@ function renderLiveBoard(){
     ${row(g.A.name, g.A.color, ia, shownA, false)}
     ${row(g.B.name, g.B.color, ib, shownB, c.skipBottom9)}
   </table>`;
+}
+const BADGE = {HR:"bd01", "2B":"bd02", "3B":"bd03", K:"bd04", BB:"bd05", SAFE:"bd06", OUT:"bd07", STEAL:"bd08", E:"bd09", FINE:"bd10", DP:"bd11", CLUTCH:"bd12"};
+function badgeFor(e){
+  if(!e || !e.text) return null;
+  const t = e.text;
+  if(e.cls === "hr") return "HR";
+  if(t.indexOf("併殺") >= 0) return "DP";
+  if(t.indexOf("三振") >= 0) return "K";
+  if(t.indexOf("二塁打") >= 0) return "2B";
+  if(t.indexOf("三塁打") >= 0) return "3B";
+  if(t.indexOf("エラー") >= 0) return "E";
+  if(t.indexOf("四球") >= 0 || t.indexOf("死球") >= 0) return "BB";
+  if(t.indexOf("サヨナラ") >= 0) return "CLUTCH";
+  if(e.cls === "run") return "CLUTCH";
+  return null;
+}
+// 大きな見せ場は画面中央にバッジを出す
+function flashBadge(key){
+  const id = BADGE[key];
+  if(!id) return;
+  const el = document.createElement("div");
+  el.className = "play-badge";
+  el.innerHTML = '<img src="assets/badge/' + id + '.png" alt="" onerror="this.parentNode.remove()">';
+  document.body.appendChild(el);
+  requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add("in"); }); });
+  setTimeout(function(){ el.classList.remove("in"); setTimeout(function(){ el.remove(); }, 420); }, 1250);
 }
 function pbpAdd(text, cls){
   const box = $("lv-pbp");
@@ -2583,6 +2629,8 @@ function liveApply(e, silent){
       pbpAdd(e.text, e.cls);
       renderDiamond(e);
       renderWinBar(e);
+      const bk = badgeFor(e);
+      if(bk && (e.cls === "hr" || e.cls === "run" || bk === "K" || bk === "DP" || bk === "E")) flashBadge(bk);
       if(sndOn && e.runs > 0){ const x = ac(); if(x) tone(x.currentTime, e.cls === "hr" ? 900 : 780, 0.18, 0.10, "triangle"); }
       if(e.cls === "hr" && sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 0.55, 5200, 0.09); }
     }

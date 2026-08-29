@@ -3070,11 +3070,15 @@ function runLore(e){
     case "ovrDown": if(x.P){ x.P.ovr = Math.max(60, x.P.ovr - 3); x.P.form = -2; } break;
     case "mgrRest": t.mgrRest = true; break;
     case "mgrBack": t.mgrRest = false; moodSet(t, 1.0, 18, "監督復帰"); break;
-    case "leave":
+    case "leave": {
       partyNews(e.icon || "急", e.cls || "bad", txt);
-      startEmergency(t, x.slotKey, "球界を揺るがす事態でチームを離れた");
+      // 事件の見出しをそのまま離脱理由にする(例:【直撃】→「直撃」)
+      const m = /^【([^】]{1,10})】/.exec(e.text || "");
+      const reason = m ? m[1] + "の余波でチームを離れた" : "球界を揺るがす事態でチームを離れた";
+      startEmergency(t, x.slotKey, reason);
       renderRosterLive();
       return true;
+    }
     default: break;
   }
   partyNews(e.icon || "報", e.cls || "fun", txt);

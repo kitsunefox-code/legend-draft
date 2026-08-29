@@ -211,7 +211,7 @@ console.log("=== MLB", mlb.length, "players ===");
 console.log("  野手", count(mlb,p=>p.cat==="B"), " SP", count(mlb,p=>p.role==="SP"), " RP/CL", count(mlb,p=>p.role==="RP"||p.role==="CL"));
 
 // ---- パーティーモードの史実パロディ・イベント ----
-const PARTY_FILES = ["party_npb_showa.json","party_npb_heisei.json","party_mlb.json","party_misc.json"];
+const PARTY_FILES = ["party_npb_showa.json","party_npb_heisei.json","party_mlb.json","party_misc.json","party_scandal1.json","party_scandal2.json","party_scandal3.json","party_scandal4.json"];
 const VALID_EFFECT = new Set(["none","moodUp","moodDown","formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown","leave","mgrRest","mgrBack"]);
 const VALID_TARGET = new Set(["team","player","pitcher","foreign","manager","twoPlayers","twoTeams"]);
 const VALID_CLS = new Set(["good","bad","warn","fun"]);

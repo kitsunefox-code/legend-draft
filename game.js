@@ -2545,19 +2545,20 @@ function renderLiveBoard(){
     ${row(g.B.name, g.B.color, ib, shownB, c.skipBottom9)}
   </table>`;
 }
-const BADGE = {HR:"bd01", "2B":"bd02", "3B":"bd03", K:"bd04", BB:"bd05", SAFE:"bd06", OUT:"bd07", STEAL:"bd08", E:"bd09", FINE:"bd10", DP:"bd11", CLUTCH:"bd12"};
+const BADGE = {HR:"fx1", K:"fx2", HIT:"fx3", OUT:"fx4", SAFE:"fx5", STEAL:"fx6",
+  FINE:"fx7", E:"fx8", CHANCE:"fx9", NICEP:"fx10", NICEB:"fx11", TIE:"fx12"};
+const BADGE_DIR = "assets/fx/";
 function badgeFor(e){
   if(!e || !e.text) return null;
   const t = e.text;
   if(e.cls === "hr") return "HR";
-  if(t.indexOf("併殺") >= 0) return "DP";
+  if(t.indexOf("併殺") >= 0) return "FINE";
   if(t.indexOf("三振") >= 0) return "K";
-  if(t.indexOf("二塁打") >= 0) return "2B";
-  if(t.indexOf("三塁打") >= 0) return "3B";
   if(t.indexOf("エラー") >= 0) return "E";
-  if(t.indexOf("四球") >= 0 || t.indexOf("死球") >= 0) return "BB";
-  if(t.indexOf("サヨナラ") >= 0) return "CLUTCH";
-  if(e.cls === "run") return "CLUTCH";
+  if(t.indexOf("サヨナラ") >= 0) return "NICEB";
+  if(t.indexOf("タイムリー") >= 0 || t.indexOf("生還") >= 0) return "NICEB";
+  if(t.indexOf("二塁打") >= 0 || t.indexOf("三塁打") >= 0 || t.indexOf("ヒット") >= 0) return "HIT";
+  if(e.cls === "run") return "NICEB";
   return null;
 }
 // 大きな見せ場は画面中央にバッジを出す
@@ -2566,7 +2567,7 @@ function flashBadge(key){
   if(!id) return;
   const el = document.createElement("div");
   el.className = "play-badge";
-  el.innerHTML = '<img src="assets/badge/' + id + '.png" alt="" onerror="this.parentNode.remove()">';
+  el.innerHTML = '<img src="' + BADGE_DIR + id + '.png" alt="" onerror="this.parentNode.remove()">';
   document.body.appendChild(el);
   requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add("in"); }); });
   setTimeout(function(){ el.classList.remove("in"); setTimeout(function(){ el.remove(); }, 420); }, 1250);
@@ -3501,6 +3502,19 @@ function poseFor(p, kind){
   const idx = (h % 6) + 1;
   return "assets/pose/" + kind + idx + ".png";
 }
+function numImg(n){
+  if(n === undefined || n === null) return "";
+  if(n >= 0 && n <= 20){
+    return '<img class="sp-numimg" src="assets/num/n' + (n+1) + '.png" alt="' + n + '" data-no="' + n + '" onerror="numImgFail(this)">';
+  }
+  return '<span class="sp-no">' + n + '</span>';
+}
+function numImgFail(img){
+  const sp = document.createElement("span");
+  sp.className = "sp-no";
+  sp.textContent = img.getAttribute("data-no") || "";
+  img.replaceWith(sp);
+}
 function showSuper(e){
   if(!e || !e.bat) return;
   const c = liveCtx; if(!c) return;
@@ -3516,7 +3530,7 @@ function showSuper(e){
   box.innerHTML =
     '<img class="sp-fig" src="' + poseFor(p || {name:e.bat}, "bat") + '" alt="" onerror="this.style.display=\'none\'">' +
     '<div class="sp-body">' +
-      '<div class="sp-top">' + (e.batNo !== undefined ? '<span class="sp-no">' + e.batNo + '</span>' : "") +
+      '<div class="sp-top">' + (e.batNo !== undefined ? numImg(e.batNo) : "") +
         '<span class="sp-team">' + esc(t.name) + '</span>' +
         (p ? '<span class="sp-hand">' + (p.th||"?") + '投' + (p.bh||"?") + '打</span>' : "") + '</div>' +
       '<div class="sp-name">' + esc(e.bat) + '</div>' +

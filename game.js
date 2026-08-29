@@ -1320,12 +1320,27 @@ function renderPartyLog(){
   if(!state.opts.party){ box.style.display = "none"; return; }
   box.style.display = "";
   const log = state.partyLog || [];
-  el.innerHTML = log.length ? log.slice(0,24).map(x=>`
-    <div class="plog ${x.cls}">
+  el.innerHTML = log.length ? log.slice(0,24).map((x,i)=>{
+    const pic = x.id && EVENT_PIC.has(x.id);
+    return `
+    <div class="plog ${x.cls}${pic?" has-pic":""}"${pic?` onclick="replayEventPic(${i})"`:""}>
       <span class="pl-icon">${x.icon}</span>
       <span class="pl-d">${x.d}</span>
       <span class="pl-t">${esc(x.txt)}</span>
-    </div>`).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
+      ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
+    </div>`;
+  }).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
+}
+
+// 事件簿から号外カットを見返す(進行は止めない)
+function replayEventPic(i){
+  const x = (state.partyLog || [])[i];
+  if(!x || !x.id) return;
+  const e = PARTY_LORE.find(v=>v.id === x.id);
+  if(!e) return;
+  const keep = state.playing;
+  showEventPic(e, x.txt);
+  state.picResume = keep;
 }
 
 function makeMonthlyNews(mi){
@@ -2762,10 +2777,10 @@ function droppableDefs(t){
   });
 }
 // 事件簿へ記録しつつ紙面とテロップに流す
-function partyNews(icon, cls, txt){
+function partyNews(icon, cls, txt, id){
   state.news.unshift({mo: dateLabel(state.day-1), txt});
   state.partyLog = state.partyLog || [];
-  state.partyLog.unshift({d: dateLabel(state.day-1), icon, cls, txt});
+  state.partyLog.unshift({d: dateLabel(state.day-1), icon, cls, txt, id});
   telop(txt);
   renderPartyLog();
 }
@@ -3063,6 +3078,46 @@ function loreText(e, x){
     .replace(/\{T\}/g,  x.t.name)
     .replace(/\{M\}/g,  x.t.slots.MGR ? x.t.slots.MGR.name : "監督");
 }
+
+// ── 史実イベントの号外カット ───────────────────────────────
+// 挿絵のあるイベントだけは試合を止めて大きく見せる(415件中11件)
+const EVENT_PIC = new Set([
+  "backscreen-3renpatsu","daida-manrui-sayonara","daiso-specialist",
+  "densetsu-no-renpai","go-heading","heading-jiken","juten-ichikyu",
+  "kamino-otsuge","kanzen-shiai","koushin-etsunen","maboroshi-homerun",
+  "make-drama","nijuichikyu","no-hit-no-run","noumu-called","rabbit-ball",
+  "raiu-chudan","sayonara-balk","sign-nusumi","sousha-oikoshi",
+  "suketto-mikikoku"
+]);
+function showEventPic(e, txt, after){
+  const wasPlaying = state.playing;
+  stopTimer();
+  state.picResume = wasPlaying;
+  state.picAfter = after || null;
+  const m = /^【([^】]{1,14})】/.exec(txt || "");
+  $("pic-date").textContent = dateLabel(state.day - 1);
+  $("pic-head").textContent = m ? m[1] : "球界を揺るがす一日";
+  $("pic-txt").textContent  = (txt || "").replace(/^【[^】]+】/, "");
+  $("pic-note").textContent = e.note || "";
+  $("pic-note").parentNode.style.display = e.note ? "" : "none";
+  const img = $("pic-img");
+  img.onerror = function(){ this.parentNode.style.display = "none"; };
+  img.parentNode.style.display = "";
+  img.src = "assets/event/" + e.id + ".jpg";
+  $("pic-bg").classList.add("show");
+  seTap();
+}
+function closeEventPic(){
+  $("pic-bg").classList.remove("show");
+  const after = state.picAfter; state.picAfter = null;
+  if(after){
+    // 続く処理(緊急補強など)に「元は動いていたか」を引き継ぐ
+    state.playing = state.picResume; state.picResume = false;
+    after();
+    return;
+  }
+  if(state.picResume){ state.picResume = false; startTimer(); }
+}
 function runLore(e){
   const x = loreTargets(e);
   if(!x) return false;
@@ -3080,18 +3135,19 @@ function runLore(e){
     case "mgrRest": t.mgrRest = true; break;
     case "mgrBack": t.mgrRest = false; moodSet(t, 1.0, 18, "監督復帰"); break;
     case "leave": {
-      partyNews(e.icon || "急", e.cls || "bad", txt);
+      partyNews(e.icon || "急", e.cls || "bad", txt, e.id);
       // 事件の見出しをそのまま離脱理由にする(例:【直撃】→「直撃」)
       const m = /^【([^】]{1,10})】/.exec(e.text || "");
       const reason = m ? m[1] + "の余波でチームを離れた" : "球界を揺るがす事態でチームを離れた";
-      startEmergency(t, x.slotKey, reason);
-      renderRosterLive();
+      const go = () => { startEmergency(t, x.slotKey, reason); renderRosterLive(); };
+      if(EVENT_PIC.has(e.id)) showEventPic(e, txt, go); else go();
       return true;
     }
     default: break;
   }
-  partyNews(e.icon || "報", e.cls || "fun", txt);
+  partyNews(e.icon || "報", e.cls || "fun", txt, e.id);
   if(["formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown"].includes(e.effect)) renderRosterLive();
+  if(EVENT_PIC.has(e.id)) showEventPic(e, txt);
   return true;
 }
 

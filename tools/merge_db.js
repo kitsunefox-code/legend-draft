@@ -231,6 +231,7 @@ for(const f of PARTY_FILES){
       w: clamp(Math.round(num(raw.w, 2)), 1, 5),
       target: VALID_TARGET.has(raw.target) ? raw.target : "team",
       effect: VALID_EFFECT.has(raw.effect) ? raw.effect : "none",
+      note: String(raw.note || ""),
       text: String(raw.text).trim().slice(0, 140),
     });
     n++;

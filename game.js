@@ -1599,7 +1599,7 @@ function startEvent(type, ev){
   }else if(type==="mlb"){
     // 最下位チームから順に指名(コストは不要)
     state.eventCtx = {type, queue:standingsSorted().reverse(), idx:0,
-      pool:shuffle(MLB_STARS.filter(p=>p.joined===undefined && rankOK(p))).slice(0, state.parts.length+4), star:null};
+      pool:mlbOffer(state.parts.length+4), star:null};
     advanceMlb();
   }
 }
@@ -1724,6 +1724,15 @@ function tradePropose(){
 // ============================================================
 // イベント: MLBスター補強
 // ============================================================
+// 提示されるMLB組は「超一流は最大2人」。残りは中位以下から
+function mlbOffer(n){
+  const avail = MLB_STARS.filter(p=>p.joined===undefined && rankOK(p));
+  const elite = shuffle(avail.filter(p=>p.ovr >= 93));
+  const rest  = shuffle(avail.filter(p=>p.ovr <  93));
+  const eCap  = rnd() < 0.45 ? 1 : (rnd() < 0.7 ? 2 : 0);
+  const out = [...elite.slice(0, eCap), ...rest].slice(0, n);
+  return out.length >= n ? shuffle(out) : shuffle(avail).slice(0, n);
+}
 function mlbCompatSlots(t, star){
   return SLOT_DEFS.filter(d=>d.key!=="MGR").filter(d=>{
     const cur = t.slots[d.key];
@@ -3116,6 +3125,31 @@ function rollPartyEvent(){
   let r = rnd()*total;
   for(const e of cands){ r -= e.w; if(r <= 0){ try{ e.run(); }catch(err){ console.error(e.id, err); } return; } }
 }
+// ── 補強の当たり外れ ────────────────────────────────────────
+// 良い代役がいつでも来ると緊急事態が緊急でなくなるので、抽選で質を決める。
+// 順位が下のチームほどわずかに当たりやすい(戦力均衡のイメージ)。
+function reinforceLuck(t){
+  const s = standingsSorted();
+  const i = s.indexOf(t);
+  const tilt = s.length > 1 && i >= 0 ? i/(s.length-1) : 0.5;   // 0=首位 1=最下位
+  const r = rnd();
+  if(r < 0.05 + 0.05*tilt) return {label:"大当たり", tone:"good", lo:1,   hi:14,  note:"まさかの大物が空いていた"};
+  if(r < 0.22 + 0.13*tilt) return {label:"当たり",   tone:"good", lo:-3,  hi:2,   note:"穴を埋められる実力者"};
+  if(r < 0.58 + 0.12*tilt) return {label:"及第点",   tone:"mid",  lo:-10, hi:-3,  note:"戦力ダウンは避けられない"};
+  return                          {label:"苦しい",   tone:"bad",  lo:-24, hi:-10, note:"層の薄さが露呈した"};
+}
+// 基準値+lo〜+hiの範囲から候補をn人。足りなければ帯の中心に近い順で補う
+function bandPick(cands, base, lo, hi, n){
+  const mid = base + (lo+hi)/2;
+  let inBand = cands.filter(p=>p.ovr >= base+lo && p.ovr <= base+hi);
+  if(inBand.length < n){
+    const set = new Set(inBand);
+    const rest = cands.filter(p=>!set.has(p))
+      .sort((a,b)=>Math.abs(a.ovr-mid)-Math.abs(b.ovr-mid));
+    inBand = inBand.concat(rest.slice(0, n-inBand.length));
+  }
+  return shuffle(inBand).slice(0, n).sort((a,b)=>b.ovr-a.ovr);
+}
 function startEmergency(t, slotKey, reason){
   const d = SLOT_DEFS.find(x=>x.key===slotKey);
   const victim = t.slots[slotKey];
@@ -3124,8 +3158,13 @@ function startEmergency(t, slotKey, reason){
   state.resumeAfterEvent = wasPlaying;
   const cands = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat!=="M" && !p.twoWay && eligibleGrp(p, d.grp))
     .sort((a,b)=>b.ovr-a.ovr);
+  const luck = reinforceLuck(t);
   const watch = t.watch || new Set();
-  const list = [...cands.filter(p=>watch.has(p.id)), ...cands.filter(p=>!watch.has(p.id))].slice(0,10);
+  // 抽選で決まった帯の中から5人。注目リストの選手は帯に入っていれば優先で残す
+  let list = bandPick(cands, victim.ovr, luck.lo, luck.hi, 5);
+  const wIn = cands.filter(p=>watch.has(p.id) && p.ovr >= victim.ovr+luck.lo && p.ovr <= victim.ovr+luck.hi)
+    .filter(p=>list.indexOf(p) < 0);
+  if(wIn.length) list = [...wIn.slice(0,2), ...list].slice(0,5).sort((a,b)=>b.ovr-a.ovr);
   partyNews("急","bad",`【緊急事態】${victim.name}（${t.name}・${d.label}）が${reason}！`);
   if(!list.length){ // 代役なし→騒動は沈静化
     state.news.unshift({mo:dateLabel(state.day-1), txt:`${t.name}球団が謝罪会見。${victim.name}は厳重注意で決着した`});
@@ -3137,7 +3176,7 @@ function startEmergency(t, slotKey, reason){
   if(t.cpu){ emergencySign(list[0].id); return; }
   $("event-panel").innerHTML = `
     <h2><span class="kicker">緊急速報</span>${esc(t.name)} ── 緊急補強</h2>
-    <div class="sub"><b>${esc(victim.name)}</b>（${d.label}）が${reason}。支配下外から代役を1人選んでください（コスト不要・残り試合に出場）。★は注目リストの選手。</div>
+    <div class="sub"><b>${esc(victim.name)}</b>（${d.label}）が${reason}。支配下外から代役を1人選んでください（コスト不要・残り試合に出場）。★は注目リストの選手。<br><b class="luck-${luck.tone}">スカウト報告：${luck.label}</b> ── ${luck.note}</div>
     <div class="mlb-grid" style="margin-top:10px;">
       ${list.map(p=>`
         <div class="mlb-card" onclick="emergencySign('${p.id}')">
@@ -3267,9 +3306,14 @@ const ROULETTE = [
    run(t){
      const key = BENCH_KEYS.find(k=>t.slots[k]) || BENCH_KEYS[0];
      const cur = t.slots[key];
-     const cands = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat==="B" && !p.twoWay)
-       .sort((a,b)=>b.ovr-a.ovr).slice(0,8);
-     if(!cands.length || !cur) return null;
+     const all = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat==="B" && !p.twoWay)
+       .sort((a,b)=>b.ovr-a.ovr);
+     if(!all.length || !cur) return null;
+     // 良い目とはいえ大物が確定で来るわけではない
+     const q = rnd();
+     const band = q < 0.12 ? [4, 16] : q < 0.45 ? [0, 4] : [-5, 0];
+     const cands = bandPick(all, cur.ovr, band[0], band[1], 4);
+     if(!cands.length) return null;
      const p = pick1(cands);
      state.taken.add(p.id);
      if(state.seasonStats) state.seasonStats = state.seasonStats.filter(x=>!(x.p===cur && x.t===t));
@@ -3508,10 +3552,13 @@ function poseFor(p, kind){
 }
 function numImg(n){
   if(n === undefined || n === null) return "";
-  if(n >= 0 && n <= 20){
-    return '<img class="sp-numimg" src="assets/num/n' + (n+1) + '.png" alt="' + n + '" data-no="' + n + '" onerror="numImgFail(this)">';
-  }
-  return '<span class="sp-no">' + n + '</span>';
+  n = Math.max(0, Math.min(99, Math.round(n)));
+  const one = function(d, val){
+    return '<img class="sp-numimg" src="assets/num/n' + (d+1) + '.png" alt="' + val + '" data-no="' + val + '" onerror="numImgFail(this)">';
+  };
+  if(n <= 20) return one(n, n);              // 0〜20は専用画像
+  const t = Math.floor(n/10), o = n%10;      // 21〜99は十の位と一の位を並べる
+  return '<span class="sp-numset">' + one(t, t) + one(o, o) + '</span>';
 }
 function numImgFail(img){
   const sp = document.createElement("span");

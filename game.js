@@ -240,7 +240,8 @@ function nextEmblem(){
 }
 function newTeam(name, fr, cpu, color, emblem){
   return {name, fr, cpu, color, emblem: (emblem !== undefined && emblem !== null) ? emblem : nextEmblem(), slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0,
-          hist:[0], watch:new Set(), order:LINEUP_KEYS.slice(), rot:SP_KEYS.slice(), rotIdx:0};
+          hist:[0], watch:new Set(), order:LINEUP_KEYS.slice(), rot:SP_KEYS.slice(), rotIdx:0,
+          saihai: cpu ? 0 : SAIHAI_MAX};
 }
 function startDraft(){
   const rows = [...$("p-list").children];
@@ -258,6 +259,7 @@ function startDraft(){
   state.budget = Number($("opt-budget").value) || 140;
   state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
   state.opts.party = $("opt-party") ? $("opt-party").checked : false;
+  state.opts.saihai = $("opt-saihai") ? $("opt-saihai").checked : false;
 
   if($("opt-cpu").checked){
     const cpuNames = ["CPU猛牛","CPU荒鷲","CPU海豚"];
@@ -1142,7 +1144,7 @@ function startSeason(){
   $("s-date").textContent = "開幕前";
   $("s-play").textContent = "プレイボール";
   $("s-play").disabled = false; $("s-skip").disabled = false;
-  $("s-scores").textContent = "";
+  if($("s-games")) $("s-games").innerHTML = "";
   const ev = [];
   if(wokeCount) ev.push(`キャンプで${wokeCount}人が覚醒`);
   if(state.opts.trade) ev.push("6月末にトレードタイム");
@@ -1186,9 +1188,222 @@ function checkClinch(){
   }
   return null;
 }
+
+// ============================================================
+// 監督の采配 ── シーズンに数回だけ、勝負どころで試合に介入できる
+// ============================================================
+const SAIHAI_MAX = 4;   // 1球団あたりのシーズン使用回数
+
+// 1点差で負けている試合だけが対象。勝ち試合に使っても意味がないため
+function findSaihai(rolled){
+  if(state.day < 6) return null;
+  for(const r of rolled){
+    for(const side of ["A","B"]){
+      const t = r[side];
+      if(t.cpu || (t.saihai||0) <= 0) continue;
+      const my = side === "A" ? r.rA : r.rB;
+      const op = side === "A" ? r.rB : r.rA;
+      if(op - my !== 1) continue;              // 1点差の負けのみ
+      if(rnd() > 0.68) continue;               // 年10回前後。4回しか使えないので取捨が生まれる
+      const card = pickSaihaiCard(t);
+      if(!card) continue;
+      return {game:r, side, t, card};
+    }
+  }
+  return null;
+}
+function pickSaihaiCard(t){
+  const ok = SAIHAI_CARDS.filter(c => c.need(t));
+  return ok.length ? pick1(ok) : null;
+}
+// 打力・投手力から成功率を出す。80を並の目安とする
+function saihaiRate(base, ovr, form){
+  return clamp(base + (ovr - 80) * 0.011 + (form || 0) * 0.02, 0.10, 0.66);
+}
+const SAIHAI_CARDS = [
+  {
+    id: "daida",
+    title: "九回裏　二死一・二塁",
+    lead: "一打逆転の好機。ここで誰に託すか",
+    need: t => benchOf(t).length > 0 && lineupOf(t).length > 0,
+    opts: t => {
+      const bench = benchOf(t).slice().sort((a,b)=>b.ovr-a.ovr)[0];
+      const now = lineupOf(t).slice().sort((a,b)=>(a.form||0)-(b.form||0))[0];
+      return [
+        {label:"代打の切り札を送る", p:bench, note:"控えで最も打てる男に懸ける",
+         rate:saihaiRate(0.30, bench.ovr, bench.form),
+         win:`代打の${bench.name}が起死回生の一打`, lose:`代打の${bench.name}は力なく倒れた`},
+        {label:"このまま打たせる", p:now, note:"信じて任せる。決まれば本人が生き返る",
+         rate:saihaiRate(0.24, now.ovr, now.form), boost:true,
+         win:`${now.name}が値千金の一打`, lose:`${now.name}は打ち取られた`},
+      ];
+    },
+  },
+  {
+    id: "squeeze",
+    title: "九回裏　一死三塁",
+    lead: "同点の走者が三塁に。決めにいくか、つなぐか",
+    need: t => lineupOf(t).length >= 2,
+    opts: t => {
+      const fast = lineupOf(t).slice().sort((a,b)=>(b.sb||0)-(a.sb||0))[0];
+      const big  = lineupOf(t).slice().sort((a,b)=>(b.hr||0)-(a.hr||0))[0];
+      return [
+        {label:"スクイズ", p:fast, note:"確実に1点を取りにいく",
+         rate:saihaiRate(0.34, fast.ovr, fast.form),
+         win:`${fast.name}のスクイズが決まった`, lose:`スクイズを外され${fast.name}が三本間で憤死`},
+        {label:"強攻", p:big, note:"一発が出れば試合をひっくり返せる",
+         rate:saihaiRate(0.22, big.ovr, big.form), boost:true,
+         win:`${big.name}が振り抜いた打球がスタンドへ`, lose:`${big.name}は詰まらされ内野フライ`},
+      ];
+    },
+  },
+  {
+    id: "ace",
+    title: "八回　1点差のマウンド",
+    lead: "ここを抑えれば流れは変わる。誰を送るか",
+    need: t => pitchersOf(t).length >= 2,
+    opts: t => {
+      const ace = rotKeys(t).map(k=>t.slots[k]).filter(Boolean)
+        .sort((a,b)=>ovrFor(b,"SP")-ovrFor(a,"SP"))[0];
+      const cl  = t.slots.CL || pitchersOf(t)[0];
+      return [
+        {label:"エースを中0日でつぎ込む", p:ace, note:"無理をさせる。以後の調子は落ちる",
+         rate:saihaiRate(0.36, ovrFor(ace,"SP"), ace.form), tire:true,
+         win:`${ace.name}が中0日の火消しに成功`, lose:`${ace.name}は疲れの見える球を痛打された`},
+        {label:"抑えを1イニング早く", p:cl, note:"守護神の回跨ぎに懸ける",
+         rate:saihaiRate(0.32, ovrFor(cl,"CL"), cl.form),
+         win:`${cl.name}が2イニングを封じ込めた`, lose:`${cl.name}が二死から捕まった`},
+      ];
+    },
+  },
+  {
+    id: "keien",
+    title: "九回　二死二・三塁で相手の主砲",
+    lead: "歩かせて満塁で次と勝負するか、真っ向から挑むか",
+    need: t => pitchersOf(t).length >= 1,
+    opts: t => {
+      const cl = t.slots.CL || pitchersOf(t)[0];
+      return [
+        {label:"申告敬遠で満塁策", p:cl, note:"逃げ道を断って次打者に懸ける",
+         rate:saihaiRate(0.33, ovrFor(cl,"CL"), cl.form),
+         win:`${cl.name}が満塁から次打者を打ち取った`, lose:`満塁策が裏目、押し出しで万事休す`},
+        {label:"主砲と勝負", p:cl, note:"抑えれば球場が沸く。正面からいく",
+         rate:saihaiRate(0.27, ovrFor(cl,"CL"), cl.form), boost:true,
+         win:`${cl.name}が真っ向勝負を制した`, lose:`${cl.name}が相手の主砲に力負けした`},
+      ];
+    },
+  },
+];
+
+function startSaihai(cand){
+  const wasPlaying = state.playing;
+  stopTimer();
+  state.saihaiCtx = Object.assign({}, cand, {resume: wasPlaying, opts: cand.card.opts(cand.t), done:null});
+  $("s-play").disabled = true; $("s-skip").disabled = true;
+  renderSaihai();
+  $("saihai-bg").classList.add("show");
+  seTap();
+}
+function renderSaihai(){
+  const c = state.saihaiCtx;
+  if(!c) return;
+  const t = c.t, g = c.game;
+  const my = c.side === "A" ? g.rA : g.rB;
+  const op = c.side === "A" ? g.rB : g.rA;
+  const foe = c.side === "A" ? g.B : g.A;
+  const s = standingsSorted();
+  const rank = s.indexOf(t) + 1;
+  const gb = rank === 1 ? "首位" : "首位と" + gameBehind(s[0], t) + "ゲーム差";
+  const left = state.schedule.length - state.day;
+
+  if(c.done){
+    const d = c.done;
+    $("saihai-panel").innerHTML =
+      '<h2><span class="kicker">采配</span>' + esc(c.card.title) + '</h2>' +
+      '<div class="sh-result ' + (d.ok ? "ok" : "ng") + '">' +
+        '<div class="sh-cap">' + (d.ok ? "成功" : "失敗") + '</div>' +
+        '<div class="sh-big">' + esc(d.text) + '</div>' +
+        '<div class="sh-score">' + esc(t.name) + '　' + d.my + ' － ' + d.op + '　' + esc(foe.name) + '</div>' +
+        '<div class="sh-msg">' + esc(d.msg) + '</div>' +
+      '</div>' +
+      '<div class="sh-foot"><span class="sh-left">残り采配 ' + (t.saihai||0) + ' 回</span>' +
+        '<button class="btn" onclick="closeSaihai()">試合を再開する</button></div>';
+    return;
+  }
+  $("saihai-panel").innerHTML =
+    '<h2><span class="kicker">采配</span>' + esc(c.card.title) + '</h2>' +
+    '<div class="sh-sit">' +
+      '<div class="sh-team">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
+        '<span class="sh-vs">対 ' + esc(foe.name) + '</span></div>' +
+      '<div class="sh-board"><span class="sh-n">' + my + '</span><i>－</i><span class="sh-n op">' + op + '</span></div>' +
+      '<div class="sh-ctx">' + esc(dateLabel(state.day)) + '　' + rank + '位・' + gb + '　残り' + left + '試合</div>' +
+    '</div>' +
+    '<div class="sh-lead">' + esc(c.card.lead) + '</div>' +
+    '<div class="sh-opts">' + c.opts.map(function(o, i){
+      return '<button class="sh-opt" onclick="saihaiChoose(' + i + ')">' +
+        '<div class="sh-o-h">' + esc(o.label) + '<span class="sh-rate">' + Math.round(o.rate*100) + '%</span></div>' +
+        '<div class="sh-o-p">' + avatarBox(o.p, 34) + '<div>' +
+          '<div class="sh-o-n">' + esc(o.p.name) + rankIcon(o.p.ovr, 15) + formIcon(o.p) + '</div>' +
+          '<div class="sh-o-note">' + esc(o.note) + '</div>' +
+        '</div></div></button>';
+    }).join("") + '</div>' +
+    '<div class="sh-foot">' +
+      '<span class="sh-left">采配は残り <b>' + (t.saihai||0) + '</b> 回。使えばここで1回消費します</span>' +
+      '<button class="btn ghost sm" onclick="saihaiPass()">采配しない</button>' +
+    '</div>';
+}
+function gameBehind(top, t){
+  const v = ((top.W - top.L) - (t.W - t.L)) / 2;
+  return (Math.round(v*10)/10).toFixed(1);
+}
+function saihaiChoose(i){
+  const c = state.saihaiCtx;
+  if(!c || c.done) return;
+  const o = c.opts[i], t = c.t, g = c.game;
+  t.saihai = Math.max(0, (t.saihai||0) - 1);
+  const ok = rnd() < o.rate;
+  let my = c.side === "A" ? g.rA : g.rB;
+  let op = c.side === "A" ? g.rB : g.rA;
+  let msg;
+  if(ok){
+    my = op + 1;                                   // 1点差を引っくり返す
+    if(c.side === "A") g.rA = my; else g.rB = my;
+    if(o.boost && o.p) o.p.form = 2;               // 信じて任せた男は生き返る
+    msg = t.name + "が" + o.label + "で試合をひっくり返した";
+  }else{
+    if(o.tire && o.p) o.p.form = Math.max(-2, (o.p.form||0) - 2);  // 無理をさせた代償
+    msg = o.tire ? o.p.name + "には無理をさせた分の疲れが残った"
+                 : t.name + "の" + o.label + "は実らなかった";
+  }
+  c.done = {ok, text:o.win && ok ? o.win : o.lose, my, op, msg};
+  partyNews(ok ? "采" : "無", ok ? "good" : "warn",
+    "【采配】" + t.name + "、" + c.card.title + "で" + o.label + "。" +
+    (ok ? o.win + "、値千金の逆転勝ち" : o.lose + "。一歩及ばず"), null, t);
+  if(ok) seWin(); else seMiss();
+  renderSaihai();
+}
+function saihaiPass(){
+  const c = state.saihaiCtx;
+  if(!c) return;
+  c.done = {ok:false, text:"采配は切らなかった", my: c.side === "A" ? c.game.rA : c.game.rB,
+            op: c.side === "A" ? c.game.rB : c.game.rA, msg:"この1回は取っておく。使いどころは他にある"};
+  renderSaihai();
+}
+function closeSaihai(){
+  const c = state.saihaiCtx;
+  if(!c) return;
+  state.saihaiCtx = null;
+  $("saihai-bg").classList.remove("show");
+  $("s-play").disabled = false; $("s-skip").disabled = false;
+  const day = state.pendingDay; state.pendingDay = null;
+  if(day) finishDay(day);
+  renderLive();
+  if(c.resume) startTimer();
+}
+
 function tick(){
   if(state.day >= state.schedule.length){ finishSeason(); return; }
-  playDay();
+  if(playDay() === false){ renderLive(); return; }   // 采配の入力待ち
   renderLive();
   // パーティーモードの波乱イベント(緊急補強は一時停止して選択待ち)
   rollPartyEvent();
@@ -1231,7 +1446,7 @@ function skipAhead(){
   state.openingShown = true; // 一気進行中は中継なし
   let guard = 2000;
   while(state.day < state.schedule.length && guard-->0){
-    playDay();
+    if(playDay() === false){ renderLive(); return; }   // 采配の入力待ち
     checkClinch();
     const ev = dueEvent();
     if(ev){ renderLive(); ev.done = true; state.resumeAfterEvent = false; startEvent(ev.type, ev); return; }
@@ -1254,27 +1469,50 @@ function dueEvent(){
   return state.eventQueue.find(e=>!e.done && e.after <= state.monthsCompleted);
 }
 
-function simGame(A, B){
+// 出目を作るだけ。反映は applyGame で行う。
+// 采配の選択を挟むあいだ、結果を確定させずに保留しておく必要があるため分けてある
+function rollGame(A, B){
   const expA = clamp(4.2*(1+0.022*(teamAtt(A)-teamDef(B))), 1.0, 11);
   const expB = clamp(4.2*(1+0.022*(teamAtt(B)-teamDef(A))), 1.0, 11);
   let rA = poisson(expA), rB = poisson(expB);
   if(rA===rB && rnd()<0.82){
     if(rnd() < expA/(expA+expB)) rA++; else rB++;
   }
+  return {rA, rB};
+}
+function applyGame(A, B, rA, rB){
   A.RS+=rA; A.RA+=rB; B.RS+=rB; B.RA+=rA;
   if(rA>rB){A.W++;B.L++; A.stk=(A.stk||0)+1; B.stk=0;}
   else if(rB>rA){B.W++;A.L++; B.stk=(B.stk||0)+1; A.stk=0;}
   else {A.T++;B.T++;}
-  return {rA, rB};
+}
+function simGame(A, B){
+  const g = rollGame(A, B);
+  applyGame(A, B, g.rA, g.rB);
+  return g;
 }
 function playDay(){
   const games = state.schedule[state.day];
+  // まずその日の全カードの出目を作る(この時点では成績に反映しない)
+  const rolled = games.map(([ai,bi])=>{
+    const A = state.parts[ai], B = state.parts[bi];
+    const g = rollGame(A,B);
+    return {A, B, rA:g.rA, rB:g.rB};
+  });
+  // 勝負どころがあれば、確定させる前に本人へ委ねる
+  const cand = state.opts.saihai ? findSaihai(rolled) : null;
+  if(cand){ state.pendingDay = rolled; startSaihai(cand); return false; }
+  finishDay(rolled);
+  return true;
+}
+function finishDay(rolled){
   const dl = dateLabel(state.day);
   const scores = [];
   const played = [];
-  for(const [ai,bi] of games){
-    const A = state.parts[ai], B = state.parts[bi];
-    const g = simGame(A,B);
+  for(const r of rolled){
+    const A = r.A, B = r.B;
+    const g = {rA:r.rA, rB:r.rB};
+    applyGame(A, B, g.rA, g.rB);
     const spA = starterOf(A), spB = starterOf(B);
     A.rotIdx = ((A.rotIdx||0) + 1) % rotKeys(A).length;
     B.rotIdx = ((B.rotIdx||0) + 1) % rotKeys(B).length;
@@ -1346,9 +1584,28 @@ function closeOpeningGogai(){
   if(a) a();
 }
 
+// その日の全カードを、スコアを立てて並べる
+function renderDayScores(){
+  const el = $("s-games");
+  if(!el) return;
+  const gs = state.lastGames || [];
+  if(!gs.length){ el.innerHTML = '<div class="sc-none">まだ試合は行われていません</div>'; return; }
+  el.innerHTML = gs.map(function(g){
+    const wa = g.rA > g.rB, wb = g.rB > g.rA;
+    const hot = !g.A.cpu || !g.B.cpu;      // 人間の球団がからむカードは目立たせる
+    return '<div class="sc-card' + (hot ? " live" : "") + '">' +
+      '<span class="sc-t' + (wa ? " w" : "") + '">' + teamEmblem(g.A, 16) + esc(g.A.name) + '</span>' +
+      '<span class="sc-n' + (wa ? " w" : "") + '">' + g.rA + '</span>' +
+      '<span class="sc-sep">−</span>' +
+      '<span class="sc-n' + (wb ? " w" : "") + '">' + g.rB + '</span>' +
+      '<span class="sc-t r' + (wb ? " w" : "") + '">' + esc(g.B.name) + teamEmblem(g.B, 16) + '</span>' +
+    '</div>';
+  }).join("");
+}
+
 function renderLive(){
   $("s-date").textContent = dateLabel(state.day-1);
-  $("s-scores").textContent = state.lastScores.join("　／　");
+  renderDayScores();
   const lead = standingsSorted()[0];
   $("s-note").textContent = `首位: ${lead.name}（${lead.W}勝${lead.L}敗${lead.T?lead.T+"分":""}）`;
   renderTeamStrip();
@@ -1376,7 +1633,8 @@ function renderTeamStrip(){
     const avgF = forms.reduce((a,p)=>a+(p.form||0),0)/(forms.length||1);
     const fIcon = avgF > 0.45 ? `<span class="form f2">▲▲</span>` : avgF > 0.15 ? `<span class="form f1">▲</span>`
       : avgF < -0.45 ? `<span class="form fm2">▽▽</span>` : avgF < -0.15 ? `<span class="form fm1">▽</span>` : `<span class="form f0">─</span>`;
-    const badges = (t.mgrRest ? `<span class="ts-b bad">監督休養</span>` : "")
+    const badges = (t.saihai ? `<span class="ts-b sai">采配${t.saihai}</span>` : "")
+      + (t.mgrRest ? `<span class="ts-b bad">監督休養</span>` : "")
       + (t.mood && state.day < t.mood.until ? `<span class="ts-b ${t.mood.val>0?"good":"bad"}">${esc(t.mood.label)}</span>` : "");
     return `<div class="ts-card ${i===0?"lead":""}" style="--tc:${t.color}" onclick="state.rosterTab=${state.parts.indexOf(t)};renderRosterLive();document.getElementById('roster-live').scrollIntoView({behavior:'smooth',block:'center'})">
       <div class="ts-rank">${i+1}</div>
@@ -1660,9 +1918,11 @@ function closeFile(){
 function fileTab(k){ state.fileCat = k; renderFile(); const l = $("file-list"); if(l) l.scrollTop = 0; }
 function fileSearch(){ renderFile(); }
 function plainText(t){
+  // 「{M}監督」を先に潰さないと「監督監督」になる
   return String(t || "")
+    .replace(/\{M\}監督/g, "監督").replace(/\{M\}/g, "監督")
     .replace(/\{P2\}/g, "別の選手").replace(/\{P\}/g, "選手")
-    .replace(/\{T2\}/g, "相手球団").replace(/\{T\}/g, "球団").replace(/\{M\}/g, "監督");
+    .replace(/\{T2\}/g, "相手球団").replace(/\{T\}/g, "球団");
 }
 function fileList(){
   const q = ($("file-q") && $("file-q").value || "").trim();

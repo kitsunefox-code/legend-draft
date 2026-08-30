@@ -1858,6 +1858,130 @@ body{
   .tr-pic{width:42px;height:42px;}
   .tr-src{margin-left:0;}
 }
+
+/* ============================================================
+   監督の采配 ── 勝負どころで試合を止めて選ばせる
+   ============================================================ */
+#saihai-bg{
+  position:fixed;inset:0;background:rgba(20,17,10,.78);display:none;
+  align-items:center;justify-content:center;z-index:125;padding:14px;overflow-y:auto;
+}
+#saihai-bg.show{display:flex;}
+#saihai-panel{
+  background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
+  background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
+  border:1px solid var(--rule2);border-top:6px solid var(--goldseal);
+  max-width:560px;width:100%;padding:20px 22px 18px;max-height:94vh;overflow-y:auto;
+  box-shadow:6px 6px 0 rgba(20,16,8,.34);animation:shIn .3s cubic-bezier(.2,1.1,.4,1);
+}
+@keyframes shIn{from{opacity:0;transform:translateY(14px) scale(.97);}to{opacity:1;transform:none;}}
+#saihai-panel h2{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:24px;font-weight:900;
+  letter-spacing:.08em;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:12px;
+}
+#saihai-panel h2 .kicker{
+  font-size:11px;letter-spacing:.24em;color:#fff;background:var(--goldseal);
+  padding:3px 11px;margin-right:11px;vertical-align:3px;
+}
+/* 局面。点差と順位を並べ、いま使うべきかを判断させる */
+.sh-sit{border:1px solid var(--rule);background:rgba(255,255,255,.5);padding:11px 13px;}
+.sh-team{display:flex;align-items:center;gap:8px;font-size:15px;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.sh-team .sh-vs{margin-left:auto;font-size:12px;color:var(--ink2);}
+.sh-board{
+  display:flex;align-items:center;justify-content:center;gap:14px;margin:8px 0 6px;
+  font-family:"Oswald",sans-serif;font-variant-numeric:tabular-nums;
+}
+.sh-n{font-size:44px;font-weight:600;line-height:1;color:var(--ink);}
+.sh-n.op{color:var(--red);}
+.sh-board i{font-style:normal;font-size:20px;color:var(--rule2);}
+.sh-ctx{text-align:center;font-size:11.5px;color:var(--ink2);letter-spacing:.04em;}
+.sh-lead{
+  margin:13px 0 10px;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:15px;
+  line-height:1.8;text-wrap:balance;
+}
+.sh-opts{display:flex;flex-direction:column;gap:9px;}
+.sh-opt{
+  width:100%;text-align:left;background:#fff;border:1px solid var(--rule2);
+  padding:11px 13px;cursor:pointer;font-family:inherit;transition:border-color .15s, transform .1s;
+}
+.sh-opt:hover{border-color:var(--red);}
+.sh-opt:active{transform:translateY(1px);}
+.sh-o-h{
+  display:flex;align-items:baseline;gap:10px;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:16px;font-weight:900;letter-spacing:.04em;color:var(--ink);
+}
+.sh-rate{
+  margin-left:auto;font-family:"Oswald",sans-serif;font-size:15px;font-weight:600;
+  color:var(--paper);background:var(--ink);padding:1px 9px;font-variant-numeric:tabular-nums;
+}
+.sh-o-p{display:flex;align-items:center;gap:9px;margin-top:8px;}
+.sh-o-n{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:700;font-size:14px;
+  display:flex;align-items:center;gap:5px;
+}
+.sh-o-note{font-size:11.5px;color:var(--ink2);margin-top:2px;line-height:1.6;}
+.sh-foot{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap;}
+.sh-left{flex:1;min-width:160px;font-size:11.5px;color:var(--ink2);line-height:1.7;}
+.sh-left b{font-family:"Oswald",sans-serif;font-size:14px;color:var(--red);}
+/* 結果 */
+.sh-result{border:1px solid var(--rule2);border-top:4px solid var(--gray);background:var(--paper2);padding:14px 16px;}
+.sh-result.ok{border-top-color:var(--green);}
+.sh-result.ng{border-top-color:var(--red);}
+.sh-cap{
+  display:inline-block;font-size:11px;letter-spacing:.28em;color:#fff;background:var(--gray);
+  padding:2px 13px;margin-bottom:10px;text-indent:.28em;
+}
+.sh-result.ok .sh-cap{background:var(--green);}
+.sh-result.ng .sh-cap{background:var(--red);}
+.sh-big{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:20px;font-weight:900;
+  line-height:1.5;letter-spacing:.04em;text-wrap:balance;
+}
+.sh-score{
+  margin-top:11px;font-family:"Oswald",sans-serif;font-size:17px;text-align:center;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:8px 0;
+  font-variant-numeric:tabular-nums;
+}
+.sh-msg{margin-top:10px;font-size:13px;color:var(--ink2);line-height:1.85;}
+/* 残り回数のバッジ(球団ストリップ) */
+.ts-b.sai{background:var(--goldseal);color:#fff;}
+@media (max-width:680px){
+  #saihai-panel{padding:16px;}
+  #saihai-panel h2{font-size:20px;}
+  .sh-n{font-size:36px;}
+  .sh-big{font-size:17px;}
+  .sh-o-h{font-size:15px;}
+}
+
+/* その日の試合結果。1日ごとに全カードのスコアを出す */
+.sc-row{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 2px;}
+.sc-card{
+  flex:1 1 210px;min-width:0;display:flex;align-items:center;gap:7px;
+  background:rgba(0,0,0,.26);border:1px solid #2c5742;padding:7px 10px;
+  animation:scIn .25s ease;
+}
+@keyframes scIn{from{opacity:0;transform:translateY(-4px);}to{opacity:1;transform:none;}}
+.sc-card.live{border-color:var(--amber);box-shadow:0 0 0 1px rgba(243,184,60,.35) inset;}
+.sc-t{
+  flex:1;min-width:0;display:flex;align-items:center;gap:5px;font-size:12.5px;
+  color:#9fbfa8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.sc-t.r{justify-content:flex-end;}
+.sc-t.w{color:#fff;font-weight:900;}
+.sc-t img,.sc-t .tm-em{flex:none;}
+.sc-n{
+  flex:none;font-family:"Oswald",sans-serif;font-size:19px;font-weight:600;
+  color:var(--boardtxt);min-width:22px;text-align:center;font-variant-numeric:tabular-nums;
+}
+.sc-n.w{color:var(--amber);}
+.sc-sep{flex:none;color:#3c6a52;font-size:12px;}
+.sc-none{font-size:12px;color:#7fa48c;padding:6px 2px;}
+@media (max-width:680px){
+  .sc-card{flex:1 1 100%;padding:6px 9px;}
+  .sc-t{font-size:12px;}
+  .sc-n{font-size:17px;}
+}
 </style>
 </head>
 <body>
@@ -1932,6 +2056,12 @@ body{
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">MLBスター補強</span>
         <span class="ot-d">7月末に自動停止。最下位から順に歴代メジャーリーガーを指名（コスト不要）</span></span>
+      </label>
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-saihai" checked>
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">監督の采配<span class="ot-tag">決断</span></span>
+        <span class="ot-d">1点差で負けている試合が、確定する前に止まる。シーズン4回だけ、代打・継投・敬遠を自分で選んで結果をひっくり返せる</span></span>
       </label>
       <label class="opt-tile party">
         <input type="checkbox" id="opt-party">
@@ -2019,7 +2149,6 @@ body{
       <div class="month-big" id="s-date">開幕前</div>
       <div style="min-width:220px;">
         <div class="sub" id="s-note"></div>
-        <div class="sub" id="s-scores" style="margin-top:3px;"></div>
       </div>
       <div style="flex:1"></div>
       <select id="s-speed" onchange="changeSpeed()">
@@ -2031,6 +2160,7 @@ body{
       <button class="btn ghost sm" id="s-skip" onclick="skipAhead()">次のイベントまで進める</button>
       <button class="btn ghost sm snd-btn" onclick="toggleSnd()">音:ON</button>
     </div>
+    <div class="sc-row" id="s-games"></div>
     <div class="season-prog"><div class="sp-track"><div class="sp-fill" id="season-bar"></div></div><span class="sp-lbl" id="season-bar-lbl">開幕前</span></div>
     <div class="ts-row" id="team-strip"></div>
   </div>
@@ -2146,6 +2276,11 @@ body{
 <!-- event panel (trade / MLB / 入札抽選) -->
 <div id="event-bg">
   <div id="event-panel"></div>
+</div>
+
+<!-- 監督の采配 -->
+<div id="saihai-bg">
+  <div id="saihai-panel"></div>
 </div>
 
 <!-- 球界事件簿ビューア -->
@@ -2284,9 +2419,9 @@ body{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608301220"></script>
-<script src="players.js?v=202608301220"></script>
-<script src="party.js?v=202608301220"></script>
-<script src="game.js?v=202608301220"></script>
+<script src="qrcode.js?v=202608301241"></script>
+<script src="players.js?v=202608301241"></script>
+<script src="party.js?v=202608301241"></script>
+<script src="game.js?v=202608301241"></script>
 </body>
 </html>

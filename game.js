@@ -2143,10 +2143,9 @@ function startEvent(type, ev){
   $("s-play").disabled = true; $("s-skip").disabled = true;
   if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="trade"){
-    const humans = state.parts.filter(t=>!t.cpu);
-    if(!humans.length){ endEventPhase(); return; }
-    state.eventCtx = {type, queue:humans, idx:0, sel:{partner:"", mine:"", theirs:""}};
-    renderTradePanel();
+    if(!state.parts.filter(t=>!t.cpu).length){ endEventPhase(); return; }
+    state.eventCtx = {type, mode:"table", sel:{a:"", b:"", pa:"", pb:""}, done:[]};
+    renderTradeTable();
     $("event-bg").classList.add("show");
   }else if(type==="mlb"){
     // 最下位チームから順に指名(コストは不要)
@@ -2188,89 +2187,139 @@ function tradeRow(x, sel, dim, clickJs, team){
     <span class="rank rank-${rankOf(ovrFor(p,x.d.grp))}" style="position:static;flex:none;">${rankOf(ovrFor(p,x.d.grp))}</span>
   </div>`;
 }
-function renderTradePanel(){
-  const ctx = state.eventCtx;
-  const me = ctx.queue[ctx.idx];
-  const others = state.parts.filter(t=>t!==me);
-  const partner = state.parts.find(t=>t.name===ctx.sel.partner) || null;
-  const myList = tradablePlayers(me);
-  const mine = myList.find(x=>x.d.key===ctx.sel.mine) || null;
-  let theirList = [];
-  if(partner) theirList = tradablePlayers(partner);
-  const compat = x => mine && eligibleGrp(x.p, mine.d.grp) && eligibleGrp(mine.p, x.d.grp);
-  const theirs = theirList.find(x=>x.d.key===ctx.sel.theirs && compat(x)) || null;
-  $("event-panel").innerHTML = `
-    <h2><span class="kicker">移籍情報</span>トレードタイム ── 6月末</h2>
-    <div class="sub">手順: ①相手チーム → ②放出する自分の選手 → ③欲しい相手の選手 の順にタップ。ポジションが合う選手だけ選べます。1チーム1回まで。</div>
-    <div style="margin:12px 0 8px;font-size:17px;font-weight:bold;"><span style="color:${me.color}">●</span> ${esc(me.name)} の交渉</div>
-    <div style="margin-bottom:8px;">
-      ${others.map(t=>`<span class="chip ${ctx.sel.partner===t.name?"on":""}" onclick="tradeSel('partner','${esc(t.name)}')"><span style="color:${ctx.sel.partner===t.name?"#fff":t.color}">●</span> ${esc(t.name)}</span>`).join("")}
-    </div>
-    <div class="tr-cols">
-      <div class="tr-col">
-        <div class="tr-head">放出する選手（${esc(me.name)}）</div>
-        ${myList.map(x=>tradeRow(x, mine&&x.d.key===ctx.sel.mine, false, `tradeSel('mine','${x.d.key}')`, me)).join("")}
-      </div>
-      <div class="tr-col">
-        <div class="tr-head">${partner?`獲得したい選手（${esc(partner.name)}）`:"← まず相手チームを選択"}</div>
-        ${partner ? (mine
-          ? theirList.map(x=>tradeRow(x, theirs&&x.d.key===ctx.sel.theirs, !compat(x), `tradeSel('theirs','${x.d.key}')`, partner)).join("")
-          : `<div class="sub" style="padding:10px;">← 先に放出する選手を選んでください</div>`) : ""}
-      </div>
-    </div>
-    ${mine&&theirs ? `
-    <div class="tr-summary">
-      <span><b>${esc(mine.p.name)}</b>（${rankOf(mine.p.ovr)}・${mine.p.cost}pt）</span>
-      <span class="tr-arrow">⇄</span>
-      <span><b>${esc(theirs.p.name)}</b>（${rankOf(theirs.p.ovr)}・${theirs.p.cost}pt）</span>
-    </div>` : ""}
-    <div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">
-      <button class="btn ghost sm" onclick="tradePass()">トレードしない（パス）</button>
-      <button class="btn sm" onclick="tradePropose()" ${mine&&theirs?"":"disabled"}>この内容で提案する</button>
-    </div>`;
+// ---- 交渉テーブル(6月末) ----
+// 画面は各球団の「穴」と「出せる選手」を並べるだけ。交渉は卓上で口頭でやり、
+// 話がついたものを入力して成立させる
+function teamNeeds(t){
+  return SLOT_DEFS.filter(d=>d.key!=="MGR" && t.slots[d.key])
+    .map(d=>({d, p:t.slots[d.key], o:ovrFor(t.slots[d.key], d.grp)}))
+    .sort((x,y)=>x.o-y.o).slice(0,2);
 }
-function tradeSel(k,v){
-  const ctx = state.eventCtx;
-  ctx.sel[k]=v;
-  if(k==="partner") ctx.sel.theirs="";
-  if(k==="mine") ctx.sel.theirs="";
-  renderTradePanel();
+function teamOffers(t){
+  const need = new Set(teamNeeds(t).map(x=>x.d.key));
+  return tradablePlayers(t)
+    .filter(x=>!need.has(x.d.key))
+    .map(x=>Object.assign({}, x, {o:ovrFor(x.p, x.d.grp)}))
+    .sort((x,y)=>y.o-x.o).slice(0,2);
 }
-function tradeAdvance(){
+function renderTradeTable(){
   const ctx = state.eventCtx;
-  ctx.idx++;
-  ctx.sel = {partner:"", mine:"", theirs:""};
-  if(ctx.idx >= ctx.queue.length){ endEventPhase(); return; }
-  renderTradePanel();
+  const s = standingsSorted();
+  const cards = s.map(function(t){
+    const rank = s.indexOf(t)+1;
+    const need = teamNeeds(t), off = teamOffers(t);
+    const line = x => '<div class="ng-p"><span class="ng-pos">' + x.d.label + '</span>' +
+      '<span class="ng-nm">' + esc(x.p.name) + '</span>' + rankIcon(x.o, 16) + '</div>';
+    return '<div class="ng-card' + (t.cpu ? " cpu" : "") + '">' +
+      '<div class="ng-h"><span class="ng-r">' + rank + '</span>' + teamEmblem(t, 19) +
+        '<b>' + esc(t.name) + '</b>' +
+        '<span class="ng-w">' + t.W + '勝' + t.L + '敗</span></div>' +
+      '<div class="ng-sec"><div class="ng-lb need">補強したい</div>' + need.map(line).join("") + '</div>' +
+      '<div class="ng-sec"><div class="ng-lb offer">出せる</div>' +
+        (off.length ? off.map(line).join("") : '<div class="ng-none">出せる駒がない</div>') + '</div>' +
+    '</div>';
+  }).join("");
+  const done = ctx.done.length
+    ? '<div class="ng-done"><div class="ng-done-h">成立したトレード</div>' +
+      ctx.done.map(function(d){ return '<div class="ng-done-i">' + esc(d) + '</div>'; }).join("") + '</div>'
+    : "";
+  $("event-panel").innerHTML =
+    '<h2><span class="kicker">移籍情報</span>交渉テーブル ── 6月末</h2>' +
+    '<div class="sub">画面はお互いの手の内だけを映します。<b>交渉は卓上で口頭で</b>。' +
+    '話がついたら「成立させる」で入力してください。何件でも成立します。</div>' +
+    '<div class="ng-grid">' + cards + '</div>' + done +
+    '<div class="ng-foot">' +
+      '<button class="btn" onclick="tradeOpenInput()">話がついた ── 成立させる</button>' +
+      '<button class="btn ghost sm" onclick="endEventPhase()">交渉を終える</button>' +
+    '</div>';
 }
-function tradePass(){ tradeAdvance(); }
-function tradePropose(){
+function tradeOpenInput(){
   const ctx = state.eventCtx;
-  const me = ctx.queue[ctx.idx];
-  const partner = state.parts.find(t=>t.name===ctx.sel.partner);
-  const mine = tradablePlayers(me).find(x=>x.d.key===ctx.sel.mine);
-  const theirs = tradablePlayers(partner).find(x=>x.d.key===ctx.sel.theirs);
-  if(!partner||!mine||!theirs) return;
-  let ok;
-  if(partner.cpu){
-    ok = (mine.p.ovr - theirs.p.ovr) >= -1;
-    if(!ok) alert(`${partner.name}は提案を拒否した…（見返りが釣り合いません）`);
-  }else{
-    ok = confirm(`【${partner.name}さんへの提案】\n${me.name}の ${mine.p.name} ⇄ ${partner.name}の ${theirs.p.name}\n\n${partner.name}さん、このトレードを承諾しますか？`);
-    if(!ok) alert("交渉決裂！");
+  ctx.mode = "input";
+  ctx.sel = {a:"", b:"", pa:"", pb:""};
+  renderTradeInput();
+}
+function tradeSel(k, v){
+  const ctx = state.eventCtx;
+  ctx.sel[k] = v;
+  if(k === "a"){ ctx.sel.pa = ""; if(ctx.sel.b === v) ctx.sel.b = ""; }
+  if(k === "b"){ ctx.sel.pb = ""; }
+  if(k === "pa"){ ctx.sel.pb = ""; }
+  renderTradeInput();
+}
+function renderTradeInput(){
+  const ctx = state.eventCtx, sel = ctx.sel;
+  const A = state.parts.find(t=>t.name===sel.a) || null;
+  const B = state.parts.find(t=>t.name===sel.b) || null;
+  const listA = A ? tradablePlayers(A) : [];
+  const listB = B ? tradablePlayers(B) : [];
+  const pa = listA.find(x=>x.d.key===sel.pa) || null;
+  const compat = x => pa && eligibleGrp(x.p, pa.d.grp) && eligibleGrp(pa.p, x.d.grp);
+  const pb = listB.find(x=>x.d.key===sel.pb && compat(x)) || null;
+  const chip = (t, k) => '<span class="chip ' + (sel[k]===t.name?"on":"") + '"' +
+    ' onclick="tradeSel(&quot;' + k + '&quot;,&quot;' + esc(t.name) + '&quot;)">' +
+    teamEmblem(t, 15) + ' ' + esc(t.name) + '</span>';
+  $("event-panel").innerHTML =
+    '<h2><span class="kicker">入力</span>成立したトレードを入力</h2>' +
+    '<div class="sub">合意した2球団と、交換する選手を選んでください。ポジションが合う選手だけ選べます。</div>' +
+    '<div class="ng-in">' +
+      '<div class="ng-side">' +
+        '<div class="ng-side-h">球団 A</div>' +
+        '<div class="ng-chips">' + state.parts.map(t=>chip(t,"a")).join("") + '</div>' +
+        '<div class="tr-col">' + (A
+          ? listA.map(x=>tradeRow(x, sel.pa===x.d.key, false, 'tradeSel(&quot;pa&quot;,&quot;'+x.d.key+'&quot;)', A)).join("")
+          : '<div class="ng-none">← 球団を選んでください</div>') + '</div>' +
+      '</div>' +
+      '<div class="ng-side">' +
+        '<div class="ng-side-h">球団 B</div>' +
+        '<div class="ng-chips">' + state.parts.filter(t=>t!==A).map(t=>chip(t,"b")).join("") + '</div>' +
+        '<div class="tr-col">' + (B
+          ? (pa ? listB.map(x=>tradeRow(x, sel.pb===x.d.key, !compat(x), 'tradeSel(&quot;pb&quot;,&quot;'+x.d.key+'&quot;)', B)).join("")
+                : '<div class="ng-none">← 先にAの選手を選んでください</div>')
+          : '<div class="ng-none">← 球団を選んでください</div>') + '</div>' +
+      '</div>' +
+    '</div>' +
+    (pa && pb ? '<div class="tr-summary">' +
+      '<span><b>' + esc(pa.p.name) + '</b>（' + rankOf(pa.p.ovr) + '・' + pa.p.cost + 'pt）</span>' +
+      '<span class="tr-arrow">⇄</span>' +
+      '<span><b>' + esc(pb.p.name) + '</b>（' + rankOf(pb.p.ovr) + '・' + pb.p.cost + 'pt）</span>' +
+    '</div>' : "") +
+    '<div class="ng-foot">' +
+      '<button class="btn ghost sm" onclick="tradeBackToTable()">卓上へ戻る</button>' +
+      '<button class="btn" onclick="tradeCommit()"' + (pa && pb ? '' : ' disabled') + '>この内容で成立</button>' +
+    '</div>';
+}
+function tradeBackToTable(){
+  state.eventCtx.mode = "table";
+  renderTradeTable();
+}
+function tradeCommit(){
+  const ctx = state.eventCtx, sel = ctx.sel;
+  const A = state.parts.find(t=>t.name===sel.a);
+  const B = state.parts.find(t=>t.name===sel.b);
+  if(!A || !B) return;
+  const pa = tradablePlayers(A).find(x=>x.d.key===sel.pa);
+  const pb = tradablePlayers(B).find(x=>x.d.key===sel.pb);
+  if(!pa || !pb) return;
+  // CPUがからむ場合だけ、割に合うかを見る。人間同士は卓上で合意済みとして通す
+  for(const [cpu, give, get] of [[A, pa, pb], [B, pb, pa]]){
+    if(cpu.cpu && (get.p.ovr - give.p.ovr) < -1){
+      alert(cpu.name + "は首を縦に振らなかった。見返りが釣り合っていない");
+      return;
+    }
   }
-  if(ok){
-    me.slots[mine.d.key] = theirs.p;
-    partner.slots[theirs.d.key] = mine.p;
-    mine.p.traded = true; theirs.p.traded = true;
-    statsSwapTeams(mine.p, theirs.p, me, partner);
-    const txt = `【トレード成立】${me.name}の${mine.p.name} ⇄ ${partner.name}の${theirs.p.name} 電撃交換！`;
-    state.news.unshift({mo:"7月", txt});
-    telop(txt);
-    tradeAdvance();
-  }else{
-    renderTradePanel();
-  }
+  A.slots[pa.d.key] = pb.p;
+  B.slots[pb.d.key] = pa.p;
+  pa.p.traded = true; pb.p.traded = true;
+  statsSwapTeams(pa.p, pb.p, A, B);
+  const txt = "【トレード成立】" + A.name + "の" + pa.p.name + " ⇄ " + B.name + "の" + pb.p.name + " 電撃交換！";
+  state.news.unshift({mo:"7月", txt});
+  telop(txt);
+  partyNews("交", "warn", txt, null, A);
+  ctx.done.push(A.name + "　" + pa.p.name + "　⇄　" + pb.p.name + "　" + B.name);
+  seWin();
+  renderRosterLive(); renderTeamStrip();
+  tradeBackToTable();
 }
 
 // ============================================================

@@ -1982,6 +1982,69 @@ body{
   .sc-t{font-size:12px;}
   .sc-n{font-size:17px;}
 }
+
+/* ============================================================
+   交渉テーブル ── 手の内を並べるだけの盤面。交渉は卓上で口頭でやる
+   ============================================================ */
+.ng-grid{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:14px 0;
+}
+.ng-card{
+  border:1px solid var(--rule2);background:#fff;padding:10px 12px;
+  box-shadow:2px 2px 0 rgba(20,16,8,.14);
+}
+.ng-card.cpu{background:var(--paper2);opacity:.92;}
+.ng-h{
+  display:flex;align-items:center;gap:6px;padding-bottom:7px;margin-bottom:8px;
+  border-bottom:2px solid var(--ink);font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14.5px;
+}
+.ng-r{
+  flex:none;width:20px;height:20px;line-height:20px;text-align:center;
+  background:var(--ink);color:var(--paper);font-family:"Oswald",sans-serif;font-size:12px;
+}
+.ng-h .ng-w{
+  margin-left:auto;font-family:"Oswald",sans-serif;font-size:11px;color:var(--ink2);
+  font-weight:400;letter-spacing:.02em;
+}
+.ng-sec{margin-bottom:9px;}
+.ng-sec:last-child{margin-bottom:0;}
+.ng-lb{
+  display:inline-block;font-size:9.5px;letter-spacing:.2em;color:#fff;padding:1px 8px;margin-bottom:5px;
+}
+.ng-lb.need{background:var(--red);}
+.ng-lb.offer{background:var(--green);}
+.ng-p{display:flex;align-items:center;gap:6px;padding:3px 0;font-size:12.5px;}
+.ng-pos{
+  flex:none;width:26px;text-align:center;font-size:10.5px;color:var(--ink2);
+  border:1px solid var(--rule);
+}
+.ng-nm{
+  flex:1;min-width:0;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.ng-none{font-size:11.5px;color:var(--rule2);padding:4px 2px;}
+.ng-done{border-top:2px solid var(--ink);margin-top:14px;padding-top:9px;}
+.ng-done-h{font-size:11px;letter-spacing:.2em;color:var(--red);margin-bottom:6px;}
+.ng-done-i{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;padding:5px 0;
+  border-bottom:1px dashed var(--rule);
+}
+.ng-done-i:last-child{border-bottom:none;}
+.ng-foot{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:16px;flex-wrap:wrap;}
+/* 成立入力 */
+.ng-in{display:flex;gap:16px;margin:12px 0;align-items:flex-start;}
+.ng-side{flex:1;min-width:0;}
+.ng-side-h{
+  font-size:11px;letter-spacing:.2em;color:var(--paper);background:var(--ink);
+  padding:3px 9px;display:inline-block;margin-bottom:7px;
+}
+.ng-chips{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px;}
+.ng-chips .chip{display:inline-flex;align-items:center;gap:4px;}
+@media (max-width:680px){
+  .ng-grid{grid-template-columns:1fr;}
+  .ng-in{flex-direction:column;gap:14px;}
+  .ng-foot .btn{flex:1;}
+}
 </style>
 </head>
 <body>
@@ -2048,8 +2111,8 @@ body{
       <label class="opt-tile">
         <input type="checkbox" id="opt-trade" checked>
         <span class="ot-box"></span>
-        <span class="ot-main"><span class="ot-t">トレードタイム</span>
-        <span class="ot-d">6月末に自動停止。1チーム1回まで選手交換を提案できる</span></span>
+        <span class="ot-main"><span class="ot-t">交渉テーブル<span class="ot-tag">卓上</span></span>
+        <span class="ot-d">6月末に自動停止。全球団の「穴」と「出せる選手」が並ぶので、あとは卓上で口頭で交渉。話がついた分だけ何件でも成立させられる</span></span>
       </label>
       <label class="opt-tile">
         <input type="checkbox" id="opt-mlb" checked>
@@ -2419,9 +2482,9 @@ body{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608301241"></script>
-<script src="players.js?v=202608301241"></script>
-<script src="party.js?v=202608301241"></script>
-<script src="game.js?v=202608301241"></script>
+<script src="qrcode.js?v=202608301247"></script>
+<script src="players.js?v=202608301247"></script>
+<script src="party.js?v=202608301247"></script>
+<script src="game.js?v=202608301247"></script>
 </body>
 </html>

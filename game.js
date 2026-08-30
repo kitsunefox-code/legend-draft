@@ -1216,7 +1216,7 @@ function tick(){
       if(state.resumeAfterLive){ state.resumeAfterLive=false; startTimer(); }
     };
     showLiveGame(broadcast.label, broadcast.g, ()=>{
-      // 開幕日は中継したカード以外も戦われている。全結果を號外で出す
+      // 開幕日は中継したカード以外も戦われている。全結果を号外で出す
       if(broadcast.opening && broadcast.opening.length) showOpeningGogai(broadcast.opening, broadcast.g, afterLive);
       else afterLive();
     });
@@ -1321,7 +1321,7 @@ function playDay(){
     makeMonthlyNews(mPrev);
   }
 }
-// 開幕號外(全カードの結果を一枚に)
+// 開幕号外(全カードの結果を一枚に)
 function showOpeningGogai(games, liveG, after){
   state.gogaiAfter = after || null;
   const rows = games.map(function(g){
@@ -1410,7 +1410,7 @@ function renderPartyLog(){
         ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
         ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
       </div>
-      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" onclick="event.stopPropagation();replayEventPic(${i})">號外カットを見る</button>`:""}</div>`:""}
+      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" onclick="event.stopPropagation();replayEventPic(${i})">号外カットを見る</button>`:""}</div>`:""}
     </div>`;
   }).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
 }
@@ -2567,7 +2567,7 @@ function seFanfare(){
 }
 
 // ============================================================
-// 優勝號外演出
+// 優勝号外演出
 // ============================================================
 function showGogai(champ){
   $("gg-team").textContent = champ.name;
@@ -2583,7 +2583,7 @@ function showGogai(champ){
   for(let i=0;i<10;i++){
     const m = document.createElement("span");
     m.className = "gogai-mini";
-    m.textContent = "號外";
+    m.textContent = "号外";
     m.style.left = (rnd()*94)+"vw";
     m.style.animationDuration = (3+rnd()*3.5)+"s";
     m.style.animationDelay = (rnd()*2.5)+"s";
@@ -2837,6 +2837,7 @@ function showLiveGame(label, g, done){
   liveCtx.lastWp = undefined;
   renderWinBar(null);
   $("lv-pbp").innerHTML = "";
+  pbpHeadline(null);
   $("lv-msg").textContent = "";
   $("lv-btn").textContent = "結果まで飛ばす";
   renderLiveBoard();
@@ -2865,15 +2866,48 @@ function renderLiveBoard(){
 // 画面中央のエフェクト文字(ナイスバッティング等)は中継の邪魔になるため廃止。
 // 素材は assets/fx/ に残してある。
 
-function pbpAdd(text, cls){
+// 打者名を別枠で出すので、本文の頭に重複している名前は落とす
+function trimLead(text, bat){
+  let t = String(text || "").replace(/^\d+回[表裏]?、?/, "");
+  if(bat && t.indexOf(bat) === 0){
+    t = t.slice(bat.length).replace(/^\s*[、はがのも]?\s*/, "");
+  }
+  return t;
+}
+function pbpAdd(text, cls, meta){
   const box = $("lv-pbp");
   if(!box) return;
   const d = document.createElement("div");
   d.className = "pb " + (cls || "");
-  d.textContent = text;
+  if(meta && meta.bat){
+    // 打席の結果は「誰が・どうした」を分けて出す
+    d.innerHTML =
+      '<span class="pb-w">' + (meta.inn ? meta.inn + (meta.top ? "表" : "裏") : "") + '</span>' +
+      '<span class="pb-n">' + esc(meta.bat) + '</span>' +
+      '<span class="pb-r">' + esc(trimLead(text, meta.bat)) + '</span>' +
+      (meta.runs ? '<span class="pb-p">+' + meta.runs + '</span>' : "");
+  }else{
+    d.textContent = text;
+  }
   box.appendChild(d);
   while(box.children.length > 60) box.removeChild(box.firstChild);
   box.scrollTop = box.scrollHeight;
+  // 直近の一行だけ light を当てて、目がどこを追えばいいか分かるようにする
+  const prev = box.querySelector(".pb.now");
+  if(prev) prev.classList.remove("now");
+  d.classList.add("now");
+}
+// 最新のプレーを大きく出す帯。流れる速報と別に、いま何が起きたかを常に見せる
+function pbpHeadline(e){
+  const el = $("lv-now");
+  if(!el) return;
+  if(!e){ el.className = "lv-now"; el.innerHTML = ""; return; }
+  el.className = "lv-now show " + (e.cls || "");
+  el.innerHTML =
+    '<span class="ln-k">' + (e.inn ? e.inn + "回" + (e.top ? "表" : "裏") : "") + '</span>' +
+    '<b>' + esc(e.bat || "") + '</b>' +
+    '<span class="ln-r">' + esc(trimLead(e.text, e.bat)) + '</span>' +
+    (e.runs ? '<span class="ln-p">' + e.runs + '点</span>' : "");
 }
 // ---- 一球速報のダイヤモンド図(走者・アウト・打者/投手) ----
 function renderDiamond(e){
@@ -2921,7 +2955,8 @@ function liveApply(e, silent){
   else if(e.t === "chg"){ if(!silent) pbpAdd(e.text, "chg"); }
   else if(e.t === "pa"){
     if(!silent){
-      pbpAdd(e.text, e.cls);
+      pbpAdd(e.text, e.cls, e);
+      pbpHeadline(e);
       renderDiamond(e);
       renderWinBar(e);
       if(sndOn && e.runs > 0){ const x = ac(); if(x) tone(x.currentTime, e.cls === "hr" ? 900 : 780, 0.18, 0.10, "triangle"); }
@@ -3732,30 +3767,52 @@ function rouletteRender(){
   const ctx = state.eventCtx;
   if(!ctx) return;
   const t = ctx.queue[ctx.idx];
-  const seg = 360 / ROULETTE.length;
-  const stops = ROULETTE.map(function(r,i){ return r.color + " " + (i*seg) + "deg " + ((i+1)*seg) + "deg"; }).join(",");
-  const labels = ROULETTE.map(function(r,i){
-    const a = i*seg + seg/2;
-    return '<span class="rl-lb" style="transform:rotate(' + a + 'deg) translateY(var(--rl-r, -96px)) rotate(' + (-a) + 'deg)">' + r.icon + '</span>';
-  }).join("");
+  const N = ROULETTE.length;
+  const seg = 360 / N;
   const res = ctx.result;
   const pick = state.scoutPick;
-  // 何が入っているかを先に見せる(吉凶の内訳が分かると回す前から盛り上がる)
+
+  // 一コマずつ独立した扇として描き、境界に太い白の仕切りを入れる。
+  // 同じ色が隣り合っても地続きに見えないようにするため
+  const R = 128, CX = 140, CY = 140;
+  const arc = (i) => {
+    const a0 = (i*seg - 90) * Math.PI/180, a1 = ((i+1)*seg - 90) * Math.PI/180;
+    const x0 = CX + R*Math.cos(a0), y0 = CY + R*Math.sin(a0);
+    const x1 = CX + R*Math.cos(a1), y1 = CY + R*Math.sin(a1);
+    return "M" + CX + " " + CY + " L" + x0.toFixed(2) + " " + y0.toFixed(2) +
+           " A" + R + " " + R + " 0 0 1 " + x1.toFixed(2) + " " + y1.toFixed(2) + " Z";
+  };
+  const wedges = ROULETTE.map(function(r,i){
+    const hit = res && res.id === r.id;
+    return '<path d="' + arc(i) + '" fill="' + r.color + '" stroke="#fbf7ec" stroke-width="3.5"' +
+           ' class="rw-seg' + (hit ? " hit" : "") + '"/>';
+  }).join("");
+  // コマの中身は漢字1字だけを大きく。細い放射状の文字を詰め込むと読めないので、
+  // 何の目かは盤の下の対照表で示す
+  const texts = ROULETTE.map(function(r,i){
+    const ang = i*seg + seg/2 - 90;
+    const rad = ang * Math.PI/180;
+    const tx = CX + 88*Math.cos(rad), ty = CY + 88*Math.sin(rad);
+    return '<text class="rw-i" x="' + tx.toFixed(1) + '" y="' + (ty+9).toFixed(1) + '" text-anchor="middle">' +
+           esc(r.icon) + '</text>';
+  }).join("");
+  // 盤の下にも日本語の対照表を置く。当たった目だけが残る
   const legend = ROULETTE.map(function(r){
     const hit = res && res.id === r.id;
     return '<span class="rl-chip ' + r.cls + (hit ? " hit" : (res ? " dim" : "")) + '">' +
-           '<i style="background:' + r.color + '">' + r.icon + '</i>' + esc(r.label) + '</span>';
+           '<i style="background:' + r.color + '">' + esc(r.icon) + '</i>' + esc(r.label) + '</span>';
   }).join("");
+
   const nGood = ROULETTE.filter(function(r){ return r.cls==="good"; }).length;
   const nBad  = ROULETTE.filter(function(r){ return r.cls==="bad"; }).length;
 
-  let resultHtml = '<div class="rl-wait">運命やいかに</div>';
+  let resultHtml = '<div class="rl-wait"><span>運命やいかに</span></div>';
   if(res){
     resultHtml =
       '<div class="rl-card ' + res.cls + '">' +
         '<div class="rl-cap">' + (res.cls==="good"?"吉":res.cls==="bad"?"凶":"平") + '</div>' +
-        '<div class="rl-big"><span class="rl-ri">' + res.icon + '</span>' + esc(res.label) + '</div>' +
-        (res.eff ? '<div class="rl-eff">' + esc(res.eff) + '</div>' : "") +
+        '<div class="rl-big"><span class="rl-ri">' + esc(res.icon) + '</span>' + esc(res.label) + '</div>' +
+        (res.eff ? '<div class="rl-eff"><b>効果</b>' + esc(res.eff) + '</div>' : "") +
         (res.msg ? '<div class="rl-msg">' + esc(res.msg.replace(/^【[^】]+】/, "")) + '</div>' : "") +
       '</div>';
   }
@@ -3778,23 +3835,35 @@ function rouletteRender(){
       '</div>';
   }
 
+  const lamps = Array.from({length:16}, function(_,i){
+    return '<i style="--a:' + (i*22.5) + 'deg;--d:' + (i*0.09).toFixed(2) + 's"></i>';
+  }).join("");
+
   $("event-panel").innerHTML =
     '<h2><span class="kicker">' + (MONTH_LABEL[ctx.no]||"") + '末</span>球団運営ルーレット</h2>' +
     '<div class="rl-team">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
       '<span class="rl-turn">' + (ctx.idx+1) + ' / ' + ctx.queue.length + '球団</span></div>' +
-    '<div class="sub">吉' + nGood + '・凶' + nBad + '・平' + (ROULETTE.length-nGood-nBad) + '。2か月に一度、球団の運命が動きます。</div>' +
-    '<div class="rl-stage">' +
+    '<div class="sub">吉' + nGood + '・凶' + nBad + '・平' + (N-nGood-nBad) + '。2か月に一度、球団の運命が動きます。</div>' +
+    '<div class="rl-stage' + (res ? " landed" : "") + '" id="rl-stage">' +
+      '<div class="rl-lamps">' + lamps + '</div>' +
       '<div class="rl-needle"></div>' +
-      '<div class="rl-wheel" id="rl-wheel" style="background:conic-gradient(' + stops + ')">' + labels + '</div>' +
-      '<div class="rl-hub"></div>' +
+      '<svg class="rl-wheel" id="rl-wheel" viewBox="0 0 280 280" aria-hidden="true">' +
+        '<circle cx="140" cy="140" r="133" fill="#221e17"/>' +
+        wedges + texts +
+        '<circle cx="140" cy="140" r="31" fill="#fbf7ec" stroke="#221e17" stroke-width="3"/>' +
+        '<text class="rw-hub" x="140" y="148" text-anchor="middle">運</text>' +
+      '</svg>' +
+      '<div class="rl-flash"></div>' +
     '</div>' +
     '<div class="rl-legend">' + legend + '</div>' +
     resultHtml + picker +
     '<div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">' +
       (res
         ? (picker ? '' : '<button class="btn sm" onclick="rouletteNext()">' + (ctx.idx + 1 >= ctx.queue.length ? "試合再開" : "次の球団へ") + '</button>')
-        : '<button class="btn" id="rl-btn" onclick="rouletteSpin()">ルーレットを回す</button>') +
+        : '<button class="btn rl-go" id="rl-btn" onclick="rouletteSpin()">ルーレットを回す</button>') +
     '</div>';
+  const w = $("rl-wheel");
+  if(w && ctx.wheelDeg) w.style.transform = "rotate(" + ctx.wheelDeg + "deg)";
 }
 // 補強候補から1人選ぶ
 function scoutChoose(i){
@@ -3815,34 +3884,38 @@ function rouletteSpin(){
   const t = ctx.queue[ctx.idx];
   const i = Math.floor(rnd() * ROULETTE.length);
   const seg = 360 / ROULETTE.length;
-  const turns = 5 + Math.floor(rnd()*3);
+  const turns = 6 + Math.floor(rnd()*3);
   const deg = turns*360 + (360 - (i*seg + seg/2));
   const w = $("rl-wheel");
   const b = $("rl-btn");
-  if(b) b.disabled = true;
+  const stage = $("rl-stage");
+  if(b){ b.disabled = true; b.textContent = "回転中…"; }
+  if(stage) stage.classList.add("spinning");
   if(w){
-    w.style.transition = "transform 3.4s cubic-bezier(.12,.72,.16,1)";
+    w.style.transition = "transform 4.2s cubic-bezier(.1,.62,.12,1)";
     w.style.transform = "rotate(" + deg + "deg)";
   }
+  ctx.wheelDeg = deg;
   seRollStart();
   setTimeout(function(){
     seRollStop();
+    if(stage){ stage.classList.remove("spinning"); stage.classList.add("landed"); }
     const r = ROULETTE[i];
     let msg = null;
     if(r.leave){
-      // スキャンダル → 緊急補強へ
       const ds = droppableDefs(t);
       if(ds.length){
-        ctx.result = {id:r.id, icon:r.icon, label:r.label, cls:r.cls, eff:r.eff, msg:"写真週刊誌が主力の私生活を報道。球団は対応に追われる"};
+        ctx.result = {id:r.id, icon:r.icon, label:r.label, cls:r.cls, eff:r.eff,
+                      msg:"写真週刊誌が主力の私生活を報道。球団は対応に追われる"};
+        ctx.spinning = false;
         rouletteRender();
         setTimeout(function(){
           const d = pick1(ds);
           state.eventCtx = null;
           startEmergency(t, d.key, "写真週刊誌のスキャンダル直撃で無期限謹慎");
-          // 緊急補強のあと、残りの球団のルーレットへ戻す
           const rest = {type:"roulette", queue:ctx.queue, idx:ctx.idx+1, no:ctx.no, spinning:false, result:null};
           state.rouletteResume = (rest.idx < rest.queue.length) ? rest : null;
-        }, 1400);
+        }, 1800);
         return;
       }
       msg = "【小康】"+t.name+"に不穏な噂が流れたが、球団は火消しに成功した";
@@ -3855,12 +3928,12 @@ function rouletteSpin(){
     ctx.spinning = false;
     renderRosterLive(); renderTeamStrip();
     rouletteRender();
-  }, 3500);
+  }, 4300);
 }
 function rouletteNext(){
   const ctx = state.eventCtx;
   if(!ctx) return;
-  ctx.idx++; ctx.result = null; ctx.spinning = false;
+  ctx.idx++; ctx.result = null; ctx.spinning = false; ctx.wheelDeg = 0;
   if(ctx.idx >= ctx.queue.length){ endEventPhase(); return; }
   rouletteRender();
 }

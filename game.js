@@ -297,7 +297,7 @@ function startDraft(){
   const decades=[...new Set(PLAYERS.map(p=>p.decade))].sort();
   $("f-era").innerHTML = `<option value="">全年代</option>` + decades.map(d=>`<option>${d}</option>`).join("");
   if(state.opts.park){ startParkDraft(); return; }
-  state.parts.forEach(t=>{ if(!t.park) t.park = PARKS[6]; });   // 球場なしなら標準型
+  state.parts.forEach(t=>{ if(!t.park) t.park = PARKS.find(x=>x.id==="fujiidera"); });  // 球場なしなら癖のない球場
   show("scr-draft");
   nextTurn(true);
 }
@@ -320,7 +320,8 @@ function renderParkDraft(){
     return '<span class="pk-step' + (i === c.idx ? " now" : (x.park ? " done" : "")) + '">' +
       teamEmblem(x, 15) + esc(x.name) + (x.park ? '<i>' + esc(x.park.name) + '</i>' : '') + '</span>';
   }).join("");
-  const cards = PARKS.map(function(pk){
+  const CATS = [["NPB","NPB 現行"],["歴史","記憶の中の球場"],["MLB","MLB"],["地方","地方球場"]];
+  const card = function(pk){
     const used = taken.has(pk.id);
     const owner = state.parts.find(x=>x.park && x.park.id === pk.id);
     const meter = (v, lo, hi) => {
@@ -339,6 +340,12 @@ function renderParkDraft(){
         '<span class="pk-b">不向き: ' + esc(pk.bad) + '</span></div>' +
       (used ? '<div class="pk-used">' + esc(owner ? owner.name + " の本拠地" : "選択済み") + '</div>' : '') +
     '</div>';
+  };
+  const cards = CATS.map(function(c){
+    const list = PARKS.filter(function(pk){ return pk.cat === c[0]; });
+    if(!list.length) return "";
+    return '<div class="pk-cat">' + esc(c[1]) + '</div>' +
+           '<div class="pk-grid">' + list.map(card).join("") + '</div>';
   }).join("");
   $("park-panel").innerHTML =
     '<h2><span class="kicker">第一面</span>本拠地ドラフト</h2>' +
@@ -347,7 +354,7 @@ function renderParkDraft(){
     '<div class="pk-bar-row">' + bar + '</div>' +
     '<div class="pk-turn">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
       (t.cpu ? '<span class="pk-cpu">選択中…</span>' : '<span class="pk-you">本拠地を選んでください</span>') + '</div>' +
-    '<div class="pk-grid">' + cards + '</div>';
+    cards;
   if(t.cpu) setTimeout(cpuParkPick, 700);
 }
 function cpuParkPick(){
@@ -1379,32 +1386,100 @@ function playRate(p){
 // ============================================================
 // 本拠地球場 ── ドラフトで1つ選ぶ。得点と本塁打の出方が変わる
 // ============================================================
-// hr: 本塁打の出やすさ、run: 総得点の出やすさ(1.00が平均)
+// run は実際のパークファクター(NPBは2025年時点の5年平均、MLBは近年の得点指数)を
+// そのまま使う。hr は各球場の寸法と癖から起こした値。1.00が平均
 const PARKS = [
-  {id:"hamakaze", name:"浜風球場", type:"屋外・天然芝", hr:0.88, run:0.96,
-   note:"海からの風が右翼へ吹き込み、左打者の大飛球が押し戻される。伝統の甲子園型",
-   good:"右打ちの巧打者・機動力", bad:"左の大砲"},
-  {id:"dome-s", name:"新都ドーム", type:"屋内・人工芝", hr:1.16, run:1.08,
-   note:"両翼が狭く天井も低い。打球がよく飛び、打ち合いになりやすい。風の影響は皆無",
+  // ---- NPB 現行 ----
+  {id:"escon", cat:"NPB", name:"エスコンフィールド北海道", type:"開閉屋根・天然芝", hr:1.14, run:1.15,
+   note:"2023年開業。両翼97m・中堅121m。開場時は本塁からバックネットまでが規定の60フィートに満たず、改修せず使用が認められた。NPBで最も打者有利",
+   good:"打線全般", bad:"投手陣"},
+  {id:"jingu", cat:"NPB", name:"明治神宮野球場", type:"屋外・人工芝", hr:1.15, run:1.13,
+   note:"1926年開場。両翼97.5m・中堅120m と狭く、風も打球を運ぶ。打ち合いになりやすい球場の代表",
    good:"長距離砲", bad:"技巧派の投手"},
-  {id:"wide", name:"大原スタジアム", type:"屋外・天然芝", hr:0.80, run:0.92,
-   note:"中堅122mの広大な外野。本塁打は激減し、三塁打とファインプレーが増える",
-   good:"守備・機動力・先発投手", bad:"一発頼みの打線"},
-  {id:"seaside", name:"潮見マリンパーク", type:"屋外・人工芝", hr:0.94, run:1.02,
-   note:"海風は日によって向きが変わり読めない。極端な有利不利はないが荒れる日がある",
-   good:"総合力", bad:"読みに頼る投手"},
-  {id:"dome-n", name:"北都ドーム", type:"屋内・人工芝", hr:0.90, run:0.98,
-   note:"広い両翼と高い天井。屋内で条件は一定、投手が計算を立てやすい",
-   good:"制球の良い投手", bad:"引っ張り一辺倒の打者"},
-  {id:"bandbox", name:"石亭球場", type:"屋外・人工芝", hr:1.22, run:1.10,
-   note:"両翼91mの狭さで「弾丸が飛び交う箱」と呼ばれる。凡打が本塁打になる",
-   good:"打線全般", bad:"抑え投手の心臓"},
-  {id:"classic", name:"旧・楽園球場", type:"屋外・天然芝", hr:1.04, run:1.00,
-   note:"古き良き標準的な造り。とくに癖はなく、実力がそのまま出る",
+  {id:"hama", cat:"NPB", name:"横浜スタジアム", type:"屋外・人工芝", hr:1.10, run:1.10,
+   note:"1978年開場。両翼94m・中堅118m。左右が狭く、スタンドが近いぶん本塁打も歓声もよく出る",
+   good:"引っ張る打者", bad:"制球の甘い投手"},
+  {id:"zozo", cat:"NPB", name:"ZOZOマリンスタジアム", type:"屋外・人工芝", hr:1.08, run:1.10,
+   note:"海からの強風で日によって別の球場になる。2019年のホームランラグーン設置で本塁打が急増し、パークファクターは0.87から1.2台へ跳ね上がった",
+   good:"風を読む打者", bad:"計算の立たない投手"},
+  {id:"paypay", cat:"NPB", name:"福岡PayPayドーム", type:"屋内・人工芝", hr:0.98, run:1.01,
+   note:"両翼100m・中堅122m。屋内で条件が一定。ホームランテラス設置後もおおむね中立",
+   good:"総合力", bad:"特になし"},
+  {id:"mazda", cat:"NPB", name:"MAZDA Zoom-Zoomスタジアム広島", type:"屋外・天然芝", hr:0.99, run:1.00,
+   note:"2009年開業。左右非対称で、右翼が浅く左翼が深い。天然芝の広い外野を守る力が要る",
+   good:"左の引っ張り・外野守備", bad:"右の大砲"},
+  {id:"tokyodome", cat:"NPB", name:"東京ドーム", type:"屋内・人工芝", hr:1.06, run:0.98,
+   note:"1988年開場、日本初の屋根付き球場。両翼100m・中堅122mだがフェンスが低く、本塁打はよく出る",
+   good:"長距離砲", bad:"フライボール投手"},
+  {id:"beluna", cat:"NPB", name:"ベルーナドーム", type:"屋根つき・人工芝", hr:0.96, run:0.96,
+   note:"屋根はあるが側面が開いており、外気がそのまま入る。夏は酷暑、春秋は冷え込む",
+   good:"体力のあるチーム", bad:"暑さに弱い助っ人"},
+  {id:"kyocera", cat:"NPB", name:"京セラドーム大阪", type:"屋内・人工芝", hr:0.92, run:0.94,
+   note:"両翼100m・中堅122m。フェンスが高く本塁打が伸びない。屋内で風の影響は皆無",
+   good:"制球の良い投手", bad:"一発頼みの打線"},
+  {id:"koshien", cat:"NPB", name:"阪神甲子園球場", type:"屋外・天然芝", hr:0.90, run:0.94,
+   note:"1924年開場。両翼95m・中堅118m。海からの浜風が右翼へ吹き、左打者の大飛球を押し戻す。1947年に設置されたラッキーゾーンは1991年に撤去された",
+   good:"右打ちの巧打者・機動力", bad:"左の大砲"},
+  {id:"rakuten", cat:"NPB", name:"楽天モバイルパーク宮城", type:"屋外・人工芝", hr:0.90, run:0.91,
+   note:"仙台の冷たい風で打球が伸びない。屋外の東北という条件が投手を助ける",
+   good:"先発投手", bad:"打線全般"},
+  {id:"vantelin", cat:"NPB", name:"バンテリンドーム ナゴヤ", type:"屋内・人工芝", hr:0.78, run:0.84,
+   note:"両翼100m・中堅122m。フェンスが高く外野が広い、NPBで最も投手有利な球場。10年間ずっと投手天国であり続けている",
+   good:"投手陣すべて・守備", bad:"本塁打を狙う打者"},
+
+  // ---- 記憶の中の球場 ----
+  {id:"korakuen", cat:"歴史", name:"後楽園球場", type:"屋外・人工芝／1937-1987", hr:1.28, run:1.14,
+   note:"開場時の両翼はわずか78m。のちに広げられてもなお狭く、本塁打がとにかく出た。巨人と日拓・日本ハムの本拠地",
+   good:"打線全般", bad:"投手の精神"},
+  {id:"osaka", cat:"歴史", name:"大阪球場", type:"屋外・人工芝／1950-1998", hr:1.26, run:1.12,
+   note:"両翼84mという極端な狭さ。南海ホークスの本拠地で、スタンドが急勾配に迫り、観客の声が直接届いた",
+   good:"引っ張る打者", bad:"抑え投手の心臓"},
+  {id:"nishinomiya", cat:"歴史", name:"阪急西宮球場", type:"屋外・天然芝／1937-2002", hr:1.10, run:1.05,
+   note:"阪急ブレーブスの本拠地。ラッキーゾーンを設けて本塁打を出やすくした。1971年のオールスターで江夏豊が9連続奪三振を達成した舞台",
+   good:"長距離砲", bad:"変化球投手"},
+  {id:"kawasaki", cat:"歴史", name:"川崎球場", type:"屋外・人工芝／1952-2000", hr:1.12, run:1.06,
+   note:"ロッテの本拠地。狭く古びた球場で、閑古鳥が名物にすらなっていた。1988年10月19日、近鉄の優勝がかかったダブルヘッダーの舞台",
+   good:"打線全般", bad:"投手陣"},
+  {id:"heiwadai", cat:"歴史", name:"平和台野球場", type:"屋外・天然芝／1949-1997", hr:0.94, run:0.97,
+   note:"西鉄ライオンズ黄金期の本拠地。天然芝の広い外野。1969年に始まる黒い霧事件でチームは崩壊し、球団は身売りに至った",
+   good:"守備・機動力", bad:"一発頼みの打線"},
+  {id:"fujiidera", cat:"歴史", name:"藤井寺球場", type:"屋外・天然芝／1928-2005", hr:1.02, run:1.00,
+   note:"近鉄バファローズの本拠地。長らく照明が無く、ナイターが開催できない時期が続いた。癖のない造りで実力がそのまま出る",
    good:"地力のあるチーム", bad:"奇策"},
-  {id:"highland", name:"高地スタジアム", type:"屋外・天然芝", hr:1.20, run:1.14,
-   note:"標高が高く空気が薄い。打球がどこまでも伸び、投手の変化球は曲がらない",
-   good:"打線", bad:"投手陣すべて"},
+
+  // ---- MLB ----
+  {id:"coors", cat:"MLB", name:"クアーズ・フィールド", type:"屋外・天然芝／デンバー", hr:1.24, run:1.28,
+   note:"標高1580mの高地にあり、空気が薄く打球がどこまでも伸びる。得点はリーグ平均より約28%多く、MLBで群を抜いて打者有利",
+   good:"打線全般", bad:"投手陣すべて"},
+  {id:"fenway", cat:"MLB", name:"フェンウェイ・パーク", type:"屋外・天然芝／ボストン", hr:1.06, run:1.08,
+   note:"1912年開場、MLB最古の現役球場。左翼にそびえる高さ11.3mの壁「グリーンモンスター」が、平凡な飛球を二塁打に、痛烈な当たりを単打に変える",
+   good:"右打ちの二塁打製造機", bad:"左翼手"},
+  {id:"wrigley", cat:"MLB", name:"リグレー・フィールド", type:"屋外・天然芝／シカゴ", hr:1.05, run:1.05,
+   note:"1914年開場。外野の壁を覆うツタが名物。ミシガン湖からの風向き次第で打者天国にも投手天国にもなる。1945年からのヤギの呪いが解けたのは2016年",
+   good:"風を読む打者", bad:"計算の立たない投手"},
+  {id:"yankee", cat:"MLB", name:"ヤンキー・スタジアム", type:"屋外・天然芝／ニューヨーク", hr:1.14, run:1.04,
+   note:"右翼までが99mと短く、左打者の流し打ちがそのままスタンドへ届く。ベーブ・ルースのために造られたと言われる形",
+   good:"左の長距離砲", bad:"右投手"},
+  {id:"oracle", cat:"MLB", name:"オラクル・パーク", type:"屋外・天然芝／サンフランシスコ", hr:0.79, run:0.93,
+   note:"右中間が極端に深く、湾から流れ込む重い海風が打球を殺す。本塁打指数79はMLB屈指の低さ",
+   good:"三塁打を打てる俊足・投手陣", bad:"本塁打を狙う打者"},
+  {id:"petco", cat:"MLB", name:"ペトコ・パーク", type:"屋外・天然芝／サンディエゴ", hr:0.77, run:0.94,
+   note:"広い外野と海沿いの湿った空気で本塁打が出ない。本塁打指数77はMLBで最も低い部類",
+   good:"先発投手・外野守備", bad:"打線全般"},
+
+  // ---- 地方球場 ----
+  {id:"bocchan", cat:"地方", name:"松山坊っちゃんスタジアム", type:"屋外・天然芝／愛媛", hr:0.96, run:0.98,
+   note:"1999年開業。両翼99.1m・中堅122mの本格的な造り。地方開催の定番で、満員の観客が近い",
+   good:"総合力", bad:"特になし"},
+  {id:"muscat", cat:"地方", name:"倉敷マスカットスタジアム", type:"屋外・天然芝／岡山", hr:0.98, run:0.99,
+   note:"1995年開業。中堅122mの広い外野。地方開催では珍しく規格が大きく、守備範囲が問われる",
+   good:"外野守備", bad:"打球の上がらない打者"},
+  {id:"alpen", cat:"地方", name:"富山市民球場アルペンスタジアム", type:"屋外・天然芝／富山", hr:1.00, run:1.00,
+   note:"1992年開業。立山連峰を背に建つ。癖のない造りだが、地方開催特有の慣れない環境が両軍に等しくのしかかる",
+   good:"地力のあるチーム", bad:"神経質な選手"},
+  {id:"cellular", cat:"地方", name:"沖縄セルラースタジアム那覇", type:"屋外・天然芝／沖縄", hr:1.08, run:1.04,
+   note:"2010年に全面改築。南国の湿った暖かい空気で打球がよく飛ぶ。キャンプ地としても知られる",
+   good:"長距離砲", bad:"暑さに弱い投手"},
 ];
 function parkOf(t){ return t.park || PARKS[0]; }
 // ホーム球場の係数。ビジター側にも同じ条件がかかる
@@ -1819,7 +1894,9 @@ function paProbs(bat, pit, park){
   // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す。
   // ここを打席あたりのまま扱うとリーグ打率が.190台まで落ちる
   const abShare = 1 - bb - 0.008;
-  const avg = clamp(bat.avg + edge * 0.85 + (runF - 1) * 0.35, 0.170, 0.420);
+  // 得点は打率に対して非線形に増えるので、パークファクターをそのまま打率に足すと
+  // 効きが倍以上に膨らむ。実測で得点比がPF比に一致するところまで落としてある
+  const avg = clamp(bat.avg + edge * 0.85 + (runF - 1) * 0.105, 0.170, 0.420);
   let hit = avg * abShare - hr;                // 本塁打ぶんを差し引いた単打・長打
   if(hit < 0.04) hit = 0.04;
 

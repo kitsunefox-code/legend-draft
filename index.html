@@ -2065,10 +2065,11 @@ body{
 }
 #park-bg.show{display:flex;}
 #park-panel{
+  max-height:94vh;overflow-y:auto;
   background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
   background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
   border:1px solid var(--rule2);border-top:6px solid var(--ink);
-  max-width:1000px;width:100%;padding:20px 22px 24px;
+  max-width:1060px;width:100%;padding:20px 22px 24px;
   box-shadow:6px 6px 0 rgba(20,16,8,.34);
 }
 #park-panel h2{
@@ -2094,7 +2095,11 @@ body{
 }
 .pk-you{margin-left:auto;font-size:12px;color:var(--red);font-family:"Yu Gothic",sans-serif;}
 .pk-cpu{margin-left:auto;font-size:12px;color:var(--ink2);font-family:"Yu Gothic",sans-serif;}
-.pk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:10px;}
+.pk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(232px,1fr));gap:10px;margin-bottom:16px;}
+.pk-cat{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;font-weight:900;letter-spacing:.2em;
+  color:var(--paper);background:var(--ink);display:inline-block;padding:3px 12px;margin:4px 0 8px;
+}
 .pk-card{
   position:relative;border:1px solid var(--rule2);background:#fff;padding:12px;
   cursor:pointer;transition:border-color .15s, transform .1s;
@@ -2103,9 +2108,9 @@ body{
 .pk-card:active{transform:translateY(1px);}
 .pk-card.used{opacity:.42;cursor:default;background:var(--paper3);}
 .pk-card.used:hover{border-color:var(--rule2);}
-.pk-h{display:flex;align-items:baseline;gap:8px;border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:8px;}
-.pk-h b{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:16px;letter-spacing:.04em;}
-.pk-h span{margin-left:auto;font-size:10px;color:var(--ink2);white-space:nowrap;}
+.pk-h{display:flex;flex-direction:column;gap:2px;border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:8px;}
+.pk-h b{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14.5px;letter-spacing:.02em;line-height:1.35;}
+.pk-h span{font-size:10px;color:var(--ink2);}
 .pk-m{display:flex;align-items:center;gap:7px;margin-bottom:5px;}
 .pk-lb{flex:none;width:38px;font-size:10.5px;color:var(--ink2);}
 .pk-bar{flex:1;height:7px;background:var(--paper3);border:1px solid var(--rule);position:relative;}
@@ -2588,9 +2593,9 @@ body{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608301416"></script>
-<script src="players.js?v=202608301416"></script>
-<script src="party.js?v=202608301416"></script>
-<script src="game.js?v=202608301416"></script>
+<script src="qrcode.js?v=202608301441"></script>
+<script src="players.js?v=202608301441"></script>
+<script src="party.js?v=202608301441"></script>
+<script src="game.js?v=202608301441"></script>
 </body>
 </html>

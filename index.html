@@ -81,9 +81,9 @@ h1 .kicker{
   padding:16px 18px;margin:16px 0;
 }
 .panel>b:first-child, .p-head{
-  display:inline-block;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
-  font-size:16px;font-weight:800;letter-spacing:3px;
-  border-left:5px solid var(--red);padding-left:9px;margin-bottom:8px;
+  display:block;font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:19px;font-weight:900;letter-spacing:.16em;
+  border-bottom:2px solid var(--ink);padding:0 0 6px;margin-bottom:11px;
 }
 .sub{color:var(--ink2);font-size:13px;}
 .chip{
@@ -910,6 +910,7 @@ footer{margin-top:56px;}
 }
 .plog.open .pl-src{display:block;}
 .pl-src b{display:block;font-size:10px;letter-spacing:.16em;color:var(--red);margin-bottom:3px;}
+.pl-src .btn{display:block;width:fit-content;margin-top:10px;}
 .pl-pic{
   flex:none;width:54px;height:54px;object-fit:cover;
   border:1px solid var(--rule2);box-shadow:1px 1px 0 rgba(20,16,8,.2);
@@ -1527,6 +1528,184 @@ body{
   font-size:19px;letter-spacing:2px;color:var(--ink);
 }
 .sc-note{margin-top:9px;font-size:11px;color:var(--rule2);}
+
+/* ============================================================
+   球界事件簿ビューア ── 資料室の紙面を模した二段組み
+   ============================================================ */
+#file-bg{
+  position:fixed;inset:0;background:rgba(20,17,10,.86);display:none;z-index:150;
+  align-items:stretch;justify-content:center;padding:0;
+}
+#file-bg.show{display:flex;}
+#file-card{
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,70,.038) 3px 4px),
+    var(--paper);
+  width:100%;max-width:1180px;display:flex;flex-direction:column;
+  border-left:1px solid var(--ink);border-right:1px solid var(--ink);
+}
+/* 題字まわり。新聞の題号にならい太罫＋細罫の二重線で締める */
+.fh{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:18px 22px 12px;border-bottom:3px solid var(--ink);position:relative;flex:none;
+}
+.fh::after{content:"";position:absolute;left:0;right:0;bottom:-5px;border-bottom:1px solid var(--ink);}
+.fh-l{flex:1;min-width:0;}
+.fh-k{
+  font-size:10.5px;letter-spacing:.36em;color:var(--ink2);
+  border-bottom:1px solid var(--rule);display:inline-block;padding-bottom:3px;margin-bottom:7px;
+}
+.fh-t{
+  font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:34px;font-weight:900;letter-spacing:.22em;line-height:1;margin:0;
+}
+.fh-s{margin-top:8px;font-size:11.5px;color:var(--ink2);letter-spacing:.04em;}
+.fh-x{
+  flex:none;width:38px;height:38px;border:1px solid var(--rule2);background:var(--paper2);
+  font-size:19px;line-height:1;color:var(--ink);cursor:pointer;font-family:"Oswald",sans-serif;
+}
+.fh-x:hover{background:var(--ink);color:var(--paper);}
+.fh-bar{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  padding:10px 22px;border-bottom:1px solid var(--rule);flex:none;
+}
+.ft-row{display:flex;gap:0;flex-wrap:wrap;flex:1;min-width:0;}
+/* 分類は新聞の欄名にならい、白抜きの角で示す */
+.ft{
+  border:0;border-right:1px solid var(--rule);background:transparent;cursor:pointer;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:12.5px;font-weight:700;
+  color:var(--ink2);padding:3px 11px;letter-spacing:.08em;display:flex;align-items:baseline;gap:5px;
+}
+.ft:last-child{border-right:0;}
+.ft i{font-style:normal;font-family:"Oswald",sans-serif;font-size:10px;color:var(--rule2);}
+.ft:hover{color:var(--ink);}
+.ft.on{background:var(--ink);color:var(--paper);}
+.ft.on i{color:var(--amber);}
+.fh-tools{display:flex;align-items:center;gap:10px;flex:none;}
+#file-q{
+  width:210px;padding:5px 9px;font-size:13px;border:1px solid var(--rule2);
+  background:var(--paper2);color:var(--ink);font-family:inherit;
+}
+#file-q:focus{outline:2px solid var(--red);outline-offset:1px;}
+.fh-n{font-family:"Oswald",sans-serif;font-size:12px;color:var(--ink2);min-width:48px;text-align:right;}
+/* 本体。新聞の段組みに倣い、広い画面では二段で流す */
+#file-list{
+  flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:16px 22px 40px;
+  display:grid;grid-template-columns:1fr 1fr;column-gap:26px;align-content:start;
+  /* 段と段のあいだの縦罫。新聞の段間罫にあたる */
+  background-image:linear-gradient(var(--rule),var(--rule));
+  background-size:1px calc(100% - 40px);background-position:50% 0;background-repeat:no-repeat;
+}
+.fe{
+  display:flex;gap:11px;align-items:flex-start;align-self:start;
+  padding:0 0 13px;margin-bottom:13px;border-bottom:1px solid var(--rule);min-width:0;
+}
+.fe-pic{
+  flex:none;width:78px;height:78px;padding:3px;border:1px solid var(--rule2);
+  background:#fff;cursor:pointer;position:relative;display:block;
+}
+.fe-pic img{width:100%;height:100%;object-fit:cover;display:block;}
+.fe-pic span{
+  position:absolute;left:3px;right:3px;bottom:3px;background:rgba(20,16,8,.78);color:#fff;
+  font-size:9px;letter-spacing:.16em;text-align:center;padding:1px 0;opacity:0;transition:opacity .15s;
+}
+.fe-pic:hover span,.fe-pic:focus-visible span{opacity:1;}
+.fe-body{flex:1;min-width:0;}
+.fe-kick{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.fe-icon{
+  width:19px;height:19px;line-height:19px;text-align:center;color:#fff;background:var(--gray);
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:11.5px;flex:none;
+}
+.fe-icon.good{background:var(--green);} .fe-icon.bad{background:var(--red);}
+.fe-icon.warn{background:var(--goldseal);} .fe-icon.fun{background:var(--navy);}
+.fe-cat{font-size:9.5px;letter-spacing:.18em;color:var(--rule2);}
+.fe h3{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:16px;font-weight:900;
+  letter-spacing:.06em;line-height:1.35;margin:0 0 5px;text-wrap:balance;
+}
+.fe-txt{font-size:12.5px;line-height:1.85;color:var(--ink2);margin:0;}
+/* 元ネタは記事から独立させたいのでカコミ罫であしらう */
+.fe-note{
+  margin-top:8px;padding:7px 10px;font-size:11.5px;line-height:1.8;color:var(--ink);
+  border:1px solid var(--rule);background:rgba(255,255,255,.5);
+}
+.fe-note b{
+  display:inline-block;font-size:9.5px;letter-spacing:.2em;color:#fff;background:var(--red);
+  padding:0 6px;margin-right:7px;vertical-align:1px;font-weight:700;
+}
+.fe-empty{padding:40px 0;text-align:center;color:var(--ink2);font-size:13px;grid-column:1 / -1;}
+@media (max-width:900px){
+  #file-list{grid-template-columns:1fr;padding:14px 16px 40px;background-image:none;}
+  .fh{padding:14px 16px 10px;}
+  .fh-t{font-size:26px;}
+  .fh-bar{padding:9px 0 9px 16px;gap:9px;flex-direction:column;align-items:stretch;}
+  /* 分類は折り返さず横に流す。縦を食うと本文が読めなくなる */
+  .ft-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  .ft{flex:none;font-size:12.5px;padding:5px 11px;}
+  .fh-tools{padding-right:16px;}
+  #file-q{flex:1;width:auto;}
+  .fe-pic{width:64px;height:64px;}
+  .fe h3{font-size:15px;}
+}
+
+/* ============================================================
+   紙面の作法にそろえる仕上げ
+   ・記事量は紙面の5〜6割。見出しと余白に紙を割く
+   ・罫線は行間ではなく1行分のアキを取って引く
+   ・囲み罫(カコミ)で独立した記事をつくる
+   ============================================================ */
+.t-acts{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
+
+/* 欄名(段見出し)の下に置くリード。本文とは書体と字送りで差をつける */
+.p-lead{
+  display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;
+  font-size:12px;color:var(--ink2);line-height:1.8;margin:-4px 0 12px;
+}
+.p-lead>span{flex:1 1 100%;}
+@media (min-width:1100px){ .p-lead>span{flex:1 1 auto;min-width:240px;} }
+
+/* 欄名に通し番号の柱を添える。ただの飾りではなく面の順序を示す */
+.panel>b:first-child::before,.board .p-head-b::before{
+  content:attr(data-col);font-family:"Oswald",sans-serif;font-size:10px;letter-spacing:.2em;
+  color:var(--red);margin-right:10px;vertical-align:2px;
+}
+.board .p-head-b::before{color:var(--amber);}
+
+/* 盤面の欄名。級数を上げ、白抜きで締める */
+.board .p-head-b{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:15px;font-weight:900;letter-spacing:.18em;color:var(--boardtxt);
+  border-bottom:2px solid #2c5742;padding-bottom:6px;margin-bottom:10px;
+}
+.board .p-head-b .hb-r{
+  float:right;font-family:"Yu Gothic",sans-serif;font-weight:400;
+  font-size:11px;letter-spacing:.06em;
+}
+.board .p-head-b .hb-r a{color:#9fbfa8;text-decoration:none;border-bottom:1px solid #2c5742;}
+.board .p-head-b .hb-r a:hover{color:var(--amber);border-bottom-color:var(--amber);}
+
+/* 広い画面では下段を二段組みに。全段ぶち抜きが続くと紙面が単調になる */
+@media (min-width:900px){
+  .np-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;align-items:start;}
+  .np-grid>*{margin-top:16px;margin-bottom:0;}
+  .np-grid>.np-wide{grid-column:1 / -1;}
+}
+
+/* 事件簿の行。左罫の帯をやめ、日付を柱に据えた記事組みにする */
+.plog{padding:9px 4px;}
+.pl-icon{border-radius:0;box-shadow:none;}
+.pl-d{
+  width:56px;font-size:11px;color:var(--ink2);letter-spacing:.02em;
+  border-right:1px solid var(--rule);padding-right:7px;margin-right:2px;
+}
+.pl-src{
+  margin:9px 0 2px 31px;padding:9px 11px;border:1px solid var(--rule);
+  background:rgba(255,255,255,.55);border-left:1px solid var(--rule);
+}
+.pl-src b{
+  display:inline-block;font-size:9.5px;letter-spacing:.2em;color:#fff;background:var(--red);
+  padding:0 6px;margin:0 8px 0 0;vertical-align:1px;
+}
 </style>
 </head>
 <body>
@@ -1543,7 +1722,10 @@ body{
     戦前の豪傑から現代の怪物まで、日本プロ野球の歴代名選手をドラフトで奪い合い、
     監督を据え、一年間のペナントレースを戦い抜く。栄冠を手にするのは、どの球団か。
   </div>
-  <div><button class="btn" onclick="goSetup()">開幕準備をはじめる</button></div>
+  <div class="t-acts">
+    <button class="btn" onclick="goSetup()">開幕準備をはじめる</button>
+    <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
+  </div>
 </div>
 
 <!-- ================= SETUP ================= -->
@@ -1702,35 +1884,42 @@ body{
   </div>
 
   <div class="board">
-    <div class="p-head-b">ＳＴＡＮＤＩＮＧＳ ─ 順位表　<span style="float:right;"><a href="javascript:snapPaper()" style="color:#9fbfa8;font-size:11px;letter-spacing:1px;">▶ 記念紙面を保存</a>　<a href="javascript:openQr()" style="color:#9fbfa8;font-size:11px;letter-spacing:1px;">▶ 観戦用QR</a></span></div>
+    <div class="p-head-b" data-col="01">順位表<span class="hb-r"><a href="javascript:snapPaper()">記念紙面を保存</a>　<a href="javascript:openQr()">観戦用QR</a></span></div>
     <table id="standings"></table>
   </div>
 
   <div class="board">
-    <div class="p-head-b">ＬＥＡＤＥＲＳ ─ 部門トップ</div>
+    <div class="p-head-b" data-col="02">部門別トップ</div>
     <div id="leaders"></div>
   </div>
 
   <div class="board">
-    <div class="p-head-b">ＲＯＳＴＥＲ ─ 所属選手の成績</div>
+    <div class="p-head-b" data-col="03">所属選手の成績</div>
     <div id="roster-tabs" style="margin-bottom:6px;"></div>
     <div id="roster-live"></div>
   </div>
 
-  <div class="panel" id="chart-box">
-    <b>ペナントの軌跡（貯金の推移）</b>
+  <div class="np-grid">
+  <div class="panel np-wide" id="chart-box">
+    <b data-col="04">ペナントの軌跡</b>
+    <div class="p-lead"><span>各球団の貯金（勝ち越し数）の推移。0の線を下回れば負け越し。</span></div>
     <div id="chart"></div>
   </div>
 
   <div class="panel" id="party-box" style="display:none;">
-    <b>球界事件簿<span class="en-s">SCANDAL FILE</span></b>
-    <div class="sub" style="margin:2px 0 8px;">パーティーモードで起きた波乱の記録</div>
+    <b data-col="05">球界事件簿</b>
+    <div class="p-lead">
+      <span>この一年に起きた波乱の記録。行をひらくと元ネタの史実が読めます。</span>
+      <button class="btn ghost sm" onclick="openFile()">収録事件を全件読む</button>
+    </div>
     <div id="party-log"></div>
   </div>
 
   <div class="panel">
-    <b>運動面 ─ 紙面より</b>
+    <b data-col="06">運動面</b>
+    <div class="p-lead"><span>その日の紙面に載った記事から。</span></div>
     <div id="news"></div>
+  </div>
   </div>
 </div>
 
@@ -1805,6 +1994,28 @@ body{
 <!-- event panel (trade / MLB / 入札抽選) -->
 <div id="event-bg">
   <div id="event-panel"></div>
+</div>
+
+<!-- 球界事件簿ビューア -->
+<div id="file-bg">
+  <div id="file-card">
+    <header class="fh">
+      <div class="fh-l">
+        <div class="fh-k">球史新聞社　資料室</div>
+        <h2 class="fh-t">球界事件簿</h2>
+        <div class="fh-s">本作に収録された事件はすべて実際の出来事に材を取っています</div>
+      </div>
+      <button class="fh-x" onclick="closeFile()" aria-label="閉じる">×</button>
+    </header>
+    <div class="fh-bar">
+      <div id="file-tabs" class="ft-row"></div>
+      <div class="fh-tools">
+        <input id="file-q" type="search" placeholder="事件名・元ネタを検索" oninput="fileSearch()">
+        <span id="file-count" class="fh-n"></span>
+      </div>
+    </div>
+    <div id="file-list"></div>
+  </div>
 </div>
 
 <!-- 開幕號外 -->
@@ -1920,9 +2131,9 @@ body{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608300927"></script>
-<script src="players.js?v=202608300927"></script>
-<script src="party.js?v=202608300927"></script>
-<script src="game.js?v=202608300927"></script>
+<script src="qrcode.js?v=202608301000"></script>
+<script src="players.js?v=202608301000"></script>
+<script src="party.js?v=202608301000"></script>
+<script src="game.js?v=202608301000"></script>
 </body>
 </html>

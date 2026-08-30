@@ -1410,7 +1410,7 @@ function renderPartyLog(){
         ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
         ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
       </div>
-      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" style="margin-top:8px;" onclick="event.stopPropagation();replayEventPic(${i})">號外カットを見る</button>`:""}</div>`:""}
+      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" onclick="event.stopPropagation();replayEventPic(${i})">號外カットを見る</button>`:""}</div>`:""}
     </div>`;
   }).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
 }
@@ -1628,6 +1628,93 @@ function statTables(t, light){
   </table></div>`;
 }
 
+
+
+// ============================================================
+// 球界事件簿ビューア(収録された史実イベントを全件読む)
+// ============================================================
+const FILE_CATS = [
+  {k:"all",   label:"すべて"},
+  {k:"pic",   label:"挿絵あり"},
+  {k:"sc1",   label:"私生活"},
+  {k:"sc2",   label:"契約・移籍"},
+  {k:"sc3",   label:"規律・炎上"},
+  {k:"sc4",   label:"球界の疑惑"},
+  {k:"gos",   label:"ゴシップ・舌禍"},
+  {k:"showa", label:"昭和"},
+  {k:"hei",   label:"平成・令和"},
+  {k:"mlb",   label:"MLB"},
+  {k:"misc",  label:"助っ人・珍記録"},
+];
+function fileCatOf(e){ return e.cat || "misc"; }
+function openFile(){
+  if(state.fileCat === undefined) state.fileCat = "all";
+  renderFile();
+  $("file-bg").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function closeFile(){
+  $("file-bg").classList.remove("show");
+  document.body.style.overflow = "";
+}
+function fileTab(k){ state.fileCat = k; renderFile(); const l = $("file-list"); if(l) l.scrollTop = 0; }
+function fileSearch(){ renderFile(); }
+function plainText(t){
+  return String(t || "")
+    .replace(/\{P2\}/g, "別の選手").replace(/\{P\}/g, "選手")
+    .replace(/\{T2\}/g, "相手球団").replace(/\{T\}/g, "球団").replace(/\{M\}/g, "監督");
+}
+function fileList(){
+  const q = ($("file-q") && $("file-q").value || "").trim();
+  const cat = state.fileCat || "all";
+  return PARTY_LORE.filter(function(e){
+    if(cat === "pic"){ if(!EVENT_PIC.has(e.id)) return false; }
+    else if(cat !== "all" && fileCatOf(e) !== cat) return false;
+    if(q && (plainText(e.text) + " " + (e.note||"")).indexOf(q) < 0) return false;
+    return true;
+  });
+}
+function fileCatCount(k){
+  if(k === "all") return PARTY_LORE.length;
+  if(k === "pic") return PARTY_LORE.filter(function(e){ return EVENT_PIC.has(e.id); }).length;
+  return PARTY_LORE.filter(function(e){ return fileCatOf(e) === k; }).length;
+}
+function renderFile(){
+  const cat = state.fileCat || "all";
+  const list = fileList();
+  $("file-tabs").innerHTML = FILE_CATS.map(function(c){
+    return '<button class="ft' + (cat===c.k?" on":"") + '" onclick="fileTab(&quot;' + c.k + '&quot;)">' +
+           esc(c.label) + '<i>' + fileCatCount(c.k) + '</i></button>';
+  }).join("");
+  $("file-count").textContent = list.length + "件";
+  $("file-list").innerHTML = list.length ? list.map(function(e){
+    const head = (/^【([^】]+)】/.exec(e.text) || [null,"事件"])[1];
+    const body = plainText(e.text).replace(/^【[^】]+】/, "");
+    const pic = EVENT_PIC.has(e.id);
+    const catLabel = (FILE_CATS.find(function(c){ return c.k === fileCatOf(e); }) || {label:""}).label;
+    return '<article class="fe">' +
+      (pic ? '<button class="fe-pic" onclick="showFilePic(&quot;' + e.id + '&quot;)" title="挿絵を大きく見る">' +
+             '<img src="assets/event/' + e.id + '.jpg" alt=""><span>拡大</span></button>' : "") +
+      '<div class="fe-body">' +
+        '<div class="fe-kick"><span class="fe-icon ' + e.cls + '">' + esc(e.icon) + '</span>' +
+          '<span class="fe-cat">' + esc(catLabel) + '</span></div>' +
+        '<h3>' + esc(head) + '</h3>' +
+        '<p class="fe-txt">' + esc(body) + '</p>' +
+        (e.note ? '<div class="fe-note"><b>元ネタ</b>' + esc(e.note) + '</div>' : "") +
+      '</div>' +
+    '</article>';
+  }).join("") : '<div class="fe-empty">該当する事件は見つかりませんでした。</div>';
+}
+// 事件簿から挿絵を大きく見る(ペナントの進行には影響しない)
+function showFilePic(id){
+  const e = PARTY_LORE.find(function(v){ return v.id === id; });
+  if(!e) return;
+  const keep = state.playing;
+  showEventPic(e, plainText(e.text));
+  state.picResume = keep;
+  $("pic-date").textContent = "球史事件簿より";
+}
+
 // ============================================================
 // 打順・先発ローテーションの編成
 // ============================================================
@@ -1759,14 +1846,28 @@ function renderChart(){
   state.parts.forEach(t=>{
     const pts = t.hist.map((v,i)=>`${x(i)},${y(v)}`).join(" ");
     svg += `<polyline points="${pts}" fill="none" stroke="${t.color}" stroke-width="2" stroke-linejoin="round"/>`;
-    const last=t.hist[t.hist.length-1];
-    const lx=x(t.hist.length-1), ly=y(last);
-    svg += `<circle cx="${lx}" cy="${ly}" r="3.5" fill="${t.color}"/>`;
-    const nm = t.name.length>5 ? t.name.slice(0,5) : t.name;
-    svg += `<text x="${lx+7}" y="${ly+3.5}" fill="${t.color}" font-size="10.5" font-weight="bold">${esc(nm)} ${last>0?"+":""}${last}</text>`;
+  });
+  // 端の見出しは重なりやすい(開幕直後は全球団が0で並ぶ)。上下にずらして必ず読めるようにする
+  const ends = state.parts.map(t=>{
+    const last = t.hist[t.hist.length-1];
+    return {t, last, lx:x(t.hist.length-1), ly:y(last), ty:y(last)};
+  }).sort((a,b)=>a.ty-b.ty);
+  const GAP = 12;
+  for(let i=1;i<ends.length;i++){
+    if(ends[i].ty - ends[i-1].ty < GAP) ends[i].ty = ends[i-1].ty + GAP;
+  }
+  const over = ends.length ? ends[ends.length-1].ty - (H-padB) : 0;
+  if(over > 0) ends.forEach(e=>{ e.ty -= over; });
+  ends.forEach(e=>{
+    const nm = e.t.name.length>5 ? e.t.name.slice(0,5) : e.t.name;
+    svg += `<circle cx="${e.lx}" cy="${e.ly}" r="3.5" fill="${e.t.color}"/>`;
+    // 点と見出しがずれた分は引き出し線でつなぐ
+    if(Math.abs(e.ty - e.ly) > 1.5){
+      svg += `<path d="M${e.lx+4} ${e.ly} L${e.lx+9} ${e.ty-3.5}" stroke="${e.t.color}" stroke-width="1" fill="none" opacity=".55"/>`;
+    }
+    svg += `<text x="${e.lx+11}" y="${e.ty}" fill="${e.t.color}" font-size="10.5" font-weight="bold" dominant-baseline="middle">${esc(nm)} ${e.last>0?"+":""}${e.last}</text>`;
   });
   svg += `</svg>`;
-  svg += `<div style="margin-top:6px;">` + state.parts.map(t=>`<span class="tag"><span style="color:${t.color}">●</span> ${esc(t.name)}</span>`).join("") + `</div>`;
   $("chart").innerHTML = svg;
 }
 

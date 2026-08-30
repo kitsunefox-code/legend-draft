@@ -216,6 +216,13 @@ const VALID_EFFECT = new Set(["none","moodUp","moodDown","formUp","formDown","fo
 const VALID_TARGET = new Set(["team","player","pitcher","foreign","manager","twoPlayers","twoTeams"]);
 const VALID_CLS = new Set(["good","bad","warn","fun"]);
 console.log("party events:");
+const LORE_CAT = {
+  "party_npb_showa.json":"showa", "party_npb_heisei.json":"hei",
+  "party_mlb.json":"mlb", "party_misc.json":"misc",
+  "party_scandal1.json":"sc1", "party_scandal2.json":"sc2",
+  "party_scandal3.json":"sc3", "party_scandal4.json":"sc4",
+  "party_gossip.json":"gos",
+};
 const lore = [], loreSeen = new Set();
 for(const f of PARTY_FILES){
   let n = 0;
@@ -231,6 +238,7 @@ for(const f of PARTY_FILES){
       w: clamp(Math.round(num(raw.w, 2)), 1, 5),
       target: VALID_TARGET.has(raw.target) ? raw.target : "team",
       effect: VALID_EFFECT.has(raw.effect) ? raw.effect : "none",
+      cat: LORE_CAT[f] || "misc",
       note: String(raw.note || ""),
       text: String(raw.text).trim().slice(0, 140),
     });

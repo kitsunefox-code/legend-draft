@@ -43,7 +43,6 @@ const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
 const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; };
 const avg3 = v => v.toFixed(3).replace(/^0/,"");
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-function poisson(lam){ let L=Math.exp(-lam),k=0,p=1; do{k++;p*=rnd();}while(p>L); return k-1; }
 function decadeOf(y){ return y<1950 ? "1930-40年代" : Math.floor(y/10)*10 + "年代"; }
 
 // ---------- 能力値 ----------
@@ -1186,7 +1185,7 @@ function rollAwakenings(){
 
 // ---- 日程表(総当たりカレンダー方式) ----
 // NPBにならい3連戦を単位に組む。同一カードが3日続き、カードの切れ目に移動日が入る。
-// [a,b] の a がホーム。3連戦ごとにホームを入れ替える
+// [a,b] の b がホーム(aが表の攻撃=ビジター)。3連戦ごとにホームを入れ替える
 function buildSchedule(n, cycles){
   const ids = [...Array(n).keys()];
   if(n % 2) ids.push(-1);          // 奇数なら1球団が休み
@@ -1240,7 +1239,7 @@ function startSeason(){
   if(state.opts.trade) state.eventQueue.push({after:2, type:"trade"});
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
   const wokeCount = rollAwakenings();
-  simulateAllPlayerStats();
+  initSeasonStats();
   rollForms();
   state.rosterTab = 0;
   show("scr-season");
@@ -1692,16 +1691,261 @@ function dueEvent(){
   return state.eventQueue.find(e=>!e.done && e.after <= state.monthsCompleted);
 }
 
+// ---- 打席から積み上げる実成績 ----
+// 事前生成をやめ、実際に起きた打席の結果をそのまま記録する。
+// これで4番が走者を置いて打点を稼ぐ、1番が打席数を稼ぐ、が数字に出る
+function blankBat(p, t, bench){
+  return {p, t, kind:"B", bench, g:0, pa:0, ab:0, h:0, d2:0, d3:0, hr:0, rbi:0,
+          bb:0, hbp:0, so:0, sb:0, avg:0, obp:0, slg:0, ops:0};
+}
+function blankPit(p, t, role){
+  return {p, t, kind:"P", role, g:0, gs:0, w:0, l:0, sv:0, hld:0, cg:0,
+          outs:0, ip:0, er:0, so:0, bb:0, hAllow:0, era:0, whip:0, k9:0};
+}
+function initSeasonStats(){
+  const stats = [];
+  for(const t of state.parts){
+    const seen = new Set();
+    for(const d of SLOT_DEFS){
+      if(d.key === "MGR") continue;
+      const p = t.slots[d.key];
+      if(!p || seen.has(p.id)) continue;
+      seen.add(p.id);
+      stats.push(["SP","RP","CL"].includes(d.grp)
+        ? blankPit(p, t, d.grp)
+        : blankBat(p, t, BENCH_KEYS.includes(d.key)));
+    }
+  }
+  state.seasonStats = stats;
+  state.statIdx = new Map(stats.map(s => [s.p.id + "@" + s.t.name, s]));
+}
+function lineOf(t, p){
+  if(!state.statIdx) return null;
+  return state.statIdx.get(p.id + "@" + t.name) || null;
+}
+function recalcBat(s){
+  s.avg = s.ab ? s.h / s.ab : 0;
+  const tb = (s.h - s.d2 - s.d3 - s.hr) + s.d2*2 + s.d3*3 + s.hr*4;
+  s.slg = s.ab ? tb / s.ab : 0;
+  s.obp = (s.ab + s.bb + s.hbp) ? (s.h + s.bb + s.hbp) / (s.ab + s.bb + s.hbp) : 0;
+  s.ops = s.obp + s.slg;
+}
+function recalcPit(s){
+  s.ip = Math.round(s.outs / 3 * 10) / 10;
+  const innings = s.outs / 3;
+  s.era = innings > 0 ? s.er * 9 / innings : 0;
+  s.whip = innings > 0 ? (s.hAllow + s.bb) / innings : 0;
+  s.k9 = innings > 0 ? s.so * 9 / innings : 0;
+}
+// 1打席ぶんを両者の記録に足す
+function makeRecorder(batT, pitT, seenBat, seenPit){
+  return function(bat, pit, kind, runs){
+    const bs = lineOf(batT, bat);
+    if(bs){
+      seenBat.add(bs);
+      bs.pa++;
+      bs.rbi += runs;
+      if(kind === "bb"){ bs.bb++; }
+      else if(kind === "sf"){ bs.ab += 0; }        // 犠飛は打数に含めない
+      else {
+        bs.ab++;
+        if(kind === "so") bs.so++;
+        else if(kind === "hr"){ bs.h++; bs.hr++; }
+        else if(kind === "3b"){ bs.h++; bs.d3++; }
+        else if(kind === "2b"){ bs.h++; bs.d2++; }
+        else if(kind === "1b"){ bs.h++; }
+      }
+      recalcBat(bs);
+    }
+    const ps = pit ? lineOf(pitT, pit) : null;
+    if(ps){
+      seenPit.add(ps);
+      ps.er += runs;
+      if(kind === "bb") ps.bb++;
+      else if(kind === "so"){ ps.so++; ps.outs++; }
+      else if(kind === "out"){ ps.outs++; }
+      else if(kind === "dp"){ ps.outs += 2; }
+      else if(kind === "sf"){ ps.outs++; }
+      else ps.hAllow++;
+      recalcPit(ps);
+    }
+  };
+}
+// 試合ごとの出場・勝敗・セーブを付ける
+function creditGame(A, B, rA, rB, seen){
+  for(const s of seen.bat) s.g++;
+  for(const s of seen.pit) s.g++;
+  const win = rA > rB ? A : rB > rA ? B : null;
+  const lose = win === A ? B : win === B ? A : null;
+  const spOf = t => { const p = starterOf(t); return p ? lineOf(t, p) : null; };
+  const sa = spOf(A), sb = spOf(B);
+  if(sa) sa.gs++;
+  if(sb) sb.gs++;
+  if(win){
+    const ws = win === A ? sa : sb, ls = lose === A ? sa : sb;
+    if(ws) ws.w++;
+    if(ls) ls.l++;
+    const cl = win.slots.CL;
+    const cs = cl && !isOut(cl) ? lineOf(win, cl) : null;
+    const diff = Math.abs(rA - rB);
+    if(cs && diff <= 3 && cs !== ws) cs.sv++;
+    const rp = RP_KEYS.map(k => win.slots[k]).filter(x => x && !isOut(x));
+    for(const r of rp){
+      const rs = lineOf(win, r);
+      if(rs && diff <= 3 && rnd() < 0.55) rs.hld++;
+    }
+  }
+}
+// ============================================================
+// 打席方式のシミュレーション
+// 点数を先に決めて打席を逆算するのではなく、打順どおりに打席を解いて
+// 点を積み上げる。1番から4番までの並びが結果に直結する
+// ============================================================
+// 打者と投手の力関係から、その打席の結果の確率を作る
+function paProbs(bat, pit, park){
+  const bo = bat.ovr || 78;
+  const po = pit ? (pit.ovr || 78) : 74;
+  const edge = (bo - po) * 0.006;              // 打者有利ならプラス
+  const hrF = park ? park.hr : 1;
+  const runF = park ? park.run : 1;
+
+  // 四球: 出塁能力の高い打者ほど多い
+  let bb = clamp(0.082 + (bo - 80) * 0.0022 + edge * 0.35, 0.035, 0.165);
+  // 三振: 奪三振の多い投手ほど多く、巧打者ほど少ない
+  const k9 = pit && pit.so ? clamp(pit.so / 22, 4, 11) : 7;
+  let so = clamp(0.165 + (k9 - 7) * 0.019 - (bat.avg - 0.285) * 0.55 - edge * 0.5, 0.05, 0.36);
+  // 本塁打: 登録本塁打と球場から
+  let hr = clamp(((bat.hr || 8) / 620) * hrF * (1 + edge * 1.6), 0.004, 0.085);
+  // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す。
+  // ここを打席あたりのまま扱うとリーグ打率が.190台まで落ちる
+  const abShare = 1 - bb - 0.008;
+  const avg = clamp(bat.avg + edge * 0.85 + (runF - 1) * 0.35, 0.170, 0.420);
+  let hit = avg * abShare - hr;                // 本塁打ぶんを差し引いた単打・長打
+  if(hit < 0.04) hit = 0.04;
+
+  const rest = 1 - bb - so - hr - hit;
+  return {bb, so, hr, hit, out: Math.max(0.02, rest)};
+}
+// 1打席を解く。塁の状態を更新して得点を返す
+function playPA(st, bat, pit, park, rec){
+  const q = paProbs(bat, pit, park);
+  const r = rnd();
+  let acc = q.bb;
+  const on = st.on;
+  const push = () => { // 押し出し・単打などで詰まって進む形
+    if(on[0] && on[1] && on[2]){ on[2] = on[1]; return 1; }
+    if(on[0] && on[1]){ on[2] = true; return 0; }
+    if(on[0]){ on[1] = true; return 0; }
+    return 0;
+  };
+  if(r < acc){                                   // 四球
+    const runs = (on[0] && on[1] && on[2]) ? 1 : 0;
+    if(!(on[0] && on[1] && on[2])) push();
+    on[0] = true;
+    if(rec) rec(bat, pit, "bb", runs);
+    return runs;
+  }
+  acc += q.so;
+  if(r < acc){ st.outs++; if(rec) rec(bat, pit, "so", 0); return 0; }
+
+  acc += q.hr;
+  if(r < acc){                                   // 本塁打
+    const runs = 1 + (on[0]?1:0) + (on[1]?1:0) + (on[2]?1:0);
+    on[0] = on[1] = on[2] = false;
+    if(rec) rec(bat, pit, "hr", runs);
+    return runs;
+  }
+  acc += q.hit;
+  if(r < acc){                                   // 単打・長打
+    const long = rnd();
+    if(long < 0.055){                            // 三塁打
+      const runs = (on[0]?1:0) + (on[1]?1:0) + (on[2]?1:0);
+      on[0] = on[1] = false; on[2] = true;
+      if(rec) rec(bat, pit, "3b", runs);
+      return runs;
+    }
+    if(long < 0.28){                             // 二塁打
+      const runs = (on[1]?1:0) + (on[2]?1:0) + (on[0] && rnd() < 0.42 ? 1 : 0);
+      const wasFirst = on[0];
+      on[2] = wasFirst && runs < 3 ? false : false;
+      on[0] = false; on[2] = false; on[1] = true;
+      if(rec) rec(bat, pit, "2b", runs);
+      return runs;
+    }
+    // 単打。三塁走者は生還、二塁走者は俊足なら生還
+    let runs = (on[2]?1:0);
+    const second = on[1];
+    on[2] = false;
+    if(second){
+      if(rnd() < 0.42 + clamp((bat.sb||0)/220, 0, 0.18)) runs++;
+      else on[2] = true;
+      on[1] = false;
+    }
+    if(on[0]){ if(!on[1]) on[1] = true; else if(!on[2]) on[2] = true; }
+    on[0] = true;
+    if(rec) rec(bat, pit, "1b", runs);
+    return runs;
+  }
+  // 凡打。走者一塁で1死未満なら併殺の目がある
+  if(on[0] && st.outs < 2 && rnd() < 0.13){
+    st.outs += 2; on[0] = false;
+    if(rec) rec(bat, pit, "dp", 0);
+    return 0;
+  }
+  // 犠飛
+  if(on[2] && st.outs < 2 && rnd() < 0.20){
+    st.outs++; on[2] = false;
+    if(rec) rec(bat, pit, "sf", 1);
+    return 1;
+  }
+  st.outs++;
+  if(rec) rec(bat, pit, "out", 0);
+  return 0;
+}
+// 半イニング。3アウトまで打席を回す
+function playHalf(order, idx, pit, park, rec){
+  const st = {outs:0, on:[false,false,false]};
+  let runs = 0;
+  let guard = 0;
+  while(st.outs < 3 && guard++ < 40){
+    const bat = order[idx % order.length];
+    idx++;
+    runs += playPA(st, bat, pit, park, rec);
+  }
+  return {runs, idx};
+}
 // 出目を作るだけ。反映は applyGame で行う。
 // 采配の選択を挟むあいだ、結果を確定させずに保留しておく必要があるため分けてある
-function rollGame(A, B){
-  const pf = parkRunFactor(A);   // Aがホーム。球場の条件は両軍にかかる
-  const expA = clamp(4.2*pf*(1+0.022*(teamAtt(A)-teamDef(B))), 1.0, 12);
-  const expB = clamp(4.2*pf*(1+0.022*(teamAtt(B)-teamDef(A))), 1.0, 12);
-  let rA = poisson(expA), rB = poisson(expB);
-  if(rA===rB && rnd()<0.82){
-    if(rnd() < expA/(expA+expB)) rA++; else rB++;
+function rollGame(A, B, keep){
+  const park = parkOf(B);              // Bがホーム(Aが表の攻撃)
+  const oa = activeLineup(A), ob = activeLineup(B);
+  if(!oa.length || !ob.length) return {rA:0, rB:0};
+  // keep が真のときだけ成績を積む(試算・采配の下見では積まない)
+  const seen = keep ? {bat:new Set(), pit:new Set()} : null;
+  const recA = keep ? makeRecorder(A, B, seen.bat, seen.pit) : null;   // Aの攻撃
+  const recB = keep ? makeRecorder(B, A, seen.bat, seen.pit) : null;   // Bの攻撃
+  let rA = 0, rB = 0, ia = 0, ib = 0;
+  const spA = starterOf(A), spB = starterOf(B);
+  for(let inn = 1; inn <= 9; inn++){
+    const pB = pitcherForInning(B, inn, spB).p;   // Aの攻撃を受けるのはBの投手
+    const ra = playHalf(oa, ia, pB, park, recA);
+    rA += ra.runs; ia = ra.idx;
+    if(inn === 9 && rB > rA) break;               // 裏の攻撃は不要
+    const pA = pitcherForInning(A, inn, spA).p;
+    const rb = playHalf(ob, ib, pA, park, recB);
+    rB += rb.runs; ib = rb.idx;
+    if(inn === 9 && rB > rA) break;               // サヨナラ
   }
+  // 延長は最大3イニング。決着しなければ引き分け
+  for(let ex = 0; ex < 3 && rA === rB; ex++){
+    const pB = pitcherForInning(B, 9, spB).p;
+    const ra = playHalf(oa, ia, pB, park, recA);
+    rA += ra.runs; ia = ra.idx;
+    const pA = pitcherForInning(A, 9, spA).p;
+    const rb = playHalf(ob, ib, pA, park, recB);
+    rB += rb.runs; ib = rb.idx;
+  }
+  if(keep) creditGame(A, B, rA, rB, seen);
   return {rA, rB};
 }
 function applyGame(A, B, rA, rB){
@@ -1729,7 +1973,7 @@ function playDay(){
   // まずその日の全カードの出目を作る(この時点では成績に反映しない)
   const rolled = games.map(([ai,bi])=>{
     const A = state.parts[ai], B = state.parts[bi];
-    const g = rollGame(A,B);
+    const g = rollGame(A, B, true);
     return {A, B, rA:g.rA, rB:g.rB};
   });
   // 勝負どころがあれば、確定させる前に本人へ委ねる
@@ -1965,9 +2209,9 @@ function statOf(t, p, grp){
   const pit = ["SP","RP","CL"].includes(grp);
   return state.seasonStats.find(x=>x.t===t && x.p===p && (pit ? x.kind==="P" : x.kind==="B"));
 }
-function statLineLive(s){ // 消化試合数ぶんに換算した現在成績(離脱ぶんは差し引く)
+function statLineLive(s){ // 実際に積み上がった現在成績
   if(!s) return "";
-  const c = v => Math.round(v*seasonProg());
+  const c = v => Math.round(v);
   if(s.kind==="B") return `${avg3(s.avg)}・${c(s.hr)}本・${c(s.rbi)}点` + (s.sb>=10?`・${c(s.sb)}盗`:"");
   if(s.role==="CL") return `${c(s.sv)}S・防${s.era.toFixed(2)}`;
   if(s.role==="RP") return `${c(s.hld)}H・防${s.era.toFixed(2)}`;
@@ -1975,18 +2219,31 @@ function statLineLive(s){ // 消化試合数ぶんに換算した現在成績(�
 }
 
 // ---- 部門リーダー(順位表下・各部門5位まで) ----
+// 規定打席・規定投球回。NPBと同じく試合数×3.1打席、試合数×1.0回で線を引く。
+// これが無いと、数十試合しか出ていない控えが高打率で首位打者になってしまう
+function teamGamesDone(t){ return (t.W||0) + (t.L||0) + (t.T||0); }
+function reqPA(s){ return teamGamesDone(s.t) * 3.1; }
+function reqIP(s){ return teamGamesDone(s.t) * 1.0; }
+function qualBat(s){ return s.pa >= reqPA(s); }
+function qualPit(s){ return (s.ip || 0) >= reqIP(s); }
+// 率のタイトルは規定到達者だけ。到達者がいなければ打席数の多い順に上位から見る
+function ratePool(arr, qual){
+  const ok = arr.filter(qual);
+  if(ok.length) return ok;
+  return arr.slice().sort((a,b)=>(b.pa||b.ip||0)-(a.pa||a.ip||0)).slice(0, Math.max(1, Math.ceil(arr.length*0.3)));
+}
 function leadersHtml(entries, prog){
   const B = entries.filter(s=>s.kind==="B" && !s.bench);
   const P = entries.filter(s=>s.kind==="P");
   const topN = (arr, key, asc=false) => arr.slice().sort((a,b)=>asc?a[key]-b[key]:b[key]-a[key]).slice(0,5);
-  const c = v => Math.round(v*prog);
+  const c = v => Math.round(v);
   const defs = [
-    ["打率", topN(B,"avg"), s=>avg3(s.avg)],
+    ["打率", topN(ratePool(B, qualBat),"avg"), s=>avg3(s.avg)],
     ["本塁打", topN(B,"hr"), s=>c(s.hr)+"本"],
     ["打点", topN(B,"rbi"), s=>c(s.rbi)+"点"],
     ["盗塁", topN(B,"sb"), s=>c(s.sb)+"個"],
     ["勝利", topN(P.filter(x=>x.role==="SP"),"w"), s=>c(s.w)+"勝"],
-    ["防御率", topN(P.filter(x=>x.role==="SP"),"era",true), s=>s.era.toFixed(2)],
+    ["防御率", topN(ratePool(P.filter(x=>x.role==="SP"), qualPit),"era",true), s=>s.era.toFixed(2)],
     ["セーブ", topN(P.filter(x=>x.role==="CL"),"sv"), s=>c(s.sv)+"S"],
     ["ホールド", topN(P.filter(x=>x.role==="RP"),"hld"), s=>c(s.hld)+"H"],
   ];
@@ -2069,10 +2326,8 @@ function teamStatRows(t, opts){
 }
 // ---- 野球速報スタイルの詳細成績表 ----
 function statTables(t, light){
-  const base = light === "final" ? 1 : seasonProg();
-  let prog = base;                                   // 選手ごとに離脱ぶんを差し引く
-  const c = v => Math.round((v||0)*prog);
-  const ipS = v => (Math.round((v||0)*prog*10)/10).toFixed(1);
+  const c = v => Math.round(v||0);
+  const ipS = v => (Math.round((v||0)*10)/10).toFixed(1);
   const cls = light ? "stat-t light" : "stat-t";
   const marks = p => (p.awakened?`<span class='seal g'>覚</span>`:"")+(p.traded?`<span class='seal b'>交</span>`:"")+((p.joined!==undefined&&p.joined!==false)?`<span class='seal b'>米</span>`:"");
 
@@ -2084,7 +2339,6 @@ function statTables(t, light){
     bSeen.add(p.id);
     const s = statOf(t, p, d.grp);
     if(!s){ continue; }
-    prog = base * playRate(p);
     bRows.push(`<tr${p.inj?' class="row-inj"':''}>
       <td class="pos">${d.label}</td>
       <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}${injBadge(p)}</td>
@@ -2102,7 +2356,6 @@ function statTables(t, light){
     pSeen.add(p.id);
     const s = statOf(t, p, d.grp);
     if(!s) continue;
-    prog = base * playRate(p);
     pRows.push(`<tr${p.inj?' class="row-inj"':''}>
       <td class="pos">${d.label}</td>
       <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}${injBadge(p)}</td>
@@ -2685,111 +2938,25 @@ function mlbPass(){
 // ============================================================
 // 個人成績シミュレーション & タイトル
 // ============================================================
-function joinScale(p){ return p.joined!==undefined && p.joined!==false ? 0.45 : 1; }
 function totalG(){ return state.gamesPer || state.pairGames*(state.parts.length-1); }
-// 想定勝利数(シーズン成績の事前生成用)。実際のW確定前でも使えるようにチーム力から推定
-function projWins(t){
-  const G = totalG();
-  const others = state.parts.filter(x=>x!==t);
-  const diff = (teamAtt(t)+teamDef(t))/2 - others.reduce((s,x)=>s+(teamAtt(x)+teamDef(x))/2,0)/others.length;
-  return clamp(Math.round(G*(0.5 + diff*0.012)), Math.round(G*0.25), Math.round(G*0.72));
-}
-const LEAGUE_AVG = 0.253;   // NPBのリーグ打率のおおよその実際値
-function genBatLine(p, t, bench){
-  const G = totalG();
-  const vol = (G/143) * (bench?0.4:1) * joinScale(p);
-  // 登録値はキャリアハイなので、そのままだと全員が生涯最高の年を毎年繰り返してしまう。
-  // リーグ平均(.253)へ引き戻したうえでブレを乗せ、打撃成績を現実的な水準にする
-  const base = LEAGUE_AVG + (p.avg - LEAGUE_AVG) * 0.66;
-  const avg = clamp(base - 0.006 + gauss()*0.027, 0.176, 0.372);
-  // 半分がホームゲームなので、本拠地の癖は半分だけ効く
-  const pf = t && t.park ? (1 + t.park.hr) / 2 : 1;
-  const hr = Math.max(0, Math.round(p.hr*vol*pf*(0.60+rnd()*0.42)));
-  const rbi = Math.max(hr, Math.round(p.rbi*vol*((1+pf)/2)*(0.64+rnd()*0.38)));
-  const sb = Math.max(0, Math.round(p.sb*vol*(0.58+rnd()*0.48)));
-  // 細かい成績(試合・打席・打数・安打・長打・四死球・三振・出塁率/長打率)
-  const g = Math.max(1, Math.round(G * (bench?0.62:0.94) * joinScale(p) * (0.92+rnd()*0.12)));
-  const pa = Math.max(hr+1, Math.round(g * (bench?2.6:4.25)));
-  const bbRate = clamp(0.055 + (p.ovr-80)*0.0032 + rnd()*0.02, 0.04, 0.155);
-  const bb = Math.round(pa * bbRate);
-  const hbp = Math.round(pa * 0.006);
-  const sf = Math.round(pa * 0.008);
-  const ab = Math.max(hr+1, pa - bb - hbp - sf);
-  const h = Math.max(hr, Math.round(ab * avg));
-  const d3 = Math.round((h-hr) * 0.022 * (1 + (p.sb||0)/60));
-  const d2 = Math.round((h-hr-d3) * 0.21);
-  const so = Math.round(pa * clamp(0.20 - (p.avg-0.28)*0.35 + rnd()*0.05, 0.07, 0.30));
-  const tb = h + d2 + 2*d3 + 3*hr;
-  const obp = (h + bb + hbp) / Math.max(1, ab + bb + hbp + sf);
-  const slg = tb / Math.max(1, ab);
-  return {p, t, kind:"B", bench, avg, hr, rbi, sb, g, pa, ab, h, d2, d3, bb, hbp, so, obp, slg, ops: obp+slg};
-}
-function pitDetail(s, ip){
-  s.ip = Math.round(ip*10)/10;
-  s.er = Math.max(0, Math.round(s.era * s.ip / 9));
-  s.hAllow = Math.max(0, Math.round(s.ip * clamp(0.98 - (3.6-s.era)*0.06, 0.62, 1.25)));
-  s.bb = Math.max(0, Math.round(s.ip * clamp(0.34 - (3.6-s.era)*0.02, 0.14, 0.48)));
-  s.whip = (s.hAllow + s.bb) / Math.max(1, s.ip);
-  s.k9 = s.so * 9 / Math.max(1, s.ip);
-  return s;
-}
-const LEAGUE_ERA = 3.55;    // NPBのリーグ防御率のおおよその実際値
-function genPitLine(p, t, role, wShare){
-  const G = totalG();
-  const scale = G/143;
-  const src = p.twoWay || p;
-  if(role==="SP"){
-    const era = Math.max(1.05, LEAGUE_ERA + (src.era - LEAGUE_ERA)*0.48 + gauss()*0.62);
-    const w = clamp(Math.round(wShare*(0.85+rnd()*0.3)*joinScale(p)), 1, 28);
-    const so = Math.round(Math.min(src.so,300)*scale*(0.75+rnd()*0.45)*joinScale(p));
-    const g = Math.max(1, Math.round(G*0.185*joinScale(p)*(0.9+rnd()*0.2)));
-    const ip = g * (5.4 + rnd()*1.6);
-    const l = clamp(Math.round(g*0.34 - w*0.22 + rnd()*2), 0, 22);
-    return pitDetail({p, t, kind:"P", role, w, l, era, so, sv:0, hld:0, g, gs:g, cg:Math.round(g*0.06)}, ip);
-  }
-  if(role==="RP"){
-    const era = Math.max(0.95, LEAGUE_ERA + (src.era - LEAGUE_ERA)*0.48 + gauss()*0.70);
-    const hld = clamp(Math.round(G*0.28*(0.75+rnd()*0.5)*(ovrFor(p,"RP")/86)*joinScale(p)), 5, 48);
-    const w = Math.round((2+rnd()*5)*scale*joinScale(p));
-    const so = Math.round(Math.min(src.so,120)*scale*(0.8+rnd()*0.4)*joinScale(p));
-    const g = Math.max(1, Math.round(G*0.42*joinScale(p)*(0.85+rnd()*0.3)));
-    const ip = g * (0.9 + rnd()*0.35);
-    return pitDetail({p, t, kind:"P", role, w, l:clamp(Math.round(rnd()*5),0,9), era, so, sv:Math.round(rnd()*3), hld, g, gs:0, cg:0}, ip);
-  }
-  const era = Math.max(0.72, (LEAGUE_ERA-0.25) + (src.era - LEAGUE_ERA)*0.45 + gauss()*0.5);
-  const sv = clamp(Math.round(projWins(t)*0.58*(0.85+rnd()*0.3)*joinScale(p)), 5, 59);
-  const w = Math.round((1+rnd()*4)*scale*joinScale(p));
-  const so = Math.round(Math.min(src.so,110)*scale*(0.8+rnd()*0.4)*joinScale(p));
-  const g = Math.max(1, Math.round(G*0.4*joinScale(p)*(0.85+rnd()*0.25)));
-  const ip = g * (0.95 + rnd()*0.25);
-  return pitDetail({p, t, kind:"P", role, w, l:clamp(Math.round(rnd()*5),0,9), era, so, sv, hld:0, g, gs:0, cg:0}, ip);
-}
-function simulateAllPlayerStats(){
-  const stats = [];
-  for(const t of state.parts){
-    for(const k of [...LINEUP_KEYS, ...BENCH_KEYS]){
-      stats.push(genBatLine(t.slots[k], t, BENCH_KEYS.includes(k)));
-    }
-    const spOvrs = SP_KEYS.map(k=>ovrFor(t.slots[k],"SP"));
-    const spSum = spOvrs.reduce((a,b)=>a+b,0);
-    const wPool = Math.round(projWins(t)*0.62);
-    SP_KEYS.forEach((k,i)=>{ stats.push(genPitLine(t.slots[k], t, "SP", wPool*(spOvrs[i]/spSum))); });
-    for(const k of RP_KEYS) stats.push(genPitLine(t.slots[k], t, "RP", 0));
-    stats.push(genPitLine(t.slots.CL, t, "CL", 0));
-  }
-  state.seasonStats = stats;
-}
-// ロースター変動時のシーズン成績メンテナンス
+// 移籍しても積み上げた成績は本人についていく。所属だけ移す
 function statsSwapTeams(pA, pB, tA, tB){
   for(const s of state.seasonStats){
     if(s.p===pA && s.t===tA) s.t = tB;
     else if(s.p===pB && s.t===tB) s.t = tA;
   }
+  rebuildStatIdx();
 }
+// 入れ替えで入ってきた選手には、その時点からの記録を作る
 function statsReplace(released, star, t, slotGrp){
-  state.seasonStats = state.seasonStats.filter(s=>!(s.p===released && s.t===t));
-  if(["SP","RP","CL"].includes(slotGrp)) state.seasonStats.push(genPitLine(star, t, slotGrp, projWins(t)*0.2));
-  else state.seasonStats.push(genBatLine(star, t, slotGrp==="BN"));
+  if(lineOf(t, star)) return;
+  state.seasonStats.push(["SP","RP","CL"].includes(slotGrp)
+    ? blankPit(star, t, slotGrp)
+    : blankBat(star, t, slotGrp === "BN"));
+  rebuildStatIdx();
+}
+function rebuildStatIdx(){
+  state.statIdx = new Map((state.seasonStats||[]).map(s => [s.p.id + "@" + s.t.name, s]));
 }
 
 function computeTitles(){
@@ -2800,13 +2967,13 @@ function computeTitles(){
   const titles = [];
   const push=(tt,s,val)=>{ if(s) titles.push({tt, name:s.p.name, team:s.t, val}); };
   let x;
-  x = best(B,"avg");  push("首位打者", x, `打率 ${avg3(x.avg)}`);
+  x = best(ratePool(B, qualBat),"avg");  push("首位打者", x, `打率 ${avg3(x.avg)}`);
   x = best(B,"hr");   push("本塁打王", x, `${x.hr}本塁打`);
   x = best(B,"rbi");  push("打点王", x, `${x.rbi}打点`);
   x = best(B,"sb");   if(x && x.sb>=10) push("盗塁王", x, `${x.sb}盗塁`);
   const SP_ = P.filter(s=>s.role==="SP");
   x = best(SP_,"w");  push("最多勝", x, `${x.w}勝`);
-  x = best(SP_,"era",true); push("最優秀防御率", x, `防御率 ${x.era.toFixed(2)}`);
+  x = best(ratePool(SP_, qualPit),"era",true); push("最優秀防御率", x, `防御率 ${x.era.toFixed(2)}`);
   x = best(P,"so");   push("最多奪三振", x, `${x.so}奪三振`);
   x = best(P.filter(s=>s.role==="CL"),"sv"); push("最多セーブ", x, `${x.sv}セーブ`);
   x = best(P.filter(s=>s.role==="RP"),"hld"); push("最優秀中継ぎ", x, `${x.hld}ホールド`);
@@ -2869,7 +3036,6 @@ function teamLogHtml(ti){
 }
 
 function showResult(){
-  if(!state.seasonStats) simulateAllPlayerStats();
   const s = standingsSorted();
   const champ = state.seriesWinner || s[0];
   show("scr-result");
@@ -3609,12 +3775,12 @@ function liveSkip(){
 // ============================================================
 // 日本シリーズ(レギュラー1位×2位・4勝先取・全試合生中継)
 // ============================================================
+// 短期決戦もペナントと同じ打席方式で解く。引き分けは無しにして決着させる
 function simSeriesGame(A, B){
-  const expA = clamp(4.2*(1+0.022*(teamAtt(A)-teamDef(B))), 1.0, 11);
-  const expB = clamp(4.2*(1+0.022*(teamAtt(B)-teamDef(A))), 1.0, 11);
-  let rA = poisson(expA), rB = poisson(expB);
-  if(rA === rB){ if(rnd() < expA/(expA+expB)) rA++; else rB++; } // 延長決着
-  return {rA, rB};
+  let g, guard = 0;
+  do { g = rollGame(A, B); } while(g.rA === g.rB && guard++ < 12);
+  if(g.rA === g.rB){ if(rnd() < 0.5) g.rA++; else g.rB++; }
+  return g;
 }
 function startSeries(){
   const s = standingsSorted();
@@ -4206,11 +4372,9 @@ function emergencySign(pid){
   const t = ctx.t;
   const d = SLOT_DEFS.find(x=>x.key===ctx.slotKey);
   state.taken.add(p.id);
-  state.seasonStats = state.seasonStats.filter(s=>!(s.p===ctx.victim && s.t===t));
   t.slots[ctx.slotKey] = p;
   p.joined = true;
-  if(["SP","RP","CL"].includes(d.grp)) state.seasonStats.push(genPitLine(p, t, d.grp, projWins(t)*0.2));
-  else state.seasonStats.push(genBatLine(p, t, d.grp==="BN"));
+  statsReplace(ctx.victim, p, t, d.grp);   // 離脱者の記録は残し、代役には新しい記録を作る
   partyNews("補","good",`【緊急補強】${t.name}が${p.name}を電撃獲得！ ${ctx.victim.name}の穴を埋める`);
   seTap();
   endEventPhase();
@@ -4297,9 +4461,8 @@ function initEngagement(){
 // ルーレットの補強で1人を入れ替える
 function scoutSign(t, key, cur, p){
   state.taken.add(p.id);
-  if(state.seasonStats) state.seasonStats = state.seasonStats.filter(x=>!(x.p===cur && x.t===t));
   t.slots[key] = p; p.joined = true; p.form = 1;
-  if(state.seasonStats) state.seasonStats.push(genBatLine(p, t, true));
+  if(state.seasonStats && !lineOf(t, p)){ state.seasonStats.push(blankBat(p, t, true)); rebuildStatIdx(); }
 }
 const ROULETTE = [
   {id:"training", eff:"ナイン全員の調子が上向く", label:"猛特訓", icon:"練", cls:"good", color:"#2c5c34",

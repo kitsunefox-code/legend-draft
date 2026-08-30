@@ -3395,17 +3395,19 @@ function loreText(e, x){
 // ── 史実イベントの号外カット ───────────────────────────────
 // 挿絵のあるイベントだけは試合を止めて大きく見せる(415件中11件)
 const EVENT_PIC = new Set([
-  "backscreen-3renpatsu","bat-orete-kossetsu","chien-koui",
-  "daida-manrui-sayonara","dairanto","daiso-specialist","daisou-gyakusou",
-  "densetsu-no-renpai","dotonbori-tobikomi","douage-shippai",
-  "dousei-suzume","go-heading","heading-jiken","hikouki-chien",
-  "juten-ichikyu","kaimaku-26-0","kamino-otsuge","kantoku-fukki",
-  "kanzen-shiai","keiyakukin-chouka","koushin-etsunen","kyudan-gappei",
-  "maboroshi-homerun","make-drama","muhai-24shou","nijuichikyu",
-  "no-hit-no-run","noumu-called","rabbit-ball","raiu-chudan",
-  "renzoku-sanshin","sayonara-balk","sebangou-machigai","shinkyudan-tanjo",
-  "shomei-shoutou","shuzai-kyohi","sign-nusumi","sousha-oikoshi",
-  "suketto-mikikoku","uniform-wasure","yon-shissaku"
+  "backscreen-3renpatsu","ball-touitsu","bat-orete-kossetsu","chien-koui",
+  "daida-manrui-sayonara","daida-sayonara","dairanto","daiso-specialist",
+  "daisou-gyakusou","dengeki-intai","densetsu-no-renpai",
+  "dotonbori-tobikomi","douage-shippai","dousei-suzume","go-eikyu-fumetsu",
+  "go-heading","hamakaze","heading-jiken","hikouki-chien","juten-ichikyu",
+  "kaimaku-26-0","kamino-otsuge","kantoku-fukki","kanzen-shiai",
+  "keiyakukin-chouka","koushin-etsunen","kyudan-gappei","maboroshi-homerun",
+  "magic-shometsu","make-drama","make-legend","muhai-24shou","nijuichikyu",
+  "nitouryu-kousou","no-hit-no-run","noumu-called","rabbit-ball",
+  "raiu-chudan","renzoku-sanshin","request-konran","rookie-7kyudan",
+  "sayonara-balk","sebangou-machigai","shinkyudan-tanjo","shomei-shoutou",
+  "shuzai-kyohi","sign-nusumi","sousha-oikoshi","suketto-mikikoku",
+  "uniform-wasure","yon-shissaku"
 ]);
 function showEventPic(e, txt, after){
   const wasPlaying = state.playing;

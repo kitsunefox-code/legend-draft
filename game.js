@@ -260,6 +260,8 @@ function startDraft(){
   state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
   state.opts.party = $("opt-party") ? $("opt-party").checked : false;
   state.opts.saihai = $("opt-saihai") ? $("opt-saihai").checked : false;
+  state.opts.park = $("opt-park") ? $("opt-park").checked : false;
+  state.opts.injury = $("opt-injury") ? $("opt-injury").checked : false;
 
   if($("opt-cpu").checked){
     const cpuNames = ["CPU猛牛","CPU荒鷲","CPU海豚"];
@@ -295,9 +297,89 @@ function startDraft(){
   $("f-fr").innerHTML = `<option value="">全球団</option>` + FRANCHISES.map(f=>`<option>${f}</option>`).join("");
   const decades=[...new Set(PLAYERS.map(p=>p.decade))].sort();
   $("f-era").innerHTML = `<option value="">全年代</option>` + decades.map(d=>`<option>${d}</option>`).join("");
+  if(state.opts.park){ startParkDraft(); return; }
+  state.parts.forEach(t=>{ if(!t.park) t.park = PARKS[6]; });   // 球場なしなら標準型
   show("scr-draft");
   nextTurn(true);
 }
+
+// ---- 本拠地ドラフト ----
+// 選手より先に球場を決める。狭い箱を取れば大砲を、広い外野を取れば投手と機動力を
+// 集めることになり、以後の指名の方針がここで決まる
+function startParkDraft(){
+  state.parkCtx = {order: shuffle(state.parts.slice()), idx: 0};
+  renderParkDraft();
+  $("park-bg").classList.add("show");
+}
+function renderParkDraft(){
+  const c = state.parkCtx;
+  if(!c) return;
+  if(c.idx >= c.order.length){ finishParkDraft(); return; }
+  const t = c.order[c.idx];
+  const taken = new Set(state.parts.map(x=>x.park && x.park.id).filter(Boolean));
+  const bar = c.order.map(function(x, i){
+    return '<span class="pk-step' + (i === c.idx ? " now" : (x.park ? " done" : "")) + '">' +
+      teamEmblem(x, 15) + esc(x.name) + (x.park ? '<i>' + esc(x.park.name) + '</i>' : '') + '</span>';
+  }).join("");
+  const cards = PARKS.map(function(pk){
+    const used = taken.has(pk.id);
+    const owner = state.parts.find(x=>x.park && x.park.id === pk.id);
+    const meter = (v, lo, hi) => {
+      const pct = clamp((v - lo) / (hi - lo), 0, 1) * 100;
+      return '<span class="pk-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span>';
+    };
+    return '<div class="pk-card' + (used ? " used" : "") + '"' +
+      (used || t.cpu ? '' : ' onclick="parkChoose(&quot;' + pk.id + '&quot;)"') + '>' +
+      '<div class="pk-h"><b>' + esc(pk.name) + '</b><span>' + esc(pk.type) + '</span></div>' +
+      '<div class="pk-m"><span class="pk-lb">本塁打</span>' + meter(pk.hr, 0.78, 1.24) +
+        '<span class="pk-v">' + (pk.hr >= 1.12 ? "出やすい" : pk.hr <= 0.90 ? "出にくい" : "標準") + '</span></div>' +
+      '<div class="pk-m"><span class="pk-lb">総得点</span>' + meter(pk.run, 0.90, 1.16) +
+        '<span class="pk-v">' + (pk.run >= 1.06 ? "打高" : pk.run <= 0.96 ? "投高" : "標準") + '</span></div>' +
+      '<div class="pk-n">' + esc(pk.note) + '</div>' +
+      '<div class="pk-f"><span class="pk-g">向く: ' + esc(pk.good) + '</span>' +
+        '<span class="pk-b">不向き: ' + esc(pk.bad) + '</span></div>' +
+      (used ? '<div class="pk-used">' + esc(owner ? owner.name + " の本拠地" : "選択済み") + '</div>' : '') +
+    '</div>';
+  }).join("");
+  $("park-panel").innerHTML =
+    '<h2><span class="kicker">第一面</span>本拠地ドラフト</h2>' +
+    '<div class="sub">選手より先に本拠地を決めます。球場の癖はこの一年、全試合につきまといます。' +
+    '狭い箱なら大砲を、広い外野なら投手と足を集めることになります。</div>' +
+    '<div class="pk-bar-row">' + bar + '</div>' +
+    '<div class="pk-turn">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
+      (t.cpu ? '<span class="pk-cpu">選択中…</span>' : '<span class="pk-you">本拠地を選んでください</span>') + '</div>' +
+    '<div class="pk-grid">' + cards + '</div>';
+  if(t.cpu) setTimeout(cpuParkPick, 700);
+}
+function cpuParkPick(){
+  const c = state.parkCtx;
+  if(!c) return;
+  const t = c.order[c.idx];
+  if(!t || !t.cpu) return;
+  const taken = new Set(state.parts.map(x=>x.park && x.park.id).filter(Boolean));
+  const free = PARKS.filter(pk=>!taken.has(pk.id));
+  if(!free.length){ finishParkDraft(); return; }
+  parkChoose(pick1(free).id);
+}
+function parkChoose(id){
+  const c = state.parkCtx;
+  if(!c) return;
+  const pk = PARKS.find(x=>x.id === id);
+  if(!pk) return;
+  if(state.parts.some(x=>x.park && x.park.id === id)) return;
+  const t = c.order[c.idx];
+  t.park = pk;
+  seWin();
+  c.idx++;
+  renderParkDraft();
+}
+function finishParkDraft(){
+  state.parkCtx = null;
+  $("park-bg").classList.remove("show");
+  show("scr-draft");
+  nextTurn(true);
+}
+
 
 function eraOK(p){ return state.eras.size===0 || state.eras.has(p.decade); }
 function rankOK(p){ return !state.rankCap || p.ovr <= state.rankCap; }
@@ -1019,16 +1101,26 @@ function mgrBonus(t){
 function morale(t){ return (t.mood && state.day < t.mood.until) ? t.mood.val : 0; }
 function moodSet(t, val, days, label){ t.mood = {until: state.day + days, val, label}; }
 function fw(p){ return (p && p.form ? p.form : 0) * 1.3; } // 調子の波
+// 離脱中の選手は数えない。抜けた枠は控えが埋め、控えも尽きれば戦力が落ちる
 function teamAtt(t){
-  let s=0;
-  for(const k of LINEUP_KEYS){ const p=t.slots[k]; s += p.ovr + fw(p); }
-  for(const k of BENCH_KEYS){ const p=t.slots[k]; s += (p.ovr + fw(p))*0.25; }
+  let s = 0;
+  const line = activeLineup(t);
+  for(const p of line) s += p.ovr + fw(p);
+  if(line.length < 9) s += (line.length ? s/line.length : 70) * (9 - line.length) * 0.72;
+  const restBench = benchOf(t).filter(p=>!isOut(p) && line.indexOf(p) < 0);
+  for(const p of restBench) s += (p.ovr + fw(p)) * 0.25;
   return s/9.75 + mgrBonus(t) + morale(t);
 }
 function teamDef(t){
-  const sp = SP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"SP")+fw(p);},0)/SP_KEYS.length;
-  const rp = RP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"RP")+fw(p);},0)/2;
-  const cl = ovrFor(t.slots.CL,"CL") + fw(t.slots.CL);
+  const sub = (keys, grp, div) => {
+    const ps = keys.map(k=>t.slots[k]).filter(p=>p && !isOut(p));
+    if(!ps.length) return 66;                       // 総崩れ
+    const v = ps.reduce((a,p)=>a+ovrFor(p,grp)+fw(p),0) / ps.length;
+    return v - (keys.length - ps.length) * 2.4;     // 頭数が足りない分の目減り
+  };
+  const sp = sub(SP_KEYS, "SP");
+  const rp = sub(RP_KEYS, "RP");
+  const cl = isOut(t.slots.CL) ? sub(RP_KEYS, "CL") - 3 : ovrFor(t.slots.CL,"CL") + fw(t.slots.CL);
   return sp*0.60 + rp*0.25 + cl*0.15 + mgrBonus(t) + morale(t);
 }
 // 調子の波: 約2週間ごとに引き直し
@@ -1042,6 +1134,12 @@ function rollForms(){
       p.form = r<0.08 ? 2 : r<0.30 ? 1 : r<0.70 ? 0 : r<0.92 ? -1 : -2;
     }
   }
+}
+// 故障中のバッジ。復帰までの日数を出す
+function injBadge(p){
+  if(!p || !p.inj) return "";
+  const left = Math.max(0, p.inj.until - state.day);
+  return '<span class="inj-b" title="' + esc(p.inj.label) + '">離脱 あと' + left + '日</span>';
 }
 function formIcon(p){
   const f = p && p.form ? p.form : 0;
@@ -1087,9 +1185,11 @@ function rollAwakenings(){
 }
 
 // ---- 日程表(総当たりカレンダー方式) ----
+// NPBにならい3連戦を単位に組む。同一カードが3日続き、カードの切れ目に移動日が入る。
+// [a,b] の a がホーム。3連戦ごとにホームを入れ替える
 function buildSchedule(n, cycles){
   const ids = [...Array(n).keys()];
-  if(n % 2) ids.push(-1); // 奇数チームは休養日
+  if(n % 2) ids.push(-1);          // 奇数なら1球団が休み
   const m = ids.length;
   const rounds = [];
   const arr = ids.slice();
@@ -1097,13 +1197,21 @@ function buildSchedule(n, cycles){
     const games = [];
     for(let i=0; i<m/2; i++){
       const a = arr[i], b = arr[m-1-i];
-      if(a !== -1 && b !== -1) games.push(rnd()<0.5 ? [a,b] : [b,a]);
+      if(a !== -1 && b !== -1) games.push([a, b]);
     }
     rounds.push(games);
     arr.splice(1, 0, arr.pop());
   }
   const days = [];
-  for(let c=0; c<cycles; c++) for(const r of rounds) days.push(r);
+  const series = Math.max(1, Math.round(cycles / 3));   // 3連戦を何巡ぶん組むか
+  for(let c=0; c<series; c++){
+    for(let ri=0; ri<rounds.length; ri++){
+      // 巡ごとにホームとビジターを入れ替える
+      const card = rounds[ri].map(([a,b]) => (c % 2 === 0 ? [a,b] : [b,a]));
+      for(let g=0; g<3; g++) days.push(card);
+      days.push([]);                                    // カードの切れ目は移動日
+    }
+  }
   return days;
 }
 function monthOfDay(d){ return Math.min(6, Math.floor(d*7/state.schedule.length)); }
@@ -1118,6 +1226,8 @@ function startSeason(){
   const n = state.parts.length;
   state.pairGames = clamp(Math.round(143/(n-1)), 8, 143); // NPBと同じ143試合基準
   state.schedule = buildSchedule(n, state.pairGames);
+  // 実際に組まれた試合数(移動日ぶん日程は伸びる)
+  state.gamesPer = state.schedule.reduce((a,d)=>a+d.length, 0) * 2 / n;
   state.day = 0; state.news = []; state.lastScores = [];
   state.partyLog = []; state.choiceCount = 0;
   state.playing = false; state.timer = null; state.finished = false;
@@ -1149,7 +1259,7 @@ function startSeason(){
   if(wokeCount) ev.push(`キャンプで${wokeCount}人が覚醒`);
   if(state.opts.trade) ev.push("6月末にトレードタイム");
   if(state.opts.mlb) ev.push("7月末にMLBスター補強（最下位チームから指名）");
-  $("s-note").textContent = `${n}球団・各チーム${state.pairGames*(n-1)}試合を自動でシミュレート。` + (ev.length ? ev.join("、")+"。" : "");
+  $("s-note").textContent = `${n}球団・各チーム${Math.round(state.gamesPer)}試合を自動でシミュレート。3連戦制、カードの切れ目は移動日。` + (ev.length ? ev.join("、")+"。" : "");
 }
 
 // ---- 自動進行 ----
@@ -1188,6 +1298,119 @@ function checkClinch(){
   }
   return null;
 }
+
+// ============================================================
+// 故障者リスト ── 離脱中は出場せず、成績も積み上がらない
+// ============================================================
+const INJURIES = [
+  {label:"右手首の炎症",   min:6,  max:14},
+  {label:"左脇腹の肉離れ", min:14, max:32},
+  {label:"右膝の違和感",   min:5,  max:12},
+  {label:"死球による骨折", min:24, max:52},
+  {label:"腰痛",           min:8,  max:20},
+  {label:"右肘の張り",     min:10, max:26},
+  {label:"ハムストリング", min:12, max:28},
+  {label:"自打球の打撲",   min:4,  max:10},
+];
+// 選手を離脱させる。日数は部位ごとの幅から引く
+function injurePlayer(t, p, forced){
+  if(!p || p.inj) return null;
+  const k = forced || pick1(INJURIES);
+  const days = k.min + Math.floor(rnd() * (k.max - k.min + 1));
+  const back = Math.min(state.schedule.length, state.day + days);
+  p.inj = {label:k.label, until:back, days};
+  p.injMissed = (p.injMissed || 0);
+  return p.inj;
+}
+function isOut(p){ return !!(p && p.inj); }
+// 離脱者を除いた実働のスタメン。抜けた枠は控えが埋める
+function activeLineup(t){
+  const out = [];
+  const bench = benchOf(t).filter(p=>!isOut(p));
+  let bi = 0;
+  for(const k of orderKeys(t)){
+    const p = t.slots[k];
+    if(!p) continue;
+    if(isOut(p)){
+      if(bi < bench.length) out.push(bench[bi++]);   // 控えが穴を埋める
+    }else out.push(p);
+  }
+  return out;
+}
+function activePitchers(t){
+  return [...rotKeys(t), ...RP_KEYS, "CL"].map(k=>t.slots[k]).filter(p=>p && !isOut(p));
+}
+// 毎日1つ進める。復帰日を迎えた選手は戻る
+function advanceInjuries(){
+  for(const t of state.parts){
+    for(const k of Object.keys(t.slots)){
+      const p = t.slots[k];
+      if(!p || !p.inj) continue;
+      p.injMissed = (p.injMissed || 0) + 1;
+      if(state.day >= p.inj.until){
+        const lab = p.inj.label;
+        p.inj = null;
+        p.form = Math.max(-1, (p.form || 0) - 1);      // 復帰直後は本調子ではない
+        partyNews("復", "good", `【復帰】${p.name}（${t.name}）が${lab}から復帰。一軍に登録された`, null, t);
+      }
+    }
+  }
+}
+// 離脱の抽選。1日あたり全体で数%
+function rollInjury(){
+  if(!state.opts.injury) return;
+  if(state.day < 4) return;
+  if(rnd() > 0.055) return;
+  const t = pick1(state.parts);
+  const cands = [...lineupOf(t), ...pitchersOf(t)].filter(p=>!isOut(p));
+  if(cands.length < 12) return;                        // 手薄なチームは狙わない
+  const p = pick1(cands);
+  const inj = injurePlayer(t, p);
+  if(!inj) return;
+  partyNews("傷", "bad",
+    `【離脱】${p.name}（${t.name}）が${inj.label}で登録抹消。復帰まで約${inj.days}日の見込み`, null, t);
+  renderRosterLive();
+}
+// 離脱ぶんを差し引いた出場率。成績の按分に使う
+function playRate(p){
+  const total = (state.schedule && state.schedule.length) || 1;
+  return clamp(1 - (p.injMissed || 0) / total, 0, 1);
+}
+
+// ============================================================
+// 本拠地球場 ── ドラフトで1つ選ぶ。得点と本塁打の出方が変わる
+// ============================================================
+// hr: 本塁打の出やすさ、run: 総得点の出やすさ(1.00が平均)
+const PARKS = [
+  {id:"hamakaze", name:"浜風球場", type:"屋外・天然芝", hr:0.88, run:0.96,
+   note:"海からの風が右翼へ吹き込み、左打者の大飛球が押し戻される。伝統の甲子園型",
+   good:"右打ちの巧打者・機動力", bad:"左の大砲"},
+  {id:"dome-s", name:"新都ドーム", type:"屋内・人工芝", hr:1.16, run:1.08,
+   note:"両翼が狭く天井も低い。打球がよく飛び、打ち合いになりやすい。風の影響は皆無",
+   good:"長距離砲", bad:"技巧派の投手"},
+  {id:"wide", name:"大原スタジアム", type:"屋外・天然芝", hr:0.80, run:0.92,
+   note:"中堅122mの広大な外野。本塁打は激減し、三塁打とファインプレーが増える",
+   good:"守備・機動力・先発投手", bad:"一発頼みの打線"},
+  {id:"seaside", name:"潮見マリンパーク", type:"屋外・人工芝", hr:0.94, run:1.02,
+   note:"海風は日によって向きが変わり読めない。極端な有利不利はないが荒れる日がある",
+   good:"総合力", bad:"読みに頼る投手"},
+  {id:"dome-n", name:"北都ドーム", type:"屋内・人工芝", hr:0.90, run:0.98,
+   note:"広い両翼と高い天井。屋内で条件は一定、投手が計算を立てやすい",
+   good:"制球の良い投手", bad:"引っ張り一辺倒の打者"},
+  {id:"bandbox", name:"石亭球場", type:"屋外・人工芝", hr:1.22, run:1.10,
+   note:"両翼91mの狭さで「弾丸が飛び交う箱」と呼ばれる。凡打が本塁打になる",
+   good:"打線全般", bad:"抑え投手の心臓"},
+  {id:"classic", name:"旧・楽園球場", type:"屋外・天然芝", hr:1.04, run:1.00,
+   note:"古き良き標準的な造り。とくに癖はなく、実力がそのまま出る",
+   good:"地力のあるチーム", bad:"奇策"},
+  {id:"highland", name:"高地スタジアム", type:"屋外・天然芝", hr:1.20, run:1.14,
+   note:"標高が高く空気が薄い。打球がどこまでも伸び、投手の変化球は曲がらない",
+   good:"打線", bad:"投手陣すべて"},
+];
+function parkOf(t){ return t.park || PARKS[0]; }
+// ホーム球場の係数。ビジター側にも同じ条件がかかる
+function parkRunFactor(home){ return parkOf(home).run; }
+function parkHrFactor(home){ return parkOf(home).hr; }
 
 // ============================================================
 // 監督の采配 ── シーズンに数回だけ、勝負どころで試合に介入できる
@@ -1462,7 +1685,7 @@ function finishSeason(){
   $("s-skip").disabled = true;
   $("s-date").textContent = "シーズン終了";
   const s = standingsSorted();
-  $("s-note").textContent = `全${state.pairGames*(state.parts.length-1)}試合を完走。1位${s[0].name}と2位${s[1].name}が日本シリーズで激突！`;
+  $("s-note").textContent = `全${Math.round(state.gamesPer)}試合を完走。1位${s[0].name}と2位${s[1].name}が日本シリーズで激突！`;
   telop(`レギュラーシーズン終了 ―― 日本シリーズは ${s[0].name} 対 ${s[1].name}`);
 }
 function dueEvent(){
@@ -1472,8 +1695,9 @@ function dueEvent(){
 // 出目を作るだけ。反映は applyGame で行う。
 // 采配の選択を挟むあいだ、結果を確定させずに保留しておく必要があるため分けてある
 function rollGame(A, B){
-  const expA = clamp(4.2*(1+0.022*(teamAtt(A)-teamDef(B))), 1.0, 11);
-  const expB = clamp(4.2*(1+0.022*(teamAtt(B)-teamDef(A))), 1.0, 11);
+  const pf = parkRunFactor(A);   // Aがホーム。球場の条件は両軍にかかる
+  const expA = clamp(4.2*pf*(1+0.022*(teamAtt(A)-teamDef(B))), 1.0, 12);
+  const expB = clamp(4.2*pf*(1+0.022*(teamAtt(B)-teamDef(A))), 1.0, 12);
   let rA = poisson(expA), rB = poisson(expB);
   if(rA===rB && rnd()<0.82){
     if(rnd() < expA/(expA+expB)) rA++; else rB++;
@@ -1493,6 +1717,15 @@ function simGame(A, B){
 }
 function playDay(){
   const games = state.schedule[state.day];
+  if(!games || !games.length){       // 移動日
+    state.restDay = true;
+    state.lastGames = [];
+    state.parts.forEach(t=>t.hist.push(t.W-t.L));
+    advanceInjuries();
+    state.day++;
+    return true;
+  }
+  state.restDay = false;
   // まずその日の全カードの出目を作る(この時点では成績に反映しない)
   const rolled = games.map(([ai,bi])=>{
     const A = state.parts[ai], B = state.parts[bi];
@@ -1548,6 +1781,8 @@ function finishDay(rolled){
     if(flash){ state.news.unshift({mo:dl, txt:flash}); telop(flash); }
   }
   state.parts.forEach(t=>t.hist.push(t.W-t.L));
+  advanceInjuries();
+  rollInjury();
   state.lastScores = scores;
   state.lastGames = played;
   if(state.day > 0 && state.day % 12 === 0) rollForms(); // 調子の波を引き直し
@@ -1589,6 +1824,7 @@ function renderDayScores(){
   const el = $("s-games");
   if(!el) return;
   const gs = state.lastGames || [];
+  if(state.restDay){ el.innerHTML = '<div class="sc-none">移動日 ── 試合なし</div>'; return; }
   if(!gs.length){ el.innerHTML = '<div class="sc-none">まだ試合は行われていません</div>'; return; }
   el.innerHTML = gs.map(function(g){
     const wa = g.rA > g.rB, wb = g.rB > g.rA;
@@ -1729,7 +1965,7 @@ function statOf(t, p, grp){
   const pit = ["SP","RP","CL"].includes(grp);
   return state.seasonStats.find(x=>x.t===t && x.p===p && (pit ? x.kind==="P" : x.kind==="B"));
 }
-function statLineLive(s){ // 消化試合数ぶんに換算した現在成績
+function statLineLive(s){ // 消化試合数ぶんに換算した現在成績(離脱ぶんは差し引く)
   if(!s) return "";
   const c = v => Math.round(v*seasonProg());
   if(s.kind==="B") return `${avg3(s.avg)}・${c(s.hr)}本・${c(s.rbi)}点` + (s.sb>=10?`・${c(s.sb)}盗`:"");
@@ -1833,7 +2069,8 @@ function teamStatRows(t, opts){
 }
 // ---- 野球速報スタイルの詳細成績表 ----
 function statTables(t, light){
-  const prog = light === "final" ? 1 : seasonProg();
+  const base = light === "final" ? 1 : seasonProg();
+  let prog = base;                                   // 選手ごとに離脱ぶんを差し引く
   const c = v => Math.round((v||0)*prog);
   const ipS = v => (Math.round((v||0)*prog*10)/10).toFixed(1);
   const cls = light ? "stat-t light" : "stat-t";
@@ -1847,9 +2084,10 @@ function statTables(t, light){
     bSeen.add(p.id);
     const s = statOf(t, p, d.grp);
     if(!s){ continue; }
-    bRows.push(`<tr>
+    prog = base * playRate(p);
+    bRows.push(`<tr${p.inj?' class="row-inj"':''}>
       <td class="pos">${d.label}</td>
-      <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}</td>
+      <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}${injBadge(p)}</td>
       <td class="key">${avg3(s.avg)}</td>
       <td class="dim">${c(s.g)}</td><td class="dim">${c(s.ab)}</td><td>${c(s.h)}</td>
       <td>${c(s.d2)}</td><td>${c(s.hr)}</td><td>${c(s.rbi)}</td><td>${c(s.sb)}</td>
@@ -1864,9 +2102,10 @@ function statTables(t, light){
     pSeen.add(p.id);
     const s = statOf(t, p, d.grp);
     if(!s) continue;
-    pRows.push(`<tr>
+    prog = base * playRate(p);
+    pRows.push(`<tr${p.inj?' class="row-inj"':''}>
       <td class="pos">${d.label}</td>
-      <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}</td>
+      <td class="nm">${formIcon(p)} ${esc(p.name)}${marks(p)}${injBadge(p)}</td>
       <td class="key">${(s.era||0).toFixed(2)}</td>
       <td class="dim">${c(s.g)}</td><td>${c(s.w)}</td><td>${c(s.l)}</td>
       <td>${c(s.sv)}</td><td>${c(s.hld)}</td>
@@ -2070,7 +2309,8 @@ function renderRosterLive(){
   const t = state.parts[state.rosterTab] || state.parts[0];
   const m = t.slots.MGR;
   const editable = !t.cpu && !state.finished;
-  body.innerHTML = (editable ? `<div class="rl-edit"><button class="btn ghost sm" onclick="openOrder(${state.parts.indexOf(t)})">打順・ローテを組む</button></div>` : "")
+  body.innerHTML = (t.park ? `<div class="rl-park">本拠地　<b>${esc(t.park.name)}</b>　<span>${esc(t.park.type)}／${esc(t.park.note)}</span></div>` : "")
+    + (editable ? `<div class="rl-edit"><button class="btn ghost sm" onclick="openOrder(${state.parts.indexOf(t)})">打順・ローテを組む</button></div>` : "")
     + (m ? `<div class="rl-mgr">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
     + statTables(t, false);
 }
@@ -2446,7 +2686,7 @@ function mlbPass(){
 // 個人成績シミュレーション & タイトル
 // ============================================================
 function joinScale(p){ return p.joined!==undefined && p.joined!==false ? 0.45 : 1; }
-function totalG(){ return state.pairGames*(state.parts.length-1); }
+function totalG(){ return state.gamesPer || state.pairGames*(state.parts.length-1); }
 // 想定勝利数(シーズン成績の事前生成用)。実際のW確定前でも使えるようにチーム力から推定
 function projWins(t){
   const G = totalG();
@@ -2462,8 +2702,10 @@ function genBatLine(p, t, bench){
   // リーグ平均(.253)へ引き戻したうえでブレを乗せ、打撃成績を現実的な水準にする
   const base = LEAGUE_AVG + (p.avg - LEAGUE_AVG) * 0.66;
   const avg = clamp(base - 0.006 + gauss()*0.027, 0.176, 0.372);
-  const hr = Math.max(0, Math.round(p.hr*vol*(0.60+rnd()*0.42)));
-  const rbi = Math.max(hr, Math.round(p.rbi*vol*(0.64+rnd()*0.38)));
+  // 半分がホームゲームなので、本拠地の癖は半分だけ効く
+  const pf = t && t.park ? (1 + t.park.hr) / 2 : 1;
+  const hr = Math.max(0, Math.round(p.hr*vol*pf*(0.60+rnd()*0.42)));
+  const rbi = Math.max(hr, Math.round(p.rbi*vol*((1+pf)/2)*(0.64+rnd()*0.38)));
   const sb = Math.max(0, Math.round(p.sb*vol*(0.58+rnd()*0.48)));
   // 細かい成績(試合・打席・打数・安打・長打・四死球・三振・出塁率/長打率)
   const g = Math.max(1, Math.round(G * (bench?0.62:0.94) * joinScale(p) * (0.92+rnd()*0.12)));
@@ -2654,7 +2896,7 @@ function showResult(){
     const mgr = t.slots.MGR;
     return `<div class="team-report">
       <h3>${rank+1}位 <span style="color:${t.color}">●</span> ${esc(t.name)}（${t.W}勝${t.L}敗${t.T?t.T+"分":""}）
-        <span class="tag">合計コスト ${t.spent}pt</span></h3>
+        <span class="tag">合計コスト ${t.spent}pt</span>${t.park?`<span class="park-tag">本拠地 ${esc(t.park.name)}</span>`:""}</h3>
       ${mgr?`<div class="rl-mgr light">監督　<b>${esc(mgr.name)}</b>（'${String(mgr.year).slice(2)}）　優勝${mgr.pennants}回・日本一${mgr.japan}回／育成${devStars(mgr)}</div>`:""}
       ${statTables(t, "final")}
       ${state.opts.party ? teamLogHtml(state.parts.indexOf(t)) : ""}
@@ -2958,7 +3200,11 @@ function splitInnings(runs){
 function starterOf(t){
   const keys = rotKeys(t);
   const k = keys[(t.rotIdx || 0) % keys.length];
-  return t.slots[k] || t.slots.SP1 || t.slots[keys[0]];
+  const p = t.slots[k];
+  if(p && !isOut(p)) return p;
+  // 予定の先発が離脱していれば、投げられる者を繰り上げる
+  const alt = keys.map(x=>t.slots[x]).filter(x=>x && !isOut(x));
+  return alt[0] || p || t.slots.SP1;
 }
 function longReliefOf(t, sp){
   // 先発の次に控えている番手(ロングリリーフ役)。当日の先発とは別人を選ぶ
@@ -2966,7 +3212,7 @@ function longReliefOf(t, sp){
   return ps.length ? ps[0] : (sp || starterOf(t));
 }
 function pitcherForInning(t, inn, sp){
-  const st = sp || starterOf(t);
+  const st = (sp && !isOut(sp)) ? sp : starterOf(t);
   if(inn <= 5) return {p:st, key:"SP", label:"先発"};
   if(inn === 6) return {p:longReliefOf(t, st), key:"SP", label:"先発"};
   if(inn === 7) return {p:t.slots.RP1 || t.slots.SP1, key:"RP", label:"中継ぎ"};

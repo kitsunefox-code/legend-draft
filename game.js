@@ -3360,12 +3360,14 @@ function loreText(e, x){
 // ── 史実イベントの号外カット ───────────────────────────────
 // 挿絵のあるイベントだけは試合を止めて大きく見せる(415件中11件)
 const EVENT_PIC = new Set([
-  "backscreen-3renpatsu","daida-manrui-sayonara","daiso-specialist",
-  "densetsu-no-renpai","go-heading","heading-jiken","juten-ichikyu",
-  "kamino-otsuge","kanzen-shiai","koushin-etsunen","maboroshi-homerun",
-  "make-drama","nijuichikyu","no-hit-no-run","noumu-called","rabbit-ball",
-  "raiu-chudan","sayonara-balk","sign-nusumi","sousha-oikoshi",
-  "suketto-mikikoku"
+  "backscreen-3renpatsu","bat-orete-kossetsu","chien-koui",
+  "daida-manrui-sayonara","dairanto","daiso-specialist",
+  "densetsu-no-renpai","dotonbori-tobikomi","douage-shippai","go-heading",
+  "heading-jiken","hikouki-chien","juten-ichikyu","kamino-otsuge",
+  "kanzen-shiai","koushin-etsunen","maboroshi-homerun","make-drama",
+  "nijuichikyu","no-hit-no-run","noumu-called","rabbit-ball","raiu-chudan",
+  "renzoku-sanshin","sayonara-balk","sebangou-machigai","sign-nusumi",
+  "sousha-oikoshi","suketto-mikikoku","uniform-wasure","yon-shissaku"
 ]);
 function showEventPic(e, txt, after){
   const wasPlaying = state.playing;

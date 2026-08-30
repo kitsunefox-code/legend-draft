@@ -2284,6 +2284,39 @@ function statLineOf(s){
 // ============================================================
 // 結果発表
 // ============================================================
+// 球団ごとの一年の出来事。最終成績の下に添える
+function teamLogHtml(ti){
+  const all = state.partyLog || [];
+  const log = all.filter(function(x){ return x.teams && x.teams.indexOf(ti) >= 0; });
+  if(!log.length){
+    return '<div class="tr-log"><div class="tr-log-h">この一年の出来事<span>0件</span></div>' +
+           '<div class="tr-none">特筆すべき事件は起きなかった。平穏なシーズンだった。</div></div>';
+  }
+  const rows = log.slice().reverse().map(function(x){   // 起きた順に並べ直す
+    const ev = x.id ? PARTY_LORE.find(function(v){ return v.id === x.id; }) : null;
+    const note = ev && ev.note ? ev.note : "";
+    const pic = x.id && EVENT_PIC.has(x.id);
+    return '<div class="tr-ev ' + x.cls + (note ? " has-src" : "") + '"' +
+        (note ? ' onclick="toggleLogSrc(this)"' : '') + '>' +
+      '<div class="tr-ev-line">' +
+        '<span class="tr-d">' + esc(x.d) + '</span>' +
+        '<span class="tr-i">' + esc(x.icon) + '</span>' +
+        '<span class="tr-t">' + esc(x.txt) + '</span>' +
+        (pic ? '<img class="tr-pic" src="assets/event/' + x.id + '.jpg" alt="" loading="lazy">' : '') +
+        (note ? '<span class="tr-more">元ネタ</span>' : '') +
+      '</div>' +
+      (note ? '<div class="tr-src"><b>元ネタ</b>' + esc(note) + '</div>' : '') +
+    '</div>';
+  }).join("");
+  const good = log.filter(function(x){ return x.cls === "good"; }).length;
+  const bad  = log.filter(function(x){ return x.cls === "bad"; }).length;
+  return '<div class="tr-log">' +
+    '<div class="tr-log-h">この一年の出来事' +
+      '<span>' + log.length + '件（吉' + good + '・凶' + bad + '）</span></div>' +
+    rows +
+  '</div>';
+}
+
 function showResult(){
   if(!state.seasonStats) simulateAllPlayerStats();
   const s = standingsSorted();
@@ -2315,6 +2348,7 @@ function showResult(){
         <span class="tag">合計コスト ${t.spent}pt</span></h3>
       ${mgr?`<div class="rl-mgr light">監督　<b>${esc(mgr.name)}</b>（'${String(mgr.year).slice(2)}）　優勝${mgr.pennants}回・日本一${mgr.japan}回／育成${devStars(mgr)}</div>`:""}
       ${statTables(t, "final")}
+      ${state.opts.party ? teamLogHtml(state.parts.indexOf(t)) : ""}
     </div>`;
   }).join("");
   confetti();
@@ -3090,10 +3124,19 @@ function droppableDefs(t){
   });
 }
 // 事件簿へ記録しつつ紙面とテロップに流す
-function partyNews(icon, cls, txt, id){
+function partyNews(icon, cls, txt, id, teamHint){
   state.news.unshift({mo: dateLabel(state.day-1), txt});
   state.partyLog = state.partyLog || [];
-  state.partyLog.unshift({d: dateLabel(state.day-1), icon, cls, txt, id});
+  // 本文に出てくる球団名から、どの球団の出来事かを拾う。
+  // 2球団がらみの事件は両方に紐づく
+  const teams = [];
+  state.parts.forEach(function(t, i){ if(t.name && txt.indexOf(t.name) >= 0) teams.push(i); });
+  // 選手名しか出ない事件(球団名を含まない文面)は、当事者の球団を明示で受け取る
+  if(teamHint){
+    const hi = state.parts.indexOf(teamHint);
+    if(hi >= 0 && teams.indexOf(hi) < 0) teams.push(hi);
+  }
+  state.partyLog.unshift({d: dateLabel(state.day-1), icon, cls, txt, id, teams, day: state.day});
   telop(txt);
   renderPartyLog();
 }
@@ -3455,7 +3498,7 @@ function runLore(e){
     case "mgrRest": t.mgrRest = true; break;
     case "mgrBack": t.mgrRest = false; moodSet(t, 1.0, 18, "監督復帰"); break;
     case "leave": {
-      partyNews(e.icon || "急", e.cls || "bad", txt, e.id);
+      partyNews(e.icon || "急", e.cls || "bad", txt, e.id, t);
       // 事件の見出しをそのまま離脱理由にする(例:【直撃】→「直撃」)
       const m = /^【([^】]{1,10})】/.exec(e.text || "");
       const reason = m ? m[1] + "の余波でチームを離れた" : "球界を揺るがす事態でチームを離れた";
@@ -3465,7 +3508,7 @@ function runLore(e){
     }
     default: break;
   }
-  partyNews(e.icon || "報", e.cls || "fun", txt, e.id);
+  partyNews(e.icon || "報", e.cls || "fun", txt, e.id, t);
   if(["formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown"].includes(e.effect)) renderRosterLive();
   if(EVENT_PIC.has(e.id)) showEventPic(e, txt);
   return true;

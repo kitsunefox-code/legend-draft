@@ -894,16 +894,29 @@ footer{margin-top:56px;}
 .ts-b.bad{background:#7a2418;color:#f6ded8;}
 
 /* 事件簿 */
-/* 挿絵のある事件はサムネ付き・タップで号外カットを見返せる */
-.plog.has-pic{cursor:pointer;}
-.plog.has-pic:hover{background:rgba(150,120,60,.09);}
+/* 事件簿: タップで元ネタ(史実)が開く。挿絵があるものはサムネ付き */
+.plog.has-src{cursor:pointer;}
+.plog.has-src:hover{background:rgba(150,120,60,.07);}
+.pl-line{display:flex;gap:9px;align-items:flex-start;width:100%;}
+.pl-more{
+  flex:none;align-self:center;font-size:9.5px;letter-spacing:.12em;color:var(--paper);
+  background:var(--kin);padding:1px 6px;opacity:.85;
+}
+.plog.open .pl-more{background:var(--red);opacity:1;}
+.pl-src{
+  display:none;margin:8px 0 2px 31px;padding:9px 11px;font-size:11.5px;line-height:1.85;
+  color:var(--ink2);background:rgba(150,120,60,.1);border-left:3px solid var(--kin);
+  font-family:"Yu Gothic","Hiragino Kaku Gothic ProN",sans-serif;
+}
+.plog.open .pl-src{display:block;}
+.pl-src b{display:block;font-size:10px;letter-spacing:.16em;color:var(--red);margin-bottom:3px;}
 .pl-pic{
   flex:none;width:54px;height:54px;object-fit:cover;
   border:1px solid var(--rule2);box-shadow:1px 1px 0 rgba(20,16,8,.2);
 }
 @media (max-width:680px){ .pl-pic{width:44px;height:44px;} }
 .plog{
-  display:flex;gap:9px;align-items:flex-start;padding:7px 8px;border-bottom:1px dashed var(--rule);
+  display:block;padding:7px 8px;border-bottom:1px dashed var(--rule);
   font-size:12.5px;line-height:1.7;animation:plogIn .35s ease;
 }
 @keyframes plogIn{from{opacity:0;transform:translateX(-6px);}to{opacity:1;transform:none;}}
@@ -1071,17 +1084,32 @@ footer{margin-top:56px;}
 }
 
 /* ---- 月例ルーレット ---- */
-.rl-stage{position:relative;width:212px;height:212px;margin:18px auto 12px;--rl-r:-84px;}
+.rl-team{
+  display:flex;align-items:center;gap:8px;margin:2px 0 6px;font-size:16px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.rl-team .rl-turn{
+  margin-left:auto;font-family:"Oswald",sans-serif;font-size:11px;color:var(--ink2);
+  border:1px solid var(--rule2);padding:1px 7px;
+}
+.rl-stage{position:relative;width:240px;height:240px;margin:16px auto 12px;--rl-r:-96px;}
 .rl-wheel{
   position:absolute;inset:0;border-radius:50%;
   border:6px solid var(--ink);box-shadow:0 0 0 3px var(--goldseal), 0 14px 26px -12px rgba(20,16,8,.8);
   transform:rotate(0deg);
 }
 .rl-wheel::after{
-  content:"";position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;
+  content:"";position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;
   background:var(--paper2);border:3px solid var(--ink);border-radius:50%;
   box-shadow:inset 0 2px 5px rgba(0,0,0,.25);
 }
+.rl-hub{
+  position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;z-index:2;
+  display:flex;align-items:center;justify-content:center;pointer-events:none;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:13px;
+  color:var(--ink);letter-spacing:1px;
+}
+.rl-hub::before{content:"運";}
 .rl-lb{
   position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;
   display:flex;align-items:center;justify-content:center;
@@ -1093,25 +1121,66 @@ footer{margin-top:56px;}
   border-left:13px solid transparent;border-right:13px solid transparent;border-top:26px solid var(--red);
   filter:drop-shadow(0 3px 3px rgba(0,0,0,.5));
 }
-.rl-result{
-  text-align:center;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:800;
-  font-size:20px;letter-spacing:2px;min-height:1.5em;color:var(--ink2);
+/* 何が入っているかの一覧。当たった目だけが残る */
+.rl-legend{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:12px;}
+.rl-chip{
+  display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 7px 2px 2px;
+  border:1px solid var(--rule2);background:var(--paper2);color:var(--ink2);
+  transition:opacity .3s, transform .3s;
 }
-.rl-result.good{color:var(--green);} .rl-result.bad{color:var(--red);} .rl-result.none{color:var(--gray);}
+.rl-chip i{
+  font-style:normal;width:17px;height:17px;line-height:17px;text-align:center;color:#fff;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:11px;
+}
+.rl-chip.dim{opacity:.22;}
+.rl-chip.hit{
+  border-color:var(--ink);background:var(--ink);color:var(--paper);
+  transform:scale(1.12);font-weight:700;
+}
+.rl-wait{
+  text-align:center;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:16px;
+  color:var(--rule2);letter-spacing:3px;padding:18px 0;
+}
+/* 結果カード。何が起きて何が変わったのかを分けて出す */
+.rl-card{
+  border:1px solid var(--rule2);border-left:5px solid var(--gray);
+  background:var(--paper2);padding:12px 14px;animation:rlIn .34s cubic-bezier(.2,1.2,.4,1);
+}
+@keyframes rlIn{from{opacity:0;transform:translateY(10px) scale(.97);}to{opacity:1;transform:none;}}
+.rl-card.good{border-left-color:var(--green);background:rgba(44,92,52,.07);}
+.rl-card.bad{border-left-color:var(--red);background:rgba(140,36,18,.06);}
+.rl-card.none{border-left-color:var(--gray);}
+.rl-cap{
+  display:inline-block;font-size:11px;letter-spacing:.2em;color:#fff;background:var(--gray);
+  padding:1px 9px;margin-bottom:7px;
+}
+.rl-card.good .rl-cap{background:var(--green);}
+.rl-card.bad .rl-cap{background:var(--red);}
+.rl-big{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:21px;
+  letter-spacing:2px;display:flex;align-items:center;gap:9px;color:var(--ink);
+}
 .rl-ri{
-  display:inline-block;width:30px;height:30px;line-height:30px;text-align:center;
-  background:currentColor;border-radius:3px;margin-right:9px;vertical-align:2px;font-size:16px;
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:32px;height:32px;background:var(--ink);color:var(--paper);font-size:17px;
 }
-.rl-result.good .rl-ri,.rl-result.bad .rl-ri,.rl-result.none .rl-ri{color:#fff;}
-.rl-result .rl-ri{position:relative;}
+.rl-card.good .rl-ri{background:var(--green);}
+.rl-card.bad .rl-ri{background:var(--red);}
+.rl-eff{
+  margin-top:8px;font-size:12.5px;font-weight:700;color:var(--ink);
+  background:rgba(150,120,60,.13);border-left:3px solid var(--kin);padding:6px 10px;
+}
 .rl-msg{
-  margin-top:9px;text-align:center;font-size:13px;color:var(--ink2);line-height:1.9;
-  font-family:"Zen Old Mincho","Yu Mincho",serif;min-height:2em;
+  margin-top:9px;font-size:13px;color:var(--ink2);line-height:1.85;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
 }
+.rl-pick{margin-top:14px;border-top:1px dashed var(--rule);padding-top:12px;}
+.rl-pick-h{font-size:12px;color:var(--ink2);margin-bottom:8px;line-height:1.7;}
 @media (max-width:680px){
-  .rl-stage{width:184px;height:184px;--rl-r:-72px;}
-  .rl-lb{transform-origin:center;}
-  .rl-result{font-size:17px;}
+  .rl-stage{width:200px;height:200px;--rl-r:-80px;}
+  .rl-big{font-size:18px;}
+  .rl-chip{font-size:10px;}
+  .rl-legend{gap:4px;}
 }
 
 /* ---- B-S-Oカウント / 投球表示 ---- */
@@ -1220,15 +1289,15 @@ footer{margin-top:56px;}
 
 /* ---- 打席の選手紹介スーパー ---- */
 .lv-super{
-  position:relative;margin-top:8px;height:0;overflow:hidden;opacity:0;
-  transition:height .28s ease, opacity .28s ease;
-  display:flex;align-items:flex-end;gap:10px;
+  position:relative;margin-top:8px;display:grid;grid-template-rows:0fr;opacity:0;
+  transition:grid-template-rows .28s ease, opacity .28s ease;
   background:linear-gradient(90deg, rgba(10,31,22,.96), rgba(23,61,45,.75));
   border-left:4px solid var(--amber);
 }
-.lv-super.in{height:74px;opacity:1;}
-.sp-fig{height:74px;width:auto;flex:none;filter:drop-shadow(2px 0 6px rgba(0,0,0,.55));}
-.sp-body{flex:1;min-width:0;padding:7px 10px 7px 0;}
+.lv-super.in{grid-template-rows:1fr;opacity:1;}
+.lv-super > .sp-inner{min-height:0;overflow:hidden;display:flex;align-items:stretch;gap:10px;}
+.sp-fig{height:82px;width:auto;flex:none;align-self:flex-end;filter:drop-shadow(2px 0 6px rgba(0,0,0,.55));}
+.sp-body{flex:1;min-width:0;padding:8px 10px 9px 0;}
 .sp-top{display:flex;align-items:center;gap:7px;margin-bottom:1px;}
 .sp-no{
   background:var(--amber);color:var(--ink);font-family:"Oswald",sans-serif;font-weight:600;
@@ -1240,12 +1309,11 @@ footer{margin-top:56px;}
   font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:19px;color:#fff;
   letter-spacing:2px;line-height:1.2;text-shadow:0 2px 5px rgba(0,0,0,.6);
 }
-.sp-stats{display:flex;gap:11px;margin-top:3px;}
+.sp-stats{display:flex;gap:11px;margin-top:4px;flex-wrap:wrap;}
 .sp-stats span{font-family:"Oswald",sans-serif;font-size:13px;color:var(--amber);}
 .sp-stats i{font-style:normal;font-size:9px;color:#8fae99;margin-right:3px;font-family:"Yu Gothic",sans-serif;}
 @media (max-width:680px){
-  .lv-super.in{height:62px;}
-  .sp-fig{height:62px;}
+  .sp-fig{height:70px;}
   .sp-name{font-size:16px;}
   .sp-stats span{font-size:11.5px;}
   .sp-stats{gap:8px;}
@@ -1321,6 +1389,144 @@ body{
   #pic-card h2{font-size:17px;}
   #pic-card p{font-size:13px;}
 }
+
+/* 打順・ローテーション編成 */
+#order-bg{position:fixed;inset:0;background:rgba(24,20,12,.68);display:none;align-items:center;justify-content:center;z-index:115;padding:14px;overflow-y:auto;}
+#order-bg.show{display:flex;}
+#order-card{
+  background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
+  background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
+  border:1px solid var(--rule2);border-top:5px solid var(--navy);
+  max-width:760px;width:100%;padding:16px;box-shadow:5px 5px 0 rgba(20,16,8,.3);
+}
+#order-card h2{margin:0 0 12px;font-size:18px;display:flex;align-items:center;gap:7px;}
+#order-body{display:flex;gap:16px;align-items:flex-start;}
+.od-col{flex:1;min-width:0;}
+.od-h{
+  font-size:11px;letter-spacing:.18em;color:var(--paper);background:var(--ink);
+  padding:3px 8px;margin-bottom:5px;
+}
+.od-row{
+  display:flex;align-items:center;gap:5px;padding:5px 3px;
+  border-bottom:1px dashed var(--rule);font-size:13px;
+}
+.od-n{
+  flex:none;width:34px;font-family:"Oswald",sans-serif;font-size:12px;
+  color:var(--paper);background:var(--navy);text-align:center;line-height:19px;
+}
+.od-pos{flex:none;width:26px;font-size:11px;color:var(--ink2);text-align:center;}
+.od-name{
+  flex:1;min-width:0;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:4px;
+}
+.od-st{flex:none;font-family:"Oswald",sans-serif;font-size:11px;color:var(--ink2);min-width:74px;text-align:right;}
+.od-b{
+  flex:none;width:26px;height:26px;border:1px solid var(--rule2);background:var(--paper2);
+  cursor:pointer;font-size:11px;color:var(--ink);line-height:1;
+}
+.od-b:hover:not(:disabled){background:var(--ink);color:var(--paper);}
+.od-b:disabled{opacity:.25;cursor:default;}
+.od-note{font-size:11px;color:var(--ink2);margin-top:7px;line-height:1.6;}
+.od-foot{display:flex;gap:8px;align-items:center;margin-top:14px;}
+.rl-edit{margin-bottom:8px;}
+@media (max-width:680px){
+  #order-body{flex-direction:column;gap:14px;}
+  .od-st{min-width:62px;font-size:10px;}
+  .od-name{font-size:12.5px;}
+  .od-b{width:32px;height:32px;}
+}
+
+/* 球団アイコンの選択 */
+.em-btn{
+  flex:none;width:34px;height:34px;padding:0;border:1px solid var(--rule2);
+  background:var(--paper2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+}
+.em-btn img{width:26px;height:26px;object-fit:contain;}
+.em-btn:hover{border-color:var(--red);}
+#em-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;margin-top:12px;}
+.em-cell{
+  aspect-ratio:1;border:1px solid var(--rule2);background:var(--paper2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;padding:4px;
+}
+.em-cell img{width:100%;height:100%;object-fit:contain;}
+.em-cell.on{border:2px solid var(--red);background:rgba(160,40,20,.08);}
+@media (max-width:680px){ #em-grid{grid-template-columns:repeat(5,1fr);} }
+
+/* 開幕號外 */
+#opening-bg{position:fixed;inset:0;background:rgba(24,20,12,.8);display:none;align-items:center;justify-content:center;z-index:135;padding:14px;overflow-y:auto;}
+#opening-bg.show{display:flex;}
+#opening-card{
+  position:relative;
+  background:repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,70,.05) 3px 4px), var(--paper2);
+  border:2px solid var(--ink);outline:1px solid var(--ink);outline-offset:-6px;
+  max-width:480px;width:100%;padding:22px 20px 18px;
+  animation:ogIn .5s cubic-bezier(.2,1.05,.3,1);
+}
+@keyframes ogIn{from{opacity:0;transform:translateY(20px) rotate(-1.5deg) scale(.94);}to{opacity:1;transform:none;}}
+.og-go{
+  position:absolute;top:-14px;right:14px;background:var(--red);color:#fff;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:19px;
+  letter-spacing:4px;padding:5px 13px;transform:rotate(3deg);
+  box-shadow:2px 3px 0 rgba(20,16,8,.35);
+}
+.og-k{font-size:10.5px;letter-spacing:.2em;color:var(--ink2);border-bottom:2px solid var(--ink);padding-bottom:5px;}
+.og-h{
+  margin:12px 0 14px;text-align:center;font-size:32px;letter-spacing:.4em;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;text-indent:.4em;
+}
+.og-row{
+  display:flex;align-items:center;gap:8px;padding:8px 4px;
+  border-bottom:1px dashed var(--rule);font-size:14px;
+}
+.og-row.live{background:rgba(150,120,60,.1);}
+.og-t{
+  flex:1;min-width:0;display:flex;align-items:center;gap:5px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;color:var(--ink2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.og-t.r{justify-content:flex-end;}
+.og-t.w{color:var(--ink);font-weight:900;}
+.og-s{
+  flex:none;font-family:"Oswald",sans-serif;font-size:19px;font-weight:600;
+  min-width:64px;text-align:center;font-variant-numeric:tabular-nums;
+}
+.og-s i{font-style:normal;color:var(--rule2);margin:0 4px;font-size:14px;}
+.og-tag{
+  flex:none;font-size:9.5px;letter-spacing:.14em;background:var(--red);color:#fff;padding:1px 5px;
+}
+.og-note{margin-top:12px;font-size:12px;color:var(--ink2);line-height:1.85;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+@media (max-width:680px){
+  .og-h{font-size:26px;}
+  .og-row{font-size:12.5px;}
+  .og-s{font-size:17px;min-width:56px;}
+}
+
+/* スカウトからの封書(緊急補強のワンクッション) */
+.sc-env{
+  margin:16px auto 0;max-width:340px;padding:22px 18px 18px;position:relative;text-align:center;
+  background:linear-gradient(160deg,#f4ecd9,#e7dbbd);
+  border:1px solid #c3b291;box-shadow:3px 4px 0 rgba(20,16,8,.22);
+  animation:scShake 1.6s ease-in-out infinite;
+}
+@keyframes scShake{0%,88%,100%{transform:rotate(-.6deg);}92%{transform:rotate(.9deg);}96%{transform:rotate(-.9deg);}}
+.sc-env::before{
+  content:"";position:absolute;left:0;right:0;top:0;height:44px;
+  background:linear-gradient(170deg,#eadfc4 50%,transparent 50%),linear-gradient(190deg,#eadfc4 50%,transparent 50%);
+  background-size:50% 100%;background-position:left top,right top;background-repeat:no-repeat;
+  border-bottom:1px solid #cbbb9b;
+}
+.sc-seal{
+  position:absolute;left:50%;top:30px;transform:translateX(-50%) rotate(-7deg);z-index:2;
+  width:44px;height:44px;line-height:44px;background:var(--red);color:#fff;border-radius:50%;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:13px;letter-spacing:1px;
+  box-shadow:1px 2px 4px rgba(20,16,8,.4);
+}
+.sc-from{margin-top:44px;font-size:10.5px;letter-spacing:.16em;color:var(--ink2);}
+.sc-ttl{
+  margin-top:9px;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  font-size:19px;letter-spacing:2px;color:var(--ink);
+}
+.sc-note{margin-top:9px;font-size:11px;color:var(--rule2);}
 </style>
 </head>
 <body>
@@ -1372,9 +1578,9 @@ body{
     <b>チームコスト上限</b>
     <div class="sub" style="margin:4px 0 8px;">このコスト内で監督+選手18人を指名します。能力が高い選手ほどコストが跳ね上がります。</div>
     <select id="opt-budget">
-      <option value="150">ゆったり コスト150（スターを集めやすい）</option>
-      <option value="130" selected>標準 コスト130</option>
-      <option value="110">シビア コスト110（やりくり勝負）</option>
+      <option value="160">ゆったり コスト160（スターを集めやすい）</option>
+      <option value="140" selected>標準 コスト140</option>
+      <option value="120">シビア コスト120（やりくり勝負）</option>
     </select>
   </div>
 
@@ -1601,6 +1807,33 @@ body{
   <div id="event-panel"></div>
 </div>
 
+<!-- 開幕號外 -->
+<div id="opening-bg" onclick="if(event.target===this)closeOpeningGogai()">
+  <div id="opening-card">
+    <div class="og-go">號外</div>
+    <div class="og-k">球史新聞社 ── 開幕特別號外</div>
+    <h2 class="og-h">開　幕</h2>
+    <div id="og-body"></div>
+    <div style="text-align:right;margin-top:14px;">
+      <button class="btn" onclick="closeOpeningGogai()">ペナントレースへ</button>
+    </div>
+  </div>
+</div>
+
+<!-- 打順・ローテーション編成 -->
+<div id="order-bg">
+  <div id="order-card">
+    <h2 id="order-title"></h2>
+    <div id="order-body"></div>
+    <div class="od-foot">
+      <button class="btn ghost sm" onclick="autoOrder()">おまかせ編成</button>
+      <div style="flex:1"></div>
+      <button class="btn ghost sm" onclick="closeOrder()">やめる</button>
+      <button class="btn" onclick="saveOrder()">この編成で戦う</button>
+    </div>
+  </div>
+</div>
+
 <!-- 史実イベントの号外カット -->
 <div id="pic-bg">
   <div id="pic-card">
@@ -1687,9 +1920,9 @@ body{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608291713"></script>
-<script src="players.js?v=202608291713"></script>
-<script src="party.js?v=202608291713"></script>
-<script src="game.js?v=202608291713"></script>
+<script src="qrcode.js?v=202608300927"></script>
+<script src="players.js?v=202608300927"></script>
+<script src="party.js?v=202608300927"></script>
+<script src="game.js?v=202608300927"></script>
 </body>
 </html>

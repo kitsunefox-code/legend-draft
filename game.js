@@ -25,13 +25,14 @@ const SLOT_DEFS = [
   {key:"SP1", grp:"SP",  label:"先発"},
   {key:"SP2", grp:"SP",  label:"先発"},
   {key:"SP3", grp:"SP",  label:"先発"},
+  {key:"SP4", grp:"SP",  label:"先発"},
   {key:"RP1", grp:"RP",  label:"中継"},
   {key:"RP2", grp:"RP",  label:"中継"},
   {key:"CL",  grp:"CL",  label:"抑え"},
 ];
 const LINEUP_KEYS = ["C","B1","B2","B3","SS","OF1","OF2","OF3","DH"];
 const BENCH_KEYS = ["BN1","BN2","BN3"];
-const SP_KEYS = ["SP1","SP2","SP3"];
+const SP_KEYS = ["SP1","SP2","SP3","SP4"];
 const RP_KEYS = ["RP1","RP2"];
 
 // ---------- utils ----------
@@ -180,11 +181,48 @@ function addPlayer(){
   const i = list.children.length;
   const row = document.createElement("div");
   row.className="p-row";
+  const em = freeEmblem();
+  row.dataset.em = em;
   row.innerHTML = `<span class="idx" style="background:${COLORS[i]}">${i+1}</span>
+    <button class="em-btn" title="球団アイコンを選ぶ" onclick="pickEmblem(this.parentNode)"><img src="${emblemSrc(em)}" alt=""></button>
     <input type="text" value="参加者${i+1}" maxlength="10">
     <select><option value="">縛りなし</option>${FRANCHISES.map(f=>`<option>${f}</option>`).join("")}</select>
     <button class="btn ghost sm" onclick="this.parentNode.remove();renumber()">✕</button>`;
   list.appendChild(row);
+}
+// まだ誰も使っていないアイコン番号を返す
+function freeEmblem(){
+  const used = new Set([...$("p-list").children].map(r=>Number(r.dataset.em)));
+  for(let i=0;i<EMBLEM_COUNT;i++) if(!used.has(i)) return i;
+  return Math.floor(rnd()*EMBLEM_COUNT);
+}
+// アイコン選択(30種のグリッドから1つ)
+function pickEmblem(row){
+  const cur = Number(row.dataset.em) || 0;
+  const used = new Set([...$("p-list").children].filter(r=>r!==row).map(r=>Number(r.dataset.em)));
+  state.emRow = row;
+  $("modal").innerHTML =
+    '<h2><span class="kicker">球団アイコン</span>エンブレムを選ぶ</h2>' +
+    '<div class="sub">他の球団が使っている絵柄は選べません。</div>' +
+    '<div id="em-grid">' +
+      Array.from({length: EMBLEM_COUNT}, function(_, i){
+        if(used.has(i)) return "";
+        return '<div class="em-cell' + (i===cur?" on":"") + '" onclick="chooseEmblem(' + i + ')">' +
+               '<img src="' + emblemSrc(i) + '" alt=""></div>';
+      }).join("") +
+    '</div>' +
+    '<div style="text-align:right;margin-top:14px;"><button class="btn ghost sm" onclick="closeModal()">閉じる</button></div>';
+  $("modal-bg").classList.add("show");
+}
+function chooseEmblem(i){
+  const row = state.emRow;
+  if(row){
+    row.dataset.em = i;
+    row.querySelector(".em-btn img").src = emblemSrc(i);
+  }
+  state.emRow = null;
+  seTap();
+  closeModal();
 }
 function renumber(){
   [...$("p-list").children].forEach((row,i)=>{
@@ -200,20 +238,24 @@ function nextEmblem(){
   if(!emblemPool || !emblemPool.length) emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i));
   return emblemPool.pop();
 }
-function newTeam(name, fr, cpu, color){
-  return {name, fr, cpu, color, emblem:nextEmblem(), slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0, hist:[0], watch:new Set()};
+function newTeam(name, fr, cpu, color, emblem){
+  return {name, fr, cpu, color, emblem: (emblem !== undefined && emblem !== null) ? emblem : nextEmblem(), slots:{}, spent:0, W:0,L:0,T:0,RS:0,RA:0,
+          hist:[0], watch:new Set(), order:LINEUP_KEYS.slice(), rot:SP_KEYS.slice(), rotIdx:0};
 }
 function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
   emblemPool = null;
+  emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i))
+    .filter(i => !rows.some(r => Number(r.dataset.em) === i));   // 選ばれた分はCPUに回さない
   state.parts = rows.map((row,i)=>newTeam(
     row.querySelector("input").value.trim() || `参加者${i+1}`,
-    row.querySelector("select").value, false, COLORS[i]));
+    row.querySelector("select").value, false, COLORS[i],
+    row.dataset.em !== undefined ? Number(row.dataset.em) : undefined));
   state.eras = new Set([...$("era-chips").children].filter(c=>c.classList.contains("on")).map(c=>c.dataset.era));
   state.opts.trade = $("opt-trade").checked;
   state.opts.mlb = $("opt-mlb").checked && MLB_STARS.length > 0;
-  state.budget = Number($("opt-budget").value) || 130;
+  state.budget = Number($("opt-budget").value) || 140;
   state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
   state.opts.party = $("opt-party") ? $("opt-party").checked : false;
 
@@ -530,7 +572,7 @@ function statShort(p){
 
 function renderRosters(){
   $("d-rosters").innerHTML = state.parts.map((t,i)=>{
-    const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",["SP1","SP2","SP3","RP1","RP2","CL"]]];
+    const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",["SP1","SP2","SP3","SP4","RP1","RP2","CL"]]];
     let html = "";
     for(const [sec,keys] of secs){
       html += `<div class="sec">${sec}</div>`;
@@ -982,7 +1024,7 @@ function teamAtt(t){
   return s/9.75 + mgrBonus(t) + morale(t);
 }
 function teamDef(t){
-  const sp = SP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"SP")+fw(p);},0)/3;
+  const sp = SP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"SP")+fw(p);},0)/SP_KEYS.length;
   const rp = RP_KEYS.reduce((s,k)=>{const p=t.slots[k];return s+ovrFor(p,"RP")+fw(p);},0)/2;
   const cl = ovrFor(t.slots.CL,"CL") + fw(t.slots.CL);
   return sp*0.60 + rp*0.25 + cl*0.15 + mgrBonus(t) + morale(t);
@@ -1082,7 +1124,7 @@ function startSeason(){
   initEngagement();
   state.scored = false; state.scoreBoard = null; state.predicted = false;
   // 月例ルーレット(毎月末)
-  [0,1,2,3,4,5].forEach(function(m){ state.eventQueue.push({after:m, type:"roulette", no:m}); });
+  [0,2,4].forEach(function(m){ state.eventQueue.push({after:m, type:"roulette", no:m}); });  // 2か月に1回
   if(state.opts.trade) state.eventQueue.push({after:2, type:"trade"});
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
   const wokeCount = rollAwakenings();
@@ -1155,7 +1197,9 @@ function tick(){
   let broadcast = null;
   if(state.day === 1 && !state.openingShown){
     state.openingShown = true;
-    if(state.lastGames && state.lastGames.length) broadcast = {label:"開幕戦 生中継", g: state.lastGames[0]};
+    if(state.lastGames && state.lastGames.length){
+      broadcast = {label:"開幕戦 生中継", g: state.lastGames[0], opening: state.lastGames.slice()};
+    }
   }
   const clincher = checkClinch();
   if(clincher && state.lastGames){
@@ -1165,11 +1209,16 @@ function tick(){
   if(broadcast){
     stopTimer();
     state.resumeAfterLive = true;
-    showLiveGame(broadcast.label, broadcast.g, ()=>{
+    const afterLive = ()=>{
       const ev = dueEvent();
       if(ev){ ev.done = true; state.resumeAfterEvent = state.resumeAfterLive; state.resumeAfterLive=false; startEvent(ev.type, ev); return; }
       if(state.day >= state.schedule.length){ finishSeason(); return; }
       if(state.resumeAfterLive){ state.resumeAfterLive=false; startTimer(); }
+    };
+    showLiveGame(broadcast.label, broadcast.g, ()=>{
+      // 開幕日は中継したカード以外も戦われている。全結果を號外で出す
+      if(broadcast.opening && broadcast.opening.length) showOpeningGogai(broadcast.opening, broadcast.g, afterLive);
+      else afterLive();
     });
     return;
   }
@@ -1226,7 +1275,10 @@ function playDay(){
   for(const [ai,bi] of games){
     const A = state.parts[ai], B = state.parts[bi];
     const g = simGame(A,B);
-    played.push({A, B, rA:g.rA, rB:g.rB});
+    const spA = starterOf(A), spB = starterOf(B);
+    A.rotIdx = ((A.rotIdx||0) + 1) % rotKeys(A).length;
+    B.rotIdx = ((B.rotIdx||0) + 1) % rotKeys(B).length;
+    played.push({A, B, rA:g.rA, rB:g.rB, spA, spB});
     scores.push(`${A.name} ${g.rA}-${g.rB} ${B.name}`);
     // その日の見どころニュース(たまに)
     const diff = Math.abs(g.rA-g.rB);
@@ -1269,6 +1321,31 @@ function playDay(){
     makeMonthlyNews(mPrev);
   }
 }
+// 開幕號外(全カードの結果を一枚に)
+function showOpeningGogai(games, liveG, after){
+  state.gogaiAfter = after || null;
+  const rows = games.map(function(g){
+    const on = (g === liveG);
+    const wa = g.rA > g.rB, wb = g.rB > g.rA;
+    return '<div class="og-row' + (on ? " live" : "") + '">' +
+      '<span class="og-t' + (wa ? " w" : "") + '">' + teamEmblem(g.A, 17) + esc(g.A.name) + '</span>' +
+      '<span class="og-s">' + g.rA + '<i>-</i>' + g.rB + '</span>' +
+      '<span class="og-t r' + (wb ? " w" : "") + '">' + esc(g.B.name) + teamEmblem(g.B, 17) + '</span>' +
+      (on ? '<span class="og-tag">中継</span>' : '') +
+    '</div>';
+  }).join("");
+  const most = games.slice().sort(function(a,b){ return (b.rA+b.rB)-(a.rA+a.rB); })[0];
+  $("og-body").innerHTML = rows +
+    '<div class="og-note">' + esc(most.A.name) + '対' + esc(most.B.name) + 'は計' + (most.rA+most.rB) + '得点の打ち合い。長い143試合が、今日始まった。</div>';
+  $("opening-bg").classList.add("show");
+  seFanfare();
+}
+function closeOpeningGogai(){
+  $("opening-bg").classList.remove("show");
+  const a = state.gogaiAfter; state.gogaiAfter = null;
+  if(a) a();
+}
+
 function renderLive(){
   $("s-date").textContent = dateLabel(state.day-1);
   $("s-scores").textContent = state.lastScores.join("　／　");
@@ -1322,12 +1399,18 @@ function renderPartyLog(){
   const log = state.partyLog || [];
   el.innerHTML = log.length ? log.slice(0,24).map((x,i)=>{
     const pic = x.id && EVENT_PIC.has(x.id);
+    const ev = x.id ? PARTY_LORE.find(v=>v.id===x.id) : null;
+    const note = ev && ev.note ? ev.note : "";
     return `
-    <div class="plog ${x.cls}${pic?" has-pic":""}"${pic?` onclick="replayEventPic(${i})"`:""}>
-      <span class="pl-icon">${x.icon}</span>
-      <span class="pl-d">${x.d}</span>
-      <span class="pl-t">${esc(x.txt)}</span>
-      ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
+    <div class="plog ${x.cls}${(pic||note)?" has-src":""}" ${(pic||note)?`onclick="toggleLogSrc(this)"`:""}>
+      <div class="pl-line">
+        <span class="pl-icon">${x.icon}</span>
+        <span class="pl-d">${x.d}</span>
+        <span class="pl-t">${esc(x.txt)}</span>
+        ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
+        ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
+      </div>
+      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" style="margin-top:8px;" onclick="event.stopPropagation();replayEventPic(${i})">號外カットを見る</button>`:""}</div>`:""}
     </div>`;
   }).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
 }
@@ -1341,6 +1424,11 @@ function replayEventPic(i){
   const keep = state.playing;
   showEventPic(e, x.txt);
   state.picResume = keep;
+}
+
+// 事件簿の行をタップして元ネタ(史実)を開閉する
+function toggleLogSrc(el){
+  el.classList.toggle("open");
 }
 
 function makeMonthlyNews(mi){
@@ -1539,6 +1627,92 @@ function statTables(t, light){
     <tbody>${pRows.join("")}</tbody>
   </table></div>`;
 }
+
+// ============================================================
+// 打順・先発ローテーションの編成
+// ============================================================
+function openOrder(idx){
+  const t = state.parts[idx];
+  if(!t) return;
+  state.orderCtx = {idx, order: orderKeys(t).slice(), rot: rotKeys(t).slice()};
+  renderOrder();
+  $("order-bg").classList.add("show");
+}
+function renderOrder(){
+  const c = state.orderCtx;
+  if(!c) return;
+  const t = state.parts[c.idx];
+  const row = (arr, i, kind) => {
+    const k = arr[i], p = t.slots[k];
+    const d = SLOT_DEFS.find(x=>x.key===k);
+    const st = p && state.seasonStats ? statOf(t, p, d.grp) : null;
+    const line = st ? (kind==="rot"
+        ? `${Math.round((st.w||0)*(seasonProg()||1))}勝 防${(st.era||0).toFixed(2)}`
+        : `${avg3(st.avg)} ${Math.round((st.hr||0)*(seasonProg()||1))}本`)
+      : (p ? "―" : "");
+    return `<div class="od-row">
+      <span class="od-n">${kind==="rot" ? "第"+(i+1)+"先発" : (i+1)}</span>
+      <span class="od-pos">${d ? d.label : ""}</span>
+      <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}</span>
+      <span class="od-st">${line}</span>
+      <button class="od-b" onclick="moveOrder('${kind}',${i},-1)" ${i===0?"disabled":""}>▲</button>
+      <button class="od-b" onclick="moveOrder('${kind}',${i},1)" ${i===arr.length-1?"disabled":""}>▼</button>
+    </div>`;
+  };
+  $("order-title").innerHTML = teamEmblem(t,20) + " " + esc(t.name) + " ── 打順とローテーション";
+  $("order-body").innerHTML =
+    `<div class="od-col">
+       <div class="od-h">打順</div>
+       ${c.order.map((k,i)=>row(c.order,i,"bat")).join("")}
+     </div>
+     <div class="od-col">
+       <div class="od-h">先発ローテーション</div>
+       ${c.rot.map((k,i)=>row(c.rot,i,"rot")).join("")}
+       <div class="od-note">上から順に登板します。中継ぎ・抑えは自動です。</div>
+     </div>`;
+}
+function moveOrder(kind, i, d){
+  const c = state.orderCtx;
+  if(!c) return;
+  const arr = kind === "rot" ? c.rot : c.order;
+  const j = i + d;
+  if(j < 0 || j >= arr.length) return;
+  const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+  seTap();
+  renderOrder();
+}
+function autoOrder(){
+  const c = state.orderCtx;
+  if(!c) return;
+  const t = state.parts[c.idx];
+  // 打順は「出塁できる順に上位、長打を3〜5番」という定跡で自動編成
+  const ps = c.order.map(k=>({k, p:t.slots[k]})).filter(x=>x.p);
+  const onbase = ps.slice().sort((a,b)=>(b.p.avg + b.p.sb*0.0016) - (a.p.avg + a.p.sb*0.0016));
+  const power  = ps.slice().sort((a,b)=>(b.p.hr*2 + b.p.rbi) - (a.p.hr*2 + a.p.rbi));
+  const out = [], used = new Set();
+  const take = list => { for(const x of list){ if(!used.has(x.k)){ used.add(x.k); return x.k; } } return null; };
+  out[0] = take(onbase); out[1] = take(onbase);
+  out[3] = take(power);  out[2] = take(power); out[4] = take(power);
+  for(let i=0;i<9;i++) if(!out[i]) out[i] = take(onbase);
+  c.order = out.filter(Boolean);
+  c.rot = c.rot.slice().sort((a,b)=>ovrFor(t.slots[b],"SP") - ovrFor(t.slots[a],"SP"));
+  seWin();
+  renderOrder();
+}
+function saveOrder(){
+  const c = state.orderCtx;
+  if(!c) return;
+  const t = state.parts[c.idx];
+  t.order = c.order.slice();
+  t.rot = c.rot.slice();
+  t.rotIdx = 0;
+  state.orderCtx = null;
+  $("order-bg").classList.remove("show");
+  seWin();
+  renderRosterLive();
+}
+function closeOrder(){ state.orderCtx = null; $("order-bg").classList.remove("show"); }
+
 function renderRosterLive(){
   const tabs = $("roster-tabs"), body = $("roster-live");
   if(!tabs || !body || !state.seasonStats) return;
@@ -1548,7 +1722,9 @@ function renderRosterLive(){
   ).join("");
   const t = state.parts[state.rosterTab] || state.parts[0];
   const m = t.slots.MGR;
-  body.innerHTML = (m ? `<div class="rl-mgr">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
+  const editable = !t.cpu && !state.finished;
+  body.innerHTML = (editable ? `<div class="rl-edit"><button class="btn ghost sm" onclick="openOrder(${state.parts.indexOf(t)})">打順・ローテを組む</button></div>` : "")
+    + (m ? `<div class="rl-mgr">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
     + statTables(t, false);
 }
 
@@ -1868,13 +2044,17 @@ function projWins(t){
   const diff = (teamAtt(t)+teamDef(t))/2 - others.reduce((s,x)=>s+(teamAtt(x)+teamDef(x))/2,0)/others.length;
   return clamp(Math.round(G*(0.5 + diff*0.012)), Math.round(G*0.25), Math.round(G*0.72));
 }
+const LEAGUE_AVG = 0.253;   // NPBのリーグ打率のおおよその実際値
 function genBatLine(p, t, bench){
   const G = totalG();
   const vol = (G/143) * (bench?0.4:1) * joinScale(p);
-  const avg = clamp(p.avg - 0.012 + gauss()*0.016, 0.210, 0.402);
-  const hr = Math.max(0, Math.round(p.hr*vol*(0.82+rnd()*0.35)));
-  const rbi = Math.max(hr, Math.round(p.rbi*vol*(0.82+rnd()*0.35)));
-  const sb = Math.max(0, Math.round(p.sb*vol*(0.75+rnd()*0.45)));
+  // 登録値はキャリアハイなので、そのままだと全員が生涯最高の年を毎年繰り返してしまう。
+  // リーグ平均(.253)へ引き戻したうえでブレを乗せ、打撃成績を現実的な水準にする
+  const base = LEAGUE_AVG + (p.avg - LEAGUE_AVG) * 0.66;
+  const avg = clamp(base - 0.006 + gauss()*0.027, 0.176, 0.372);
+  const hr = Math.max(0, Math.round(p.hr*vol*(0.60+rnd()*0.42)));
+  const rbi = Math.max(hr, Math.round(p.rbi*vol*(0.64+rnd()*0.38)));
+  const sb = Math.max(0, Math.round(p.sb*vol*(0.58+rnd()*0.48)));
   // 細かい成績(試合・打席・打数・安打・長打・四死球・三振・出塁率/長打率)
   const g = Math.max(1, Math.round(G * (bench?0.62:0.94) * joinScale(p) * (0.92+rnd()*0.12)));
   const pa = Math.max(hr+1, Math.round(g * (bench?2.6:4.25)));
@@ -1901,12 +2081,13 @@ function pitDetail(s, ip){
   s.k9 = s.so * 9 / Math.max(1, s.ip);
   return s;
 }
+const LEAGUE_ERA = 3.55;    // NPBのリーグ防御率のおおよその実際値
 function genPitLine(p, t, role, wShare){
   const G = totalG();
   const scale = G/143;
   const src = p.twoWay || p;
   if(role==="SP"){
-    const era = Math.max(0.85, src.era*(0.9+rnd()*0.45) + 0.25);
+    const era = Math.max(1.05, LEAGUE_ERA + (src.era - LEAGUE_ERA)*0.48 + gauss()*0.62);
     const w = clamp(Math.round(wShare*(0.85+rnd()*0.3)*joinScale(p)), 1, 28);
     const so = Math.round(Math.min(src.so,300)*scale*(0.75+rnd()*0.45)*joinScale(p));
     const g = Math.max(1, Math.round(G*0.185*joinScale(p)*(0.9+rnd()*0.2)));
@@ -1915,7 +2096,7 @@ function genPitLine(p, t, role, wShare){
     return pitDetail({p, t, kind:"P", role, w, l, era, so, sv:0, hld:0, g, gs:g, cg:Math.round(g*0.06)}, ip);
   }
   if(role==="RP"){
-    const era = Math.max(0.85, src.era*(0.9+rnd()*0.5) + 0.3);
+    const era = Math.max(0.95, LEAGUE_ERA + (src.era - LEAGUE_ERA)*0.48 + gauss()*0.70);
     const hld = clamp(Math.round(G*0.28*(0.75+rnd()*0.5)*(ovrFor(p,"RP")/86)*joinScale(p)), 5, 48);
     const w = Math.round((2+rnd()*5)*scale*joinScale(p));
     const so = Math.round(Math.min(src.so,120)*scale*(0.8+rnd()*0.4)*joinScale(p));
@@ -1923,7 +2104,7 @@ function genPitLine(p, t, role, wShare){
     const ip = g * (0.9 + rnd()*0.35);
     return pitDetail({p, t, kind:"P", role, w, l:clamp(Math.round(rnd()*5),0,9), era, so, sv:Math.round(rnd()*3), hld, g, gs:0, cg:0}, ip);
   }
-  const era = Math.max(0.60, src.era*(0.9+rnd()*0.5) + 0.2);
+  const era = Math.max(0.72, (LEAGUE_ERA-0.25) + (src.era - LEAGUE_ERA)*0.45 + gauss()*0.5);
   const sv = clamp(Math.round(projWins(t)*0.58*(0.85+rnd()*0.3)*joinScale(p)), 5, 59);
   const w = Math.round((1+rnd()*4)*scale*joinScale(p));
   const so = Math.round(Math.min(src.so,110)*scale*(0.8+rnd()*0.4)*joinScale(p));
@@ -2330,9 +2511,20 @@ function splitInnings(runs){
   for(let i=0;i<runs;i++) inn[Math.floor(rnd()*9)]++;
   return inn;
 }
-function pitcherForInning(t, inn){
-  if(inn <= 5) return {p:t.slots.SP1, key:"SP", label:"先発"};
-  if(inn === 6) return {p:t.slots.SP2 || t.slots.SP1, key:"SP", label:"先発"};
+function starterOf(t){
+  const keys = rotKeys(t);
+  const k = keys[(t.rotIdx || 0) % keys.length];
+  return t.slots[k] || t.slots.SP1 || t.slots[keys[0]];
+}
+function longReliefOf(t, sp){
+  // 先発の次に控えている番手(ロングリリーフ役)。当日の先発とは別人を選ぶ
+  const ps = rotKeys(t).map(k=>t.slots[k]).filter(p=>p && p !== sp);
+  return ps.length ? ps[0] : (sp || starterOf(t));
+}
+function pitcherForInning(t, inn, sp){
+  const st = sp || starterOf(t);
+  if(inn <= 5) return {p:st, key:"SP", label:"先発"};
+  if(inn === 6) return {p:longReliefOf(t, st), key:"SP", label:"先発"};
   if(inn === 7) return {p:t.slots.RP1 || t.slots.SP1, key:"RP", label:"中継ぎ"};
   if(inn === 8) return {p:t.slots.RP2 || t.slots.RP1 || t.slots.SP1, key:"RP", label:"セットアッパー"};
   return {p:t.slots.CL || t.slots.RP1 || t.slots.SP1, key:"CL", label:"抑え"};
@@ -2518,7 +2710,7 @@ function buildGameScript(g){
       if(!top && inn === 9 && skipBottom9){ script.push({t:"x"}); continue; }
       const batT = top ? g.A : g.B;
       const pitT = top ? g.B : g.A;
-      const info = pitcherForInning(pitT, inn);
+      const info = pitcherForInning(pitT, inn, top ? g.spB : g.spA);
       const prev = top ? prevPA : prevPB;
       if(prev && prev !== info.p){
         script.push({t:"chg", text:`― 投手交代　${pitT.name}　${prev.name} → ${info.p.name}（${info.label}）―`});
@@ -2569,33 +2761,9 @@ function renderLiveBoard(){
     ${row(g.B.name, g.B.color, ib, shownB, c.skipBottom9)}
   </table>`;
 }
-const BADGE = {HR:"fx1", K:"fx2", HIT:"fx3", OUT:"fx4", SAFE:"fx5", STEAL:"fx6",
-  FINE:"fx7", E:"fx8", CHANCE:"fx9", NICEP:"fx10", NICEB:"fx11", TIE:"fx12"};
-const BADGE_DIR = "assets/fx/";
-function badgeFor(e){
-  if(!e || !e.text) return null;
-  const t = e.text;
-  if(e.cls === "hr") return "HR";
-  if(t.indexOf("併殺") >= 0) return "FINE";
-  if(t.indexOf("三振") >= 0) return "K";
-  if(t.indexOf("エラー") >= 0) return "E";
-  if(t.indexOf("サヨナラ") >= 0) return "NICEB";
-  if(t.indexOf("タイムリー") >= 0 || t.indexOf("生還") >= 0) return "NICEB";
-  if(t.indexOf("二塁打") >= 0 || t.indexOf("三塁打") >= 0 || t.indexOf("ヒット") >= 0) return "HIT";
-  if(e.cls === "run") return "NICEB";
-  return null;
-}
-// 大きな見せ場は画面中央にバッジを出す
-function flashBadge(key){
-  const id = BADGE[key];
-  if(!id) return;
-  const el = document.createElement("div");
-  el.className = "play-badge";
-  el.innerHTML = '<img src="' + BADGE_DIR + id + '.png" alt="" onerror="this.parentNode.remove()">';
-  document.body.appendChild(el);
-  requestAnimationFrame(function(){ requestAnimationFrame(function(){ el.classList.add("in"); }); });
-  setTimeout(function(){ el.classList.remove("in"); setTimeout(function(){ el.remove(); }, 420); }, 1250);
-}
+// 画面中央のエフェクト文字(ナイスバッティング等)は中継の邪魔になるため廃止。
+// 素材は assets/fx/ に残してある。
+
 function pbpAdd(text, cls){
   const box = $("lv-pbp");
   if(!box) return;
@@ -2655,8 +2823,6 @@ function liveApply(e, silent){
       pbpAdd(e.text, e.cls);
       renderDiamond(e);
       renderWinBar(e);
-      const bk = badgeFor(e);
-      if(bk && (e.cls === "hr" || e.cls === "run" || bk === "K" || bk === "DP" || bk === "E")) flashBadge(bk);
       if(sndOn && e.runs > 0){ const x = ac(); if(x) tone(x.currentTime, e.cls === "hr" ? 900 : 780, 0.18, 0.10, "triangle"); }
       if(e.cls === "hr" && sndOn){ const x = ac(); if(x) noiseBurst(x.currentTime, 0.55, 5200, 0.09); }
     }
@@ -2698,7 +2864,7 @@ function liveFinish(){
   renderLiveBoard();
   const g = c.g;
   const win = g.rA > g.rB ? g.A : g.rB > g.rA ? g.B : null;
-  const wp = win ? pitcherForInning(win, 1).p : null;
+  const wp = win ? pitcherForInning(win, 1, win === g.A ? g.spA : g.spB).p : null;
   $("lv-sit").innerHTML = `<div class="dm-wrap"><div class="dm-note">試合終了</div></div>`;
   $("lv-msg").textContent = win
     ? `試合終了 ―― ${win.name}、${Math.max(g.rA,g.rB)}対${Math.min(g.rA,g.rB)}で勝利！${wp?`（先発 ${wp.name}）`:""}`
@@ -2765,7 +2931,18 @@ function isForeignName(name){
 // ---- 汎用ヘルパー ----
 const pick1 = arr => arr[Math.floor(rnd()*arr.length)];
 function anyTeam(){ return pick1(state.parts); }
-function lineupOf(t){ return LINEUP_KEYS.map(k=>t.slots[k]).filter(Boolean); }
+function orderKeys(t){
+  // 打順が壊れていても必ず9枠そろえる(補強や交代で欠けることがある)
+  const o = (t.order || []).filter(k => LINEUP_KEYS.includes(k));
+  const seen = new Set(o);
+  return o.concat(LINEUP_KEYS.filter(k => !seen.has(k)));
+}
+function rotKeys(t){
+  const r = (t.rot || []).filter(k => SP_KEYS.includes(k));
+  const seen = new Set(r);
+  return r.concat(SP_KEYS.filter(k => !seen.has(k)));
+}
+function lineupOf(t){ return orderKeys(t).map(k=>t.slots[k]).filter(Boolean); }
 function pitchersOf(t){ return [...SP_KEYS, ...RP_KEYS, "CL"].map(k=>t.slots[k]).filter(Boolean); }
 function benchOf(t){ return BENCH_KEYS.map(k=>t.slots[k]).filter(Boolean); }
 function moodFree(t){ return !(t.mood && state.day < t.mood.until); }
@@ -3227,27 +3404,60 @@ function startEmergency(t, slotKey, reason){
     if(state.resumeAfterEvent){ state.resumeAfterEvent=false; startTimer(); }
     return;
   }
-  state.eventCtx = {type:"emergency", t, slotKey, victim, reason, list};
+  state.eventCtx = {type:"emergency", t, slotKey, victim, reason, list, luck, opened:false};
   $("s-play").disabled = true; $("s-skip").disabled = true;
   if(t.cpu){ emergencySign(list[0].id); return; }
+  renderEmergency();
+  $("event-bg").classList.add("show");
+  return;
+}
+// スカウト部からの連絡 → 封を開けて候補リストを見る、の2段構え
+function scoutOpen(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "emergency") return;
+  c.opened = true;
+  seRollStop();
+  renderEmergency();
+}
+function renderEmergency(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "emergency") return;
+  const { t, victim, reason, list, luck } = c;
+  const d = SLOT_DEFS.find(x=>x.key===c.slotKey);
+  if(!c.opened){
+    $("event-panel").innerHTML = `
+      <h2><span class="kicker">緊急速報</span>${esc(t.name)} ── 緊急補強</h2>
+      <div class="sub"><b>${esc(victim.name)}</b>（${d.label}）が${reason}。編成部がスカウトに調査を依頼しました。</div>
+      <div class="sc-env">
+        <div class="sc-seal">親展</div>
+        <div class="sc-from">${esc(t.name)} 編成部 スカウト班</div>
+        <div class="sc-ttl">${d.label}　補強候補リスト</div>
+        <div class="sc-note">封筒はまだ開けられていない</div>
+      </div>
+      <div style="text-align:center;margin-top:14px;">
+        <button class="btn" onclick="scoutOpen()">封を開けてリストを見る</button>
+      </div>`;
+    seRollStart();
+    return;
+  }
   $("event-panel").innerHTML = `
     <h2><span class="kicker">緊急速報</span>${esc(t.name)} ── 緊急補強</h2>
     <div class="sub"><b>${esc(victim.name)}</b>（${d.label}）が${reason}。支配下外から代役を1人選んでください（コスト不要・残り試合に出場）。★は注目リストの選手。<br><b class="luck-${luck.tone}">スカウト報告：${luck.label}</b> ── ${luck.note}</div>
     <div class="mlb-grid" style="margin-top:10px;">
       ${list.map(p=>`
         <div class="mlb-card" onclick="emergencySign('${p.id}')">
-          <span class="rank rank-${rankOf(p.ovr)}" style="position:absolute;top:7px;right:8px;">${rankOf(p.ovr)}</span>
-          <div class="pc-row">${avatarBox(p,36)}
+          <span class="rank-wrap">${rankIcon(p.ovr, 28)}</span>
+          <div class="pc-row">${avatarBox(p, 36)}
             <div class="pc-main">
-              <div class="nm">${watch.has(p.id)?'<span class="tbadge">★</span>':''}${esc(p.name)}${titleBadge(p)}</div>
+              <div class="nm">${(t.watch&&t.watch.has(p.id))?"★":""}${esc(p.name)}${titleBadge(p)}</div>
               <div class="meta">${roleLabel(p)}・${handMark(p)}${esc(p.team)}・${p.year}年</div>
               <div class="meta">${statShort(p)}</div>
             </div>
           </div>
         </div>`).join("")}
     </div>`;
-  $("event-bg").classList.add("show");
 }
+
 function emergencySign(pid){
   const ctx = state.eventCtx;
   if(!ctx || ctx.type!=="emergency") return;
@@ -3343,22 +3553,29 @@ function initEngagement(){
 // ============================================================
 // 月例ルーレット(球団運営の運命。吉凶が混ざった12マス)
 // ============================================================
+// ルーレットの補強で1人を入れ替える
+function scoutSign(t, key, cur, p){
+  state.taken.add(p.id);
+  if(state.seasonStats) state.seasonStats = state.seasonStats.filter(x=>!(x.p===cur && x.t===t));
+  t.slots[key] = p; p.joined = true; p.form = 1;
+  if(state.seasonStats) state.seasonStats.push(genBatLine(p, t, true));
+}
 const ROULETTE = [
-  {id:"training", label:"猛特訓", icon:"練", cls:"good", color:"#2c5c34",
+  {id:"training", eff:"ナイン全員の調子が上向く", label:"猛特訓", icon:"練", cls:"good", color:"#2c5c34",
    run(t){ formShift([...lineupOf(t), ...pitchersOf(t)], 1);
      return "【猛特訓】"+t.name+"が地獄の強化合宿を敢行。ナイン全体の動きが見違えた"; }},
-  {id:"awake", label:"主力が覚醒", icon:"覚", cls:"good", color:"#2c5c34",
+  {id:"awake", eff:"野手1人の能力+4／絶好調に", label:"主力が覚醒", icon:"覚", cls:"good", color:"#2c5c34",
    run(t){ const c=lineupOf(t).filter(p=>p.ovr<97); if(!c.length) return null;
      const p=pick1(c); p.ovr=Math.min(99,p.ovr+4); p.form=2; p.awakened=true;
      return "【覚醒】"+p.name+"（"+t.name+"）が突如、別人のような打球を飛ばし始めた"; }},
-  {id:"newpitch", label:"新球種を習得", icon:"球", cls:"good", color:"#2c5c34",
+  {id:"newpitch", eff:"投手1人の能力+4／絶好調に", label:"新球種を習得", icon:"球", cls:"good", color:"#2c5c34",
    run(t){ const c=pitchersOf(t).filter(p=>p.ovr<97); if(!c.length) return null;
      const p=pick1(c); p.ovr=Math.min(99,p.ovr+4); p.form=2; p.awakened=true;
      return "【新球種】"+p.name+"（"+t.name+"）が"+pick1(["高速スライダー","ツーシーム","フォーク","カットボール"])+"を習得。打者の的が絞れない"; }},
-  {id:"cheer", label:"満員御礼", icon:"満", cls:"good", color:"#2c5c34",
+  {id:"cheer", eff:"チーム士気↑（22日間）", label:"満員御礼", icon:"満", cls:"good", color:"#2c5c34",
    run(t){ moodSet(t, 1.6, 22, "本拠地の大声援");
      return "【満員御礼】"+t.name+"の本拠地が超満員。地鳴りのような声援がナインを後押しする"; }},
-  {id:"scout", label:"補強成功", icon:"補", cls:"good", color:"#9a7714",
+  {id:"scout", eff:"支配下外から控えを1人補強（コスト不要）", label:"補強成功", icon:"補", cls:"good", color:"#9a7714",
    run(t){
      const key = BENCH_KEYS.find(k=>t.slots[k]) || BENCH_KEYS[0];
      const cur = t.slots[key];
@@ -3370,31 +3587,33 @@ const ROULETTE = [
      const band = q < 0.12 ? [4, 16] : q < 0.45 ? [0, 4] : [-5, 0];
      const cands = bandPick(all, cur.ovr, band[0], band[1], 4);
      if(!cands.length) return null;
+     if(!t.cpu){
+       // 人間のチームは誰を獲るか自分で選ぶ
+       state.scoutPick = {t, key, cur, cands};
+       return "【緊急補強】"+t.name+"にスカウト部から連絡。獲得候補のリストが届いた";
+     }
      const p = pick1(cands);
-     state.taken.add(p.id);
-     if(state.seasonStats) state.seasonStats = state.seasonStats.filter(x=>!(x.p===cur && x.t===t));
-     t.slots[key] = p; p.joined = true; p.form = 1;
-     if(state.seasonStats) state.seasonStats.push(genBatLine(p, t, true));
+     scoutSign(t, key, cur, p);
      return "【緊急補強】"+t.name+"が"+p.name+"の獲得に成功！ "+cur.name+"と入れ替わる"; }},
-  {id:"calm", label:"平穏無事", icon:"平", cls:"none", color:"#6e675a",
+  {id:"calm", eff:"変化なし", label:"平穏無事", icon:"平", cls:"none", color:"#6e675a",
    run(t){ return "【平穏】"+t.name+"に特筆すべき動きなし。粛々と調整が進む"; }},
-  {id:"calm2", label:"報道なし", icon:"静", cls:"none", color:"#6e675a",
+  {id:"calm2", eff:"変化なし", label:"報道なし", icon:"静", cls:"none", color:"#6e675a",
    run(t){ return "【静観】"+t.name+"の番記者いわく「今月は書くことがない」。それも悪くない"; }},
-  {id:"keiei", label:"親会社が経営不振", icon:"経", cls:"bad", color:"#8c2412",
+  {id:"keiei", eff:"チーム士気↓（26日間）／補強凍結", label:"親会社が経営不振", icon:"経", cls:"bad", color:"#8c2412",
    run(t){ moodSet(t, -1.6, 26, "親会社の経営不振"); t.budgetFrozen = true;
      return "【経営不振】"+t.name+"の親会社が大幅減益を発表。補強凍結の噂が流れ、ロッカーに不安が広がる"; }},
-  {id:"scandal", label:"主力にスキャンダル", icon:"醜", cls:"bad", color:"#8c2412",
+  {id:"scandal", eff:"主力が1人離脱 → 緊急補強へ", label:"主力にスキャンダル", icon:"醜", cls:"bad", color:"#8c2412",
    leave:true,
    run(t){ return null; }},
-  {id:"injury", label:"主砲が故障", icon:"傷", cls:"bad", color:"#8c2412",
+  {id:"injury", eff:"主砲の能力−5／絶不調に", label:"主砲が故障", icon:"傷", cls:"bad", color:"#8c2412",
    run(t){ const c=lineupOf(t).sort((a,b)=>b.ovr-a.ovr).slice(0,3); if(!c.length) return null;
      const p=pick1(c); p.ovr=Math.max(60,p.ovr-5); p.form=-2;
      return "【離脱危機】"+p.name+"（"+t.name+"）が"+pick1(["右手薬指を骨折","脇腹を痛め","右膝に違和感を訴え"])+"戦線を離れかける"; }},
-  {id:"naifun", label:"チーム内紛", icon:"紛", cls:"bad", color:"#8c2412",
+  {id:"naifun", eff:"チーム士気↓（20日間）", label:"チーム内紛", icon:"紛", cls:"bad", color:"#8c2412",
    run(t){ const ps=lineupOf(t); if(ps.length<2) return null;
      const two=shuffle(ps).slice(0,2); moodSet(t,-1.5,20,"チーム内紛");
      return "【内紛】"+two[0].name+"と"+two[1].name+"（"+t.name+"）が衝突。ベンチの空気が凍りついた"; }},
-  {id:"slump", label:"謎の大不振", icon:"不", cls:"bad", color:"#8c2412",
+  {id:"slump", eff:"打線全員の調子が下がる", label:"謎の大不振", icon:"不", cls:"bad", color:"#8c2412",
    run(t){ formShift([...lineupOf(t)], -1);
      return "【謎の不振】"+t.name+"打線が球団史上最悪の貧打に陥る。誰にも原因が分からない"; }},
 ];
@@ -3414,23 +3633,77 @@ function rouletteRender(){
   const stops = ROULETTE.map(function(r,i){ return r.color + " " + (i*seg) + "deg " + ((i+1)*seg) + "deg"; }).join(",");
   const labels = ROULETTE.map(function(r,i){
     const a = i*seg + seg/2;
-    return '<span class="rl-lb" style="transform:rotate(' + a + 'deg) translateY(var(--rl-r, -84px)) rotate(' + (-a) + 'deg)">' + r.icon + '</span>';
+    return '<span class="rl-lb" style="transform:rotate(' + a + 'deg) translateY(var(--rl-r, -96px)) rotate(' + (-a) + 'deg)">' + r.icon + '</span>';
   }).join("");
   const res = ctx.result;
+  const pick = state.scoutPick;
+  // 何が入っているかを先に見せる(吉凶の内訳が分かると回す前から盛り上がる)
+  const legend = ROULETTE.map(function(r){
+    const hit = res && res.id === r.id;
+    return '<span class="rl-chip ' + r.cls + (hit ? " hit" : (res ? " dim" : "")) + '">' +
+           '<i style="background:' + r.color + '">' + r.icon + '</i>' + esc(r.label) + '</span>';
+  }).join("");
+  const nGood = ROULETTE.filter(function(r){ return r.cls==="good"; }).length;
+  const nBad  = ROULETTE.filter(function(r){ return r.cls==="bad"; }).length;
+
+  let resultHtml = '<div class="rl-wait">運命やいかに</div>';
+  if(res){
+    resultHtml =
+      '<div class="rl-card ' + res.cls + '">' +
+        '<div class="rl-cap">' + (res.cls==="good"?"吉":res.cls==="bad"?"凶":"平") + '</div>' +
+        '<div class="rl-big"><span class="rl-ri">' + res.icon + '</span>' + esc(res.label) + '</div>' +
+        (res.eff ? '<div class="rl-eff">' + esc(res.eff) + '</div>' : "") +
+        (res.msg ? '<div class="rl-msg">' + esc(res.msg.replace(/^【[^】]+】/, "")) + '</div>' : "") +
+      '</div>';
+  }
+
+  let picker = "";
+  if(pick && pick.t === t){
+    picker =
+      '<div class="rl-pick">' +
+        '<div class="rl-pick-h">スカウト部からの獲得候補（' + pick.cands.length + '人）── 1人を選ぶと' + esc(pick.cur.name) + 'と入れ替わります</div>' +
+        '<div class="mlb-grid">' + pick.cands.map(function(p, i){
+          return '<div class="mlb-card" onclick="scoutChoose(' + i + ')">' +
+            '<span class="rank-wrap">' + rankIcon(p.ovr, 28) + '</span>' +
+            '<div class="pc-row">' + avatarBox(p, 36) +
+              '<div class="pc-main">' +
+                '<div class="nm">' + esc(p.name) + titleBadge(p) + '</div>' +
+                '<div class="meta">' + roleLabel(p) + '・' + handMark(p) + esc(p.team) + '・' + p.year + '年</div>' +
+                '<div class="meta">' + statShort(p) + '</div>' +
+              '</div></div></div>';
+        }).join("") + '</div>' +
+      '</div>';
+  }
+
   $("event-panel").innerHTML =
-    '<h2><span class="kicker">' + (MONTH_LABEL[ctx.no]||"") + '末</span>球団運営ルーレット ── ' + esc(t.name) + '</h2>' +
-    '<div class="sub">今月、あなたの球団に何が起こるか。吉と凶が同じ数だけ入っています。</div>' +
+    '<h2><span class="kicker">' + (MONTH_LABEL[ctx.no]||"") + '末</span>球団運営ルーレット</h2>' +
+    '<div class="rl-team">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
+      '<span class="rl-turn">' + (ctx.idx+1) + ' / ' + ctx.queue.length + '球団</span></div>' +
+    '<div class="sub">吉' + nGood + '・凶' + nBad + '・平' + (ROULETTE.length-nGood-nBad) + '。2か月に一度、球団の運命が動きます。</div>' +
     '<div class="rl-stage">' +
       '<div class="rl-needle"></div>' +
       '<div class="rl-wheel" id="rl-wheel" style="background:conic-gradient(' + stops + ')">' + labels + '</div>' +
+      '<div class="rl-hub"></div>' +
     '</div>' +
-    '<div class="rl-result ' + (res ? res.cls : "") + '" id="rl-result">' + (res ? ('<span class="rl-ri">' + res.icon + '</span>' + esc(res.label)) : "運命やいかに") + '</div>' +
-    '<div class="rl-msg" id="rl-msg">' + (res && res.msg ? esc(res.msg) : "") + '</div>' +
+    '<div class="rl-legend">' + legend + '</div>' +
+    resultHtml + picker +
     '<div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end;">' +
       (res
-        ? '<button class="btn sm" onclick="rouletteNext()">' + (ctx.idx + 1 >= ctx.queue.length ? "試合再開" : "次の球団へ") + '</button>'
+        ? (picker ? '' : '<button class="btn sm" onclick="rouletteNext()">' + (ctx.idx + 1 >= ctx.queue.length ? "試合再開" : "次の球団へ") + '</button>')
         : '<button class="btn" id="rl-btn" onclick="rouletteSpin()">ルーレットを回す</button>') +
     '</div>';
+}
+// 補強候補から1人選ぶ
+function scoutChoose(i){
+  const pick = state.scoutPick;
+  if(!pick) return;
+  const p = pick.cands[i];
+  scoutSign(pick.t, pick.key, pick.cur, p);
+  partyNews("補", "good", "【緊急補強】" + pick.t.name + "が" + p.name + "の獲得に成功！ " + pick.cur.name + "と入れ替わる");
+  state.scoutPick = null;
+  seWin();
+  renderRosterLive(); renderTeamStrip();
+  rouletteRender();
 }
 function rouletteSpin(){
   const ctx = state.eventCtx;
@@ -3457,7 +3730,7 @@ function rouletteSpin(){
       // スキャンダル → 緊急補強へ
       const ds = droppableDefs(t);
       if(ds.length){
-        ctx.result = {icon:r.icon, label:r.label, cls:r.cls, msg:"写真週刊誌が主力の私生活を報道。球団は対応に追われる"};
+        ctx.result = {id:r.id, icon:r.icon, label:r.label, cls:r.cls, eff:r.eff, msg:"写真週刊誌が主力の私生活を報道。球団は対応に追われる"};
         rouletteRender();
         setTimeout(function(){
           const d = pick1(ds);
@@ -3475,7 +3748,7 @@ function rouletteSpin(){
     if(!msg) msg = "【平穏】"+t.name+"に大きな動きはなかった";
     partyNews(r.icon, r.cls === "none" ? "fun" : r.cls, msg);
     if(r.cls === "good") seWin(); else if(r.cls === "bad") seMiss(); else seTap();
-    ctx.result = {icon:r.icon, label:r.label, cls:r.cls, msg:msg};
+    ctx.result = {id:r.id, icon:r.icon, label:r.label, cls:r.cls, eff:r.eff, msg:msg};
     ctx.spinning = false;
     renderRosterLive(); renderTeamStrip();
     rouletteRender();
@@ -3635,6 +3908,7 @@ function showSuper(e){
   const box = $("lv-super");
   if(!box) return;
   box.innerHTML =
+    '<div class="sp-inner">' +
     '<img class="sp-fig" src="' + poseFor(p || {name:e.bat}, "bat") + '" alt="" onerror="this.style.display=\'none\'">' +
     '<div class="sp-body">' +
       '<div class="sp-top">' + (e.batNo !== undefined ? numImg(e.batNo) : "") +
@@ -3647,7 +3921,7 @@ function showSuper(e){
         '<span><i>点</i>' + cv(st.rbi) + '</span>' +
         '<span><i>OPS</i>' + (st.ops||0).toFixed(3).replace(/^0/,"") + '</span>' +
       '</div>' : "") +
-    '</div>';
+    '</div></div>';
   box.classList.add("in");
   clearTimeout(state.superTimer);
   state.superTimer = setTimeout(function(){ box.classList.remove("in"); }, 1900);

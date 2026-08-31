@@ -2411,6 +2411,125 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   #p-list .p-row select{order:5;flex:1 1 100%;width:auto;}
   .rm-h{width:48px;}
 }
+
+/* ============================================================
+   選手詳細。数字が「／」でつないだ文章だったので図表に組み直した
+   ============================================================ */
+#modal .nm{display:flex;align-items:center;gap:12px;letter-spacing:.06em;}
+#modal .m-av{flex:none;line-height:0;}
+.m-nm-t{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.m-nm-t > b{font-size:25px;font-weight:900;line-height:1.2;}
+.m-sub{
+  font-family:"Yu Gothic",sans-serif;font-size:12px;font-weight:400;
+  color:var(--ink2);letter-spacing:.08em;
+}
+.m-rank{flex:none;}
+#m-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px;}
+#m-tags .tag{margin-right:0;}
+.tag.key{
+  border-color:var(--goldseal);color:var(--ink);background:rgba(150,120,60,.1);
+  font-family:"Oswald",sans-serif;letter-spacing:.06em;
+}
+.tag.key b{font-size:14px;font-weight:600;margin:0 1px;}
+.tag.hot{color:var(--red);border-color:var(--red);}
+#modal .statline{
+  background:#fff;border:1px solid var(--rule);padding:13px 15px 14px;margin:13px 0;
+}
+.m-yr{
+  font-size:10.5px;letter-spacing:.2em;color:var(--ink2);
+  border-bottom:1px solid var(--rule);padding-bottom:7px;margin-bottom:11px;
+}
+.m-figs{display:flex;flex-wrap:wrap;gap:8px 26px;}
+.m-fig{display:flex;flex-direction:column;gap:1px;}
+.mf-k{font-size:10px;letter-spacing:.14em;color:var(--ink2);}
+.mf-v{
+  font-family:"Oswald",sans-serif;font-size:27px;font-weight:600;line-height:1.05;
+  color:var(--ink);font-variant-numeric:tabular-nums;
+}
+.mf-v i{font-style:normal;font-size:12px;color:var(--ink2);margin-left:2px;}
+.m-extra{
+  margin-top:12px;padding-top:10px;border-top:1px dashed var(--rule);
+  font-size:13px;line-height:1.8;color:var(--ink2);
+}
+.m-extra b{color:var(--ink);font-family:"Oswald",sans-serif;font-size:15px;font-weight:600;}
+.m-extra span{display:block;font-size:11px;color:var(--rule2);margin-top:3px;}
+@media (max-width:680px){
+  .m-nm-t > b{font-size:21px;}
+  .mf-v{font-size:23px;}
+  .m-figs{gap:8px 18px;}
+}
+.m-why{
+  margin-top:14px;padding:9px 12px;font-size:12px;line-height:1.75;color:var(--ink2);
+  border:1px solid var(--rule);background:rgba(150,120,60,.09);
+}
+
+/* ============================================================
+   日本シリーズ。中継が7試合続けて流れるだけで、
+   いま何勝何敗なのかが分からなかった
+   ============================================================ */
+#series-bg{
+  position:fixed;inset:0;background:rgba(20,17,10,.82);display:none;
+  align-items:center;justify-content:center;z-index:132;padding:14px;overflow-y:auto;
+}
+#series-bg.show{display:flex;}
+#series-panel{
+  background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
+  background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
+  border:1px solid var(--rule2);border-top:6px solid var(--red);
+  max-width:620px;width:100%;padding:20px 22px 18px;max-height:94vh;overflow-y:auto;
+  box-shadow:6px 6px 0 rgba(20,16,8,.34);
+}
+#series-panel h2{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:26px;font-weight:900;
+  letter-spacing:.14em;border-bottom:2px solid var(--ink);padding-bottom:8px;margin-bottom:14px;
+}
+#series-panel h2 .kicker{
+  font-size:11px;letter-spacing:.24em;color:#fff;background:var(--red);
+  padding:3px 11px;margin-right:11px;vertical-align:4px;
+}
+.sr-head{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+.sr-team{flex:1;min-width:0;display:flex;align-items:center;gap:8px;}
+.sr-team.r{justify-content:flex-end;}
+.sr-team b{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:16px;font-weight:900;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sr-team span{font-size:10px;letter-spacing:.14em;color:var(--ink2);flex:none;}
+.sr-w{
+  flex:none;display:flex;align-items:baseline;gap:6px;
+  font-family:"Oswald",sans-serif;font-variant-numeric:tabular-nums;
+}
+.sr-w span{font-size:38px;font-weight:600;color:var(--rule2);line-height:1;}
+.sr-w span.lead{color:var(--red);}
+.sr-w i{font-style:normal;font-size:12px;color:var(--ink2);}
+/* 7試合の枠 */
+.sr-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:6px;}
+.sr-g{
+  border:1px solid var(--rule);background:var(--paper2);padding:7px 4px;
+  display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;
+}
+.sr-g.played{background:#fff;border-color:var(--rule2);}
+.sr-g.now{border-color:var(--red);border-width:2px;background:rgba(167,44,24,.06);}
+.sr-n{font-size:9.5px;letter-spacing:.1em;color:var(--ink2);}
+.sr-sc{font-family:"Oswald",sans-serif;font-size:17px;font-variant-numeric:tabular-nums;}
+.sr-sc b{font-weight:600;color:var(--rule2);}
+.sr-sc b.w{color:var(--ink);}
+.sr-sc i{font-style:normal;font-size:11px;color:var(--rule2);margin:0 2px;}
+.sr-wn{
+  font-size:9.5px;color:var(--ink2);max-width:100%;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sr-next{font-size:10.5px;color:var(--red);letter-spacing:.1em;}
+.sr-none{font-size:15px;color:var(--rule);}
+.sr-foot{display:flex;align-items:center;gap:12px;margin-top:16px;flex-wrap:wrap;}
+.sr-lead{flex:1;min-width:140px;font-size:12px;color:var(--ink2);}
+@media (max-width:680px){
+  #series-panel{padding:16px 14px;}
+  #series-panel h2{font-size:21px;}
+  .sr-w span{font-size:30px;}
+  .sr-team b{font-size:14px;}
+  .sr-grid{grid-template-columns:repeat(4,1fr);}
+}
 </style>
 </head>
 <body>
@@ -2731,6 +2850,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div style="margin-top:6px;" id="m-tags"></div>
     <div class="statline" id="m-stats"></div>
     <div class="desc" id="m-desc"></div>
+    <div class="m-why" id="m-why" style="display:none;"></div>
     <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">
       <button class="btn ghost sm" id="m-watch" onclick="watchFromModal()">☆ リストに入れる</button>
       <button class="btn ghost sm" onclick="closeModal()">閉じる</button>
@@ -2747,6 +2867,11 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <!-- 本拠地ドラフト -->
 <div id="park-bg">
   <div id="park-panel"></div>
+</div>
+
+<!-- 日本シリーズ -->
+<div id="series-bg">
+  <div id="series-panel"></div>
 </div>
 
 <!-- 監督の采配 -->
@@ -2890,9 +3015,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608311100"></script>
-<script src="players.js?v=202608311100"></script>
-<script src="party.js?v=202608311100"></script>
-<script src="game.js?v=202608311100"></script>
+<script src="qrcode.js?v=202608311214"></script>
+<script src="players.js?v=202608311214"></script>
+<script src="party.js?v=202608311214"></script>
+<script src="game.js?v=202608311214"></script>
 </body>
 </html>

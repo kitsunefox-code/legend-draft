@@ -692,35 +692,89 @@ function slotFilter(grp){
 
 // ---- モーダル ----
 function findPlayer(id){ return PLAYERS.find(x=>x.id===id) || MLB_STARS.find(x=>x.id===id); }
+// 主要な数字は「／」でつないだ文章ではなく、図として並べる。
+// 大きい数字と小さいラベルに分けると、カードを見比べるときに目が拾いやすい
+function statFigures(p){
+  const f = [];
+  if(p.cat === "M"){
+    f.push({v:p.pennants, u:"回", k:"リーグ優勝"});
+    f.push({v:p.japan,    u:"回", k:"日本一"});
+    f.push({v:p.wins,     u:"勝", k:"監督通算"});
+  }else if(p.cat === "P"){
+    f.push({v:p.w, u:"勝", k:"勝利"});
+    f.push({v:p.era.toFixed(2), k:"防御率"});
+    f.push({v:p.so, u:"", k:"奪三振"});
+    if(p.sv) f.push({v:p.sv, u:"S", k:"セーブ"});
+    else if(p.hld) f.push({v:p.hld, u:"H", k:"ホールド"});
+  }else{
+    f.push({v:avg3(p.avg), k:"打率"});
+    f.push({v:p.hr,  u:"本", k:"本塁打"});
+    f.push({v:p.rbi, u:"点", k:"打点"});
+    if(p.sb >= 10) f.push({v:p.sb, u:"個", k:"盗塁"});
+  }
+  return f;
+}
+function figuresHtml(list){
+  return '<div class="m-figs">' + list.map(function(x){
+    return '<div class="m-fig"><span class="mf-k">' + x.k + '</span>' +
+      '<span class="mf-v">' + x.v + (x.u ? '<i>' + x.u + '</i>' : '') + '</span></div>';
+  }).join("") + '</div>';
+}
 function openModal(id){
   const p = findPlayer(id); if(!p) return;
   state.modalPlayer = p;
-  $("m-name").innerHTML = `<span class="m-av">${avatarBox(p, 52)}</span>${esc(p.name)} <span style="font-size:14px;color:var(--sub)">（${p.year}年・${esc(p.team)}）</span>`;
-  $("m-tags").innerHTML = `<span class="tag">${roleLabel(p)}</span>` +
-    ((p.th||p.bh)?`<span class="tag">${p.th||"？"}投${p.bh||"？"}打</span>`:"") +
-    `<span class="tag">${p.decade}</span>` +
-    (p.mlb?`<span class="tag">MLB</span>`:`<span class="tag">系譜：${p.fr}</span>`) + `<span class="tag">能力 ${rankOf(p.ovr)}</span>` +
-    `<span class="tag" style="color:var(--gold)">コスト ${p.cost}pt</span>` +
-    (p.tc?`<span class="tag" style="color:var(--red);border-color:var(--red);">三冠王</span>`:"") +
-    (p.titles?`<span class="tag">主要タイトル ${p.titles}回</span>`:"");
-  let s;
-  if(p.cat==="M"){
-    s = `リーグ優勝 ${p.pennants}回 ／ 日本一 ${p.japan}回 ／ 監督通算 ${p.wins}勝<br>` +
-        `采配補正 ${((p.ovr-85)*0.10>=0?"+":"")}${((p.ovr-85)*0.10).toFixed(1)} ／ 育成力 ${devStars(p)}` +
-        `<span style="font-size:12px;color:var(--sub)">（育成力が高いほど開幕時に選手が覚醒しやすい）</span>`;
-  }else if(p.cat==="P"){
-    s = `${p.w}勝 ／ 防御率 ${p.era.toFixed(2)} ／ ${p.so}奪三振` + (p.sv?` ／ ${p.sv}セーブ`:"") + (p.hld?` ／ ${p.hld}ホールド`:"");
-  }else{
-    s = `打率 ${avg3(p.avg)} ／ ${p.hr}本塁打 ／ ${p.rbi}打点` + (p.sb>=10?` ／ ${p.sb}盗塁`:"");
-    if(p.twoWay) s += `<br>投手として：${p.twoWay.w}勝 ／ 防御率 ${p.twoWay.era.toFixed(2)} ／ ${p.twoWay.so}奪三振`;
+  $("m-name").innerHTML =
+    '<span class="m-av">' + avatarBox(p, 56) + '</span>' +
+    '<span class="m-nm-t"><b>' + esc(p.name) + titleBadge(p) + '</b>' +
+      '<span class="m-sub">' + p.year + '年・' + esc(p.team) + '</span></span>' +
+    '<span class="m-rank">' + rankIcon(p.ovr, 40) + '</span>';
+  // 価格と系譜は性質が違うので、説明用の札とは分けて置く
+  $("m-tags").innerHTML =
+    '<span class="tag key">コスト <b>' + p.cost + '</b>pt</span>' +
+    '<span class="tag">' + roleLabel(p) + '</span>' +
+    ((p.th||p.bh) ? '<span class="tag">' + (p.th||"？") + '投' + (p.bh||"？") + '打</span>' : "") +
+    '<span class="tag">' + p.decade + '</span>' +
+    (p.mlb ? '<span class="tag">MLB</span>' : '<span class="tag">系譜：' + esc(p.fr) + '</span>') +
+    (p.tc ? '<span class="tag hot">三冠王</span>' : "") +
+    (p.titles ? '<span class="tag">主要タイトル ' + p.titles + '回</span>' : "");
+
+  let extra = "";
+  if(p.cat === "M"){
+    extra = '<div class="m-extra">采配補正 <b>' + ((p.ovr-85)*0.10 >= 0 ? "+" : "") +
+      ((p.ovr-85)*0.10).toFixed(1) + '</b>　育成力 <b>' + devStars(p) + '</b>' +
+      '<span>育成力が高いほど、開幕時に選手が覚醒しやすくなります</span></div>';
+  }else if(p.twoWay){
+    extra = '<div class="m-extra">投手として <b>' + p.twoWay.w + '勝</b>　防御率 <b>' +
+      p.twoWay.era.toFixed(2) + '</b>　<b>' + p.twoWay.so + '</b>奪三振' +
+      '<span>二刀流。指名打者と先発の2枠を同時に埋めます</span></div>';
   }
-  $("m-stats").innerHTML = `${p.year}年${p.cat==="M"?"":"（キャリアハイ）"}<br>${s}`;
+  $("m-stats").innerHTML =
+    '<div class="m-yr">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
+    figuresHtml(statFigures(p)) + extra;
   $("m-desc").textContent = p.desc;
   const t = currentTeam();
   const canPick = $("scr-draft").classList.contains("active") && t && !t.cpu && !p.mlb &&
     (canTake(t,p) || (validPool(t).over && canTake(t,p,true)));
   $("m-pick").style.display = canPick ? "" : "none";
   $("m-pick").textContent = (state.bid && state.bid.stage==="collect") ? "この選手に入札する" : "この選手を指名";
+  // 指名できないときは、黙ってボタンを消すのではなく理由を出す
+  const why = $("m-why");
+  if(why){
+    let msg = "";
+    if(!canPick && $("scr-draft").classList.contains("active") && t && !t.cpu){
+      const ph = currentPhase();
+      if(p.mlb) msg = "MLBの選手はドラフトでは指名できません（7月末の補強で登場します）";
+      else if(ph && !PHASE_GRPS[ph].some(gr => eligibleGrp(p, gr)))
+        msg = "いまは" + PART_LABEL[ph] + "ドラフトです。この選手はあとの部で指名できます";
+      else if(!openSlots(t).some(d => eligibleGrp(p, d.grp)))
+        msg = "この選手が入れる枠はもう埋まっています";
+      else if(p.cost > budgetLeft(t))
+        msg = "残りコストが足りません（この選手 " + p.cost + "pt ／ 残り " + budgetLeft(t) + "pt）";
+      else msg = "残りの枠を埋めきれなくなるため、いまは指名できません";
+    }
+    why.textContent = msg;
+    why.style.display = msg ? "" : "none";
+  }
   updateWatchBtn();
   $("modal-bg").classList.add("show");
 }
@@ -4034,33 +4088,92 @@ function simSeriesGame(A, B){
 }
 function startSeries(){
   const s = standingsSorted();
-  state.series = {A:s[0], B:s[1], w:[0,0], g:1};
+  state.series = {A:s[0], B:s[1], w:[0,0], g:1, games:[]};
   const txt = `日本シリーズ開幕 ―― ${s[0].name}(1位) 対 ${s[1].name}(2位)`;
   state.news.unshift({mo:"10月", txt});
   telop(txt);
   $("s-date").textContent = "日本シリーズ";
+  showSeriesBoard();
+}
+// シリーズの経過を1枚に。中継が7試合続けて流れるだけだと、
+// いま何勝何敗なのかが分からなかった
+function showSeriesBoard(){
+  const S = state.series;
+  if(!S) return;
+  const done = S.w[0] >= 4 || S.w[1] >= 4;
+  const slots = [];
+  for(let i = 0; i < 7; i++){
+    const gm = S.games[i];
+    if(gm){
+      const winA = gm.rA > gm.rB;
+      slots.push('<div class="sr-g played"><span class="sr-n">第' + (i+1) + '戦</span>' +
+        '<span class="sr-sc"><b class="' + (winA?"w":"") + '">' + gm.rA + '</b>' +
+        '<i>-</i><b class="' + (winA?"":"w") + '">' + gm.rB + '</b></span>' +
+        '<span class="sr-wn">' + esc((winA ? S.A : S.B).name) + '</span></div>');
+    }else if(i + 1 === S.g && !done){
+      slots.push('<div class="sr-g now"><span class="sr-n">第' + (i+1) + '戦</span>' +
+        '<span class="sr-next">これから</span></div>');
+    }else{
+      slots.push('<div class="sr-g"><span class="sr-n">第' + (i+1) + '戦</span>' +
+        '<span class="sr-none">―</span></div>');
+    }
+  }
+  const lead = S.w[0] === S.w[1] ? "五分" :
+    (S.w[0] > S.w[1] ? S.A.name : S.B.name) + "が王手をかける手前";
+  $("series-panel").innerHTML =
+    '<h2><span class="kicker">十月</span>日本シリーズ</h2>' +
+    '<div class="sr-head">' +
+      '<div class="sr-team">' + teamEmblem(S.A, 30) + '<b>' + esc(S.A.name) + '</b>' +
+        '<span>リーグ1位</span></div>' +
+      '<div class="sr-w"><span class="' + (S.w[0]>S.w[1]?"lead":"") + '">' + S.w[0] + '</span>' +
+        '<i>勝</i><span class="' + (S.w[1]>S.w[0]?"lead":"") + '">' + S.w[1] + '</span></div>' +
+      '<div class="sr-team r"><span>リーグ2位</span><b>' + esc(S.B.name) + '</b>' +
+        teamEmblem(S.B, 30) + '</div>' +
+    '</div>' +
+    '<div class="sr-grid">' + slots.join("") + '</div>' +
+    (done
+      ? '<div class="sr-foot"><span class="sr-lead">' +
+          esc(state.seriesWinner ? state.seriesWinner.name : "") + 'が4勝に到達</span>' +
+          '<button class="btn" onclick="closeSeriesBoard()">結果発表へ</button></div>'
+      : '<div class="sr-foot"><span class="sr-lead">4勝先取　' + esc(lead) + '</span>' +
+          '<button class="btn" onclick="closeSeriesBoard()">第' + S.g + '戦を見る</button></div>');
+  $("series-bg").classList.add("show");
+}
+function closeSeriesBoard(){
+  $("series-bg").classList.remove("show");
+  const S = state.series;
+  if(!S) return;
+  if(S.w[0] >= 4 || S.w[1] >= 4){ showResult(); return; }
   nextSeriesGame();
 }
 function nextSeriesGame(){
   const S = state.series;
-  const label = `日本シリーズ 第${S.g}戦（${S.A.name} ${S.w[0]}勝${S.w[1]}敗 ${S.B.name}）`;
+  const label = `日本シリーズ 第${S.g}戦`;
+  // 短期決戦でも先発は回る。同じ投手が毎試合投げてしまうのを避ける
+  const spA = starterOf(S.A), spB = starterOf(S.B);
+  S.A.rotIdx = ((S.A.rotIdx||0) + 1) % rotKeys(S.A).length;
+  S.B.rotIdx = ((S.B.rotIdx||0) + 1) % rotKeys(S.B).length;
   const r = simSeriesGame(S.A, S.B);
   if(r.rA > r.rB) S.w[0]++; else S.w[1]++;
-  showLiveGame(label, {A:S.A, B:S.B, rA:r.rA, rB:r.rB}, ()=>{
+  S.games.push({rA:r.rA, rB:r.rB});
+  showLiveGame(label, {A:S.A, B:S.B, rA:r.rA, rB:r.rB, spA, spB}, ()=>{
     state.news.unshift({mo:"日S", txt:`第${S.g}戦 ${S.A.name} ${r.rA}-${r.rB} ${S.B.name}（${S.w[0]}勝${S.w[1]}敗）`});
     renderNews();
-    if(S.w[0] >= 4 || S.w[1] >= 4){ finishSeries(); }
-    else { S.g++; nextSeriesGame(); }
+    if(S.w[0] >= 4 || S.w[1] >= 4){
+      state.seriesDone = true;
+      state.seriesWinner = S.w[0] > S.w[1] ? S.A : S.B;
+      state.seriesScore = `4勝${Math.min(S.w[0], S.w[1])}敗`;
+      state.news.unshift({mo:"日S", txt:`【日本一】${state.seriesWinner.name}が日本シリーズを${state.seriesScore}で制覇！`});
+      showSeriesBoard();
+    }else{
+      S.g++;
+      showSeriesBoard();
+    }
   });
 }
 function finishSeries(){
-  const S = state.series;
-  state.seriesDone = true;
-  state.seriesWinner = S.w[0] > S.w[1] ? S.A : S.B;
-  state.seriesScore = `4勝${Math.min(S.w[0], S.w[1])}敗`;
-  const txt = `【日本一】${state.seriesWinner.name}が日本シリーズを${state.seriesScore}で制覇！`;
-  state.news.unshift({mo:"日S", txt});
-  showResult();
+  // 現在は nextSeriesGame の中で完結する。互換のために残してある
+  if(state.series) showSeriesBoard();
 }
 
 // ============================================================

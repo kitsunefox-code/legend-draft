@@ -3614,6 +3614,25 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     max-height:calc(100dvh - 32px);
   }
 }
+
+/* 指名の帯。ドラフト画面はページそのものが伸びるので、
+   sticky では初期表示で画面外に出てしまう。狭い画面では画面下に固定する */
+@media (max-width:700px){
+  .pl-foot{
+    position:fixed;left:0;right:0;bottom:0;z-index:45;
+    margin:0;padding:9px 14px calc(9px + env(safe-area-inset-bottom, 0px));
+    background:var(--paper);
+    box-shadow:0 -8px 14px -10px rgba(20,16,8,.6);
+  }
+  /* 帯の裏に中身が隠れないよう、画面の下に余白を足す */
+  #scr-draft{padding-bottom:104px;}
+}
+
+@media (max-width:700px){
+  /* 画面の出入りに transform を使うと、その要素が fixed の基準になってしまい、
+     画面下に固定したい帯が中に閉じ込められる。狭い画面では透過だけで出す */
+  .screen.active{animation:fadein .26s ease;}
+}
 </style>
 </head>
 <body>
@@ -4208,9 +4227,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609011640"></script>
-<script src="players.js?v=202609011640"></script>
-<script src="party.js?v=202609011640"></script>
-<script src="game.js?v=202609011640"></script>
+<script src="qrcode.js?v=202609011740"></script>
+<script src="players.js?v=202609011740"></script>
+<script src="party.js?v=202609011740"></script>
+<script src="game.js?v=202609011740"></script>
 </body>
 </html>

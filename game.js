@@ -728,7 +728,7 @@ function modalFace(p){
   const img = '<img class="m-face" src="assets/face/' + p.ph + '.jpg" alt="" ' +
     'width="56" height="72" loading="lazy" onerror="this.remove()">';
   return p.pu
-    ? '<a class="mk-facelink" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
+    ? '<a class="mk-facelink" onclick="event.stopPropagation()" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
     : img;
 }
 function titleBadge(p){
@@ -841,7 +841,7 @@ function openModal(id){
   if(p.b) life.push(p.b + (p.d ? "–" + p.d : "–"));
   if(p.f) life.push(p.f);
   $("m-desc").innerHTML = (life.length ? '<div class="m-life">' + esc(life.join("　")) + '</div>' : "") +
-    '<div>' + esc(p.desc || "") + '</div>' + faceCredit(p);
+    '<div>' + esc(p.desc || "") + '</div>' + intlLines(p) + faceCredit(p);
   const t = currentTeam();
   const canPick = $("scr-draft").classList.contains("active") && t && !t.cpu && !p.mlb &&
     (canTake(t,p) || (validPool(t).over && canTake(t,p,true)));
@@ -3544,7 +3544,7 @@ function facePic(p){
   const img = '<img class="mk-face" src="assets/face/' + p.ph + '.jpg" alt="" ' +
     'width="44" height="56" loading="lazy" onerror="this.remove()">';
   const wrap = p.pu
-    ? '<a class="mk-facelink" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
+    ? '<a class="mk-facelink" onclick="event.stopPropagation()" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
     : img;
   return '<div class="mk-fw">' + wrap +
     (p.no !== undefined ? '<span class="mk-fno">' + p.no + '</span>' : '') + '</div>';
@@ -3556,7 +3556,7 @@ function faceCredit(p){
   const cr = [p.pa, p.pl].filter(Boolean).join(" / ");
   if(!cr) return "";
   return '<div class="mk-cr">写真: ' +
-    (p.pu ? '<a href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + esc(cr) + '</a>'
+    (p.pu ? '<a onclick="event.stopPropagation()" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + esc(cr) + '</a>'
           : esc(cr)) + '</div>';
 }
 
@@ -3583,7 +3583,7 @@ function mkEntry(p){
     : p.cat === "P"
       ? [["勝", p.w], ["防", p.era.toFixed(2)], ["奪三振", p.so]]
       : [["率", avg3(p.avg)], ["本", p.hr], ["点", p.rbi]];
-  return '<div class="mk-e">' +
+  return '<div class="mk-e" onclick="openModal(&quot;' + p.id + '&quot;)" title="ひらいて詳しく見る">' +
     '<div class="mk-av">' + facePic(p) + '</div>' +
     '<div class="mk-b">' +
     '<div class="mk-h">' +
@@ -3591,6 +3591,7 @@ function mkEntry(p){
       (p.y ? '<span class="mk-y">' + esc(p.y) + '</span>' : '') +
       '<span class="mk-rk">' + rankIcon(p.ovr, 22) + '</span>' +
     '</div>' +
+    (intlRibbon(p) ? '<div class="mk-rb">' + intlRibbon(p) + '</div>' : '') +
     (own ? '<div class="mk-own">' + teamEmblem(own, 15) + esc(own.name) + 'が指名済み</div>' : '') +
     '<div class="mk-m">' +
       '<span><b>' + roleLabel(p) + '</b></span>' +
@@ -3606,6 +3607,42 @@ function mkEntry(p){
     faceCredit(p) +
     '</div>' +
   '</div>';
+}
+// ---- 国際大会のリボン ----
+// 出場した大会だけを種類ごとにまとめて出す。WBC×3 のように回数で示し、
+// どの大会かは吹き出しで読ませる(名鑑は詰まっているので行を増やさない)
+const INTL_ORDER = ["WBC", "五輪", "日米"];
+function intlGroups(p){
+  if(!p.itl || !p.itl.length || typeof INTL === "undefined") return [];
+  const g = {};
+  p.itl.forEach(function(id){
+    const m = INTL[id];
+    if(!m) return;
+    (g[m.kind] = g[m.kind] || []).push(m);
+  });
+  return INTL_ORDER.filter(function(k){ return g[k]; }).map(function(k){
+    const list = g[k].slice().sort(function(a,b){ return a.y - b.y; });
+    return {kind:k, n:list.length, labels:list.map(function(x){ return x.label; })};
+  });
+}
+function intlRibbon(p, compact){
+  const gs = intlGroups(p);
+  if(!gs.length) return "";
+  return '<span class="rb-set">' + gs.map(function(g){
+    return '<span class="rb rb-' + (g.kind === "WBC" ? "wbc" : g.kind === "五輪" ? "og" : "nb") +
+      '" title="' + esc(g.labels.join("、")) + '">' + g.kind +
+      (g.n > 1 ? '<i>' + g.n + '</i>' : '') + '</span>';
+  }).join("") + '</span>';
+}
+// 選手詳細では、どの大会に出たかを全部書き出す
+function intlLines(p){
+  const gs = intlGroups(p);
+  if(!gs.length) return "";
+  return '<div class="m-intl">' + gs.map(function(g){
+    return '<div class="mi-r"><span class="rb rb-' +
+      (g.kind === "WBC" ? "wbc" : g.kind === "五輪" ? "og" : "nb") + '">' + g.kind + '</span>' +
+      '<span class="mi-l">' + esc(g.labels.join("　")) + '</span></div>';
+  }).join("") + '</div>';
 }
 // ---- 対照年表 ----
 // 史書の作法にならい、日本と米国を左右に並べて同じ時代を突き合わせる。
@@ -3636,13 +3673,13 @@ function mkRow(p){
   const s = p.cat === "M" ? p.pennants + "回優勝"
     : p.cat === "P" ? (p.role === "CL" ? p.sv + "S" : p.w + "勝")
     : p.hr + "本";
-  return '<div class="tl-r">' +
+  return '<div class="tl-r" onclick="openModal(&quot;' + p.id + '&quot;)" title="ひらいて詳しく見る">' +
     '<span class="tl-y">' + p.year + '</span>' +
     (p.ph !== undefined
       ? '<img class="tl-f" src="assets/face/' + p.ph + '.jpg" alt="" width="24" height="30" loading="lazy" onerror="this.remove()">'
       : '<span class="tl-f tl-nf"></span>') +
     '<span class="tl-n">' + esc(p.name) + '</span>' + titleBadge(p) +
-    '<span class="tl-t">' + esc(p.team) + '</span>' +
+    '<span class="tl-t">' + esc(p.team) + '</span>' + intlRibbon(p, true) +
     '<span class="tl-s">' + s + '</span>' +
     (own ? '<span class="tl-o" title="' + esc(own.name) + 'が指名済み">●</span>' : '') +
   '</div>';

@@ -241,6 +241,29 @@ console.log("photo patch:");
 console.log("  npb:", applyPhoto("photo_credit.json", db), "matched");
 console.log("  mlb:", applyPhoto("photo_credit.json", mlb), "matched");
 
+// 国際大会の出場歴(intl.json)。tools/fetch_intl.js が名簿の節から拾う。
+// 辞退者・候補は含めない(出場した人にだけリボンを付ける)
+let INTL_META = {};
+function applyIntl(file, arr){
+  const p = path.join(dataDir, file);
+  if(!fs.existsSync(p)) return 0;
+  const j = JSON.parse(fs.readFileSync(p, "utf8"));
+  INTL_META = j.meta || {};
+  const map = new Map();
+  for(const k of Object.keys(j.players || {})) map.set(normName(k), j.players[k]);
+  let hit = 0;
+  for(const q of arr){
+    const v = map.get(normName(q.name));
+    if(!v || !v.length) continue;
+    q.itl = v.slice();
+    hit++;
+  }
+  return hit;
+}
+console.log("intl patch:");
+console.log("  npb:", applyIntl("intl.json", db), "matched");
+console.log("  mlb:", applyIntl("intl.json", mlb), "matched");
+
 console.log("numbers patches:");
 console.log("  bat:", applyNumbers("numbers_bat.json", db, ["B"]), "matched");
 console.log("  pit+mgr:", applyNumbers("numbers_pit.json", db, ["P","M"]), "matched");
@@ -298,6 +321,7 @@ fs.writeFileSync(path.join(root, "party.js"),
   "// 自動生成(tools/merge_db.js)。史実パロディ・イベント定義。\nconst PARTY_LORE = " + JSON.stringify(lore) + ";\n", "utf8");
 
 const header = "// このファイルは tools/merge_db.js が data/*.json から自動生成する。直接編集しないこと。\n";
-const body = "const DB = " + JSON.stringify(db) + ";\n\nconst MLB_DB = " + JSON.stringify(mlb) + ";\n";
+const body = "const DB = " + JSON.stringify(db) + ";\n\nconst MLB_DB = " + JSON.stringify(mlb) + ";\n" +
+  "\n// 国際大会の一覧(リボンの見出しに使う)\nconst INTL = " + JSON.stringify(INTL_META) + ";\n";
 fs.writeFileSync(path.join(root, "players.js"), header + body, "utf8");
 console.log("\nwrote players.js");

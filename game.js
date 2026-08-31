@@ -3961,6 +3961,14 @@ function mkTimeline(list){
   }).join("");
 }
 function mkView(v){ state.mkView = v; mkRender(true); }
+// 絞り込みは普段たたんでおく。探すのはたいてい名前なので、
+// 球団・年代・並びは要るときだけ開く
+function mkFilters(){
+  const box = $("mk-filters"), b = $("mk-fbtn");
+  if(!box) return;
+  const on = box.classList.toggle("open");
+  if(b) b.innerHTML = "絞り込み<i>" + (on ? "−" : "＋") + "</i>";
+}
 function mkRender(reset){
   if(reset) state.mkShown = MK_PAGE;
   if(!state.mkShown) state.mkShown = MK_PAGE;
@@ -3990,9 +3998,11 @@ function mkRender(reset){
     tabs.innerHTML = MK_TABS.map(function(x){
       return '<button class="ft' + ((state.mkCat || "all") === x[0] ? " on" : "") +
         '" onclick="mkTab(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
-    }).join("") +
-    '<span class="ft-sp"></span>' +
-    [["list", "名鑑"], ["tl", "年表"]].map(function(x){
+    }).join("");
+  }
+  const vw = $("mk-views");
+  if(vw){
+    vw.innerHTML = [["list", "名鑑"], ["tl", "年表"]].map(function(x){
       return '<button class="ft ft-v' + ((state.mkView || "list") === x[0] ? " on" : "") +
         '" onclick="mkView(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
     }).join("");

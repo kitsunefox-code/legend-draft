@@ -3057,6 +3057,53 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .mk-e:active .mk-go{background:var(--ink);color:var(--paper);}
   .pk-ph img{height:88px;}
 }
+
+/* ============================================================
+   名鑑の頭 ── 探すのは名前。検索欄を最上段に大きく置き、
+   球団・年代・並びは「絞り込み」の中にたたむ
+   ============================================================ */
+.mk-fh .fh-t{display:flex;align-items:baseline;gap:12px;}
+.mk-fh .fh-t .fh-n{
+  font-family:"Oswald",sans-serif;font-size:13px;font-weight:400;
+  letter-spacing:.04em;color:var(--ink2);min-width:0;text-align:left;
+}
+.mk-bar{flex-direction:column;align-items:stretch;gap:8px;}
+#mk-q{width:100%;font-size:15px;padding:8px 11px;}
+.mk-bar .ft-row{align-items:center;}
+.mk-fx{position:relative;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.mk-vw{flex:none;border:1px solid var(--rule2);background:var(--paper2);}
+.mk-vw .ft{border-right:1px solid var(--rule);}
+.mk-vw .ft:last-child{border-right:0;}
+.ft-more{border:1px solid var(--rule2);border-right:1px solid var(--rule2);background:var(--paper2);}
+.ft-more i{font-style:normal;font-family:"Oswald",sans-serif;font-size:11px;margin-left:5px;color:var(--red);}
+.mk-fl{display:flex;gap:8px;flex-wrap:wrap;}
+.mk-fl select{
+  padding:5px 8px;font-size:12.5px;border:1px solid var(--rule2);
+  background:var(--paper2);color:var(--ink);font-family:inherit;
+}
+@media (max-width:700px){
+  /* 頭を詰める。ここが高いと選手が1人も見えない */
+  .mk-fh{padding:10px 14px 8px;}
+  .mk-fh .fh-k{display:none;}
+  .mk-fh .fh-t{font-size:21px;letter-spacing:.14em;}
+  .mk-fh .fh-s{
+    margin-top:4px;font-size:9.5px;line-height:1.45;
+    max-height:2.9em;overflow:hidden;
+  }
+  .mk-fh .fh-x{width:32px;height:32px;font-size:16px;}
+  .mk-bar{padding:8px 14px;gap:7px;}
+  #mk-q{font-size:16px;}            /* iOSで拡大されないよう16px以上 */
+  .mk-bar .ft-row{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+  .mk-bar .ft{flex:none;padding:4px 10px;font-size:13px;}
+  .ft-sp{display:none;}
+  /* 絞り込みは開いたときだけ */
+  .mk-fl{display:none;flex:1 0 100%;}
+  .mk-fl.open{display:flex;}
+  .mk-fl select{flex:1;min-width:104px;font-size:16px;}
+}
+@media (min-width:701px){
+  .ft-more{display:none;}           /* 広い画面では常に出しておく */
+}
 </style>
 </head>
 <body>
@@ -3483,27 +3530,31 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <!-- 選手名鑑 -->
 <div id="mk-bg">
   <div id="mk-card">
-    <header class="fh">
+    <header class="fh mk-fh">
       <div class="fh-l">
         <div class="fh-k">球史編纂所　人名部</div>
-        <h2 class="fh-t">選手名鑑</h2>
-        <div class="fh-s">成績はその選手のキャリアハイの年のもの。生没年と出身は Wikipedia、写真は Wikimedia Commons の自由ライセンスのものに拠ります（各写真の下に作者とライセンスを記載）</div>
+        <h2 class="fh-t">選手名鑑<span id="mk-count" class="fh-n"></span></h2>
+        <div class="fh-s">成績はキャリアハイの年と通算。生没年と写真の出典は各選手の詳細に記しています</div>
       </div>
       <button class="fh-x" onclick="closeMeikan()" aria-label="閉じる">×</button>
     </header>
-    <div class="fh-bar">
+    <div class="fh-bar mk-bar">
+      <!-- 探すのはたいてい名前。いちばん上に大きく置く -->
+      <input id="mk-q" type="search" placeholder="名前・読み・球団・出身で引く" oninput="mkRender(true)">
       <div id="mk-tabs" class="ft-row"></div>
-      <div class="fh-tools">
-        <input id="mk-q" type="search" placeholder="名前・読み・球団で引く" oninput="mkRender(true)">
-        <select id="mk-team" onchange="mkRender(true)"></select>
-        <select id="mk-era" onchange="mkRender(true)"></select>
-        <select id="mk-sort" onchange="mkRender(true)">
-          <option value="ovr">能力順</option>
-          <option value="kana">読み順</option>
-          <option value="year">年代順</option>
-          <option value="name">名前順</option>
-        </select>
-        <span id="mk-count" class="fh-n"></span>
+      <div class="mk-fx">
+        <div id="mk-views" class="ft-row mk-vw"></div>
+        <button class="ft ft-more" id="mk-fbtn" onclick="mkFilters()">絞り込み<i>＋</i></button>
+        <div id="mk-filters" class="mk-fl">
+          <select id="mk-team" onchange="mkRender(true)"></select>
+          <select id="mk-era" onchange="mkRender(true)"></select>
+          <select id="mk-sort" onchange="mkRender(true)">
+            <option value="ovr">能力順</option>
+            <option value="kana">読み順</option>
+            <option value="year">年代順</option>
+            <option value="name">名前順</option>
+          </select>
+        </div>
       </div>
     </div>
     <div id="mk-list"></div>
@@ -3624,9 +3675,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609011820"></script>
-<script src="players.js?v=202609011820"></script>
-<script src="party.js?v=202609011820"></script>
-<script src="game.js?v=202609011820"></script>
+<script src="qrcode.js?v=202609011935"></script>
+<script src="players.js?v=202609011935"></script>
+<script src="party.js?v=202609011935"></script>
+<script src="game.js?v=202609011935"></script>
 </body>
 </html>

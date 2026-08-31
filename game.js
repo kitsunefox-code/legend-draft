@@ -3060,6 +3060,19 @@ function fileCatCount(k){
   if(k === "pic") return PARTY_LORE.filter(function(e){ return EVENT_PIC.has(e.id); }).length;
   return PARTY_LORE.filter(function(e){ return fileCatOf(e) === k; }).length;
 }
+// 事件簿も本拠地の選択と同じ組み方にする。
+// 上で1件を大きく読み、下の札から次を選ぶ。長い一覧を延々と繰らずに済む
+function filePick(id){
+  state.filePv = id;
+  renderFile();
+  const el = document.querySelector("#file-list .fv");
+  if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+}
+function fileHead(e){ return (/^【([^】]+)】/.exec(e.text) || [null, "事件"])[1]; }
+function fileBody(e){ return plainText(e.text).replace(/^【[^】]+】/, ""); }
+function fileCatLabel(e){
+  return (FILE_CATS.find(function(c){ return c.k === fileCatOf(e); }) || {label:""}).label;
+}
 function renderFile(){
   const cat = state.fileCat || "all";
   const list = fileList();
@@ -3068,24 +3081,48 @@ function renderFile(){
            esc(c.label) + '<i>' + fileCatCount(c.k) + '</i></button>';
   }).join("");
   $("file-count").textContent = list.length + "件";
-  $("file-list").innerHTML = list.length ? list.map(function(e){
-    const head = (/^【([^】]+)】/.exec(e.text) || [null,"事件"])[1];
-    const body = plainText(e.text).replace(/^【[^】]+】/, "");
-    const pic = EVENT_PIC.has(e.id);
-    const catLabel = (FILE_CATS.find(function(c){ return c.k === fileCatOf(e); }) || {label:""}).label;
-    return '<article class="fe">' +
-      (pic ? '<button class="fe-pic" onclick="showFilePic(&quot;' + e.id + '&quot;)" title="挿絵を大きく見る">' +
-             '<img src="assets/event/' + e.id + '.jpg" alt=""><span>拡大</span></button>' : "") +
-      '<div class="fe-body">' +
-        '<div class="fe-kick"><span class="fe-icon ' + e.cls + '">' + esc(e.icon) + '</span>' +
-          '<span class="fe-cat">' + esc(catLabel) + '</span></div>' +
-        '<h3>' + esc(head) + '</h3>' +
-        '<p class="fe-txt">' + esc(body) + '</p>' +
-        (e.note ? '<div class="fe-note"><b>元ネタ</b>' + esc(e.note) + '</div>' : "") +
+  if(!list.length){
+    $("file-list").innerHTML = '<div class="fe-empty">該当する事件は見つかりませんでした。</div>';
+    return;
+  }
+  // 見ている事件。指定が無ければ、この分類の先頭(挿絵があるものを優先)
+  let pv = list.find(function(e){ return e.id === state.filePv; });
+  if(!pv) pv = list.find(function(e){ return EVENT_PIC.has(e.id); }) || list[0];
+  state.filePv = pv.id;
+  const hasPic = EVENT_PIC.has(pv.id);
+
+  const preview =
+    '<div class="fv">' +
+      '<div class="fv-name">' +
+        '<span class="fe-icon ' + pv.cls + '">' + esc(pv.icon) + '</span>' +
+        esc(fileHead(pv)) +
       '</div>' +
-    '</article>';
-  }).join("") : '<div class="fe-empty">該当する事件は見つかりませんでした。</div>';
+      '<div class="fv-body">' +
+        (hasPic
+          ? '<button class="fv-shot" onclick="showFilePic(&quot;' + pv.id + '&quot;)" title="挿絵を大きく見る">' +
+            '<img src="assets/event/' + pv.id + '.jpg" alt=""><span class="fv-zoom">拡大</span></button>'
+          : '<div class="fv-shot fv-noimg">挿絵はまだありません</div>') +
+        '<div class="fv-text">' +
+          '<div class="fv-cat">' + esc(fileCatLabel(pv)) + '</div>' +
+          '<p class="fv-p">' + esc(fileBody(pv)) + '</p>' +
+          (pv.note ? '<div class="fv-note"><b>元ネタ</b>' + esc(pv.note) + '</div>' : "") +
+        '</div>' +
+      '</div>' +
+    '</div>';
+
+  const tiles = list.map(function(e){
+    const pic = EVENT_PIC.has(e.id);
+    const now = e.id === pv.id;
+    return '<button class="fl-tile' + (now ? " now" : "") + '" onclick="filePick(&quot;' + e.id + '&quot;)">' +
+      (pic ? '<img src="assets/event/' + e.id + '.jpg" alt="" loading="lazy" onerror="this.remove()">'
+           : '<span class="fl-no ' + e.cls + '">' + esc(e.icon) + '</span>') +
+      '<span class="fl-n">' + esc(fileHead(e)) + '</span>' +
+      '</button>';
+  }).join("");
+
+  $("file-list").innerHTML = preview + '<div class="fl-grid">' + tiles + '</div>';
 }
+
 // 事件簿から挿絵を大きく見る(ペナントの進行には影響しない)
 function showFilePic(id){
   const e = PARTY_LORE.find(function(v){ return v.id === id; });

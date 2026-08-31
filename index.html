@@ -3187,6 +3187,85 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .pk-tile-n{font-size:10.5px;padding:3px 5px;}
   .pk-cat{padding:5px 11px;font-size:12.5px;}
 }
+
+/* ============================================================
+   事件簿 ── 本拠地の選択と同じ組み方。
+   上で一件を大きく読み、下の札から次を選ぶ
+   ============================================================ */
+#file-list{display:block;}
+#file-list::before{display:none;}
+.fv{
+  border:1px solid var(--ink);background:rgba(255,255,255,.5);
+  box-shadow:inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--rule2);
+  margin:0 0 14px;
+}
+.fv-name{
+  display:flex;align-items:center;gap:10px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  font-size:clamp(16px,2.4vw,21px);letter-spacing:.1em;
+  color:var(--paper);background:var(--ink);padding:7px 12px;margin:9px 9px 0;
+}
+.fv-body{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;padding:12px 14px 14px;}
+.fv-shot{
+  position:relative;padding:0;border:1px solid var(--rule2);background:var(--paper2);
+  line-height:0;cursor:pointer;display:block;overflow:hidden;
+}
+.fv-shot img{width:100%;height:auto;max-height:300px;object-fit:cover;display:block;}
+.fv-zoom{
+  position:absolute;right:6px;bottom:6px;font-size:10px;letter-spacing:.14em;
+  color:var(--paper);background:rgba(20,17,10,.7);padding:2px 8px;line-height:1.5;
+}
+.fv-noimg{
+  display:flex;align-items:center;justify-content:center;min-height:150px;cursor:default;
+  font-size:12px;color:var(--rule2);line-height:1.6;
+  background:repeating-linear-gradient(135deg,var(--paper2) 0 6px,rgba(0,0,0,.03) 6px 12px);
+}
+.fv-text{min-width:0;}
+.fv-cat{
+  display:inline-block;font-size:10px;letter-spacing:.2em;color:var(--paper);
+  background:var(--ink2);padding:2px 9px;margin-bottom:8px;
+}
+.fv-p{
+  margin:0;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:14px;line-height:2;color:var(--ink);
+}
+.fv-note{
+  margin-top:10px;font-size:12px;line-height:1.95;color:var(--ink2);
+  border-left:3px solid var(--red);padding:2px 0 2px 10px;
+}
+.fv-note b{
+  display:inline-block;font-size:10px;letter-spacing:.16em;color:var(--paper);
+  background:var(--red);padding:1px 7px;margin-right:7px;vertical-align:1px;
+}
+/* 事件の札 */
+.fl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px;}
+.fl-tile{
+  border:1px solid var(--rule2);background:var(--paper2);padding:0;cursor:pointer;
+  overflow:hidden;display:block;text-align:left;
+}
+.fl-tile img{width:100%;height:62px;object-fit:cover;display:block;}
+.fl-no{
+  display:flex;align-items:center;justify-content:center;height:62px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:22px;font-weight:900;color:var(--paper);
+}
+.fl-no.good{background:#2c5c34;} .fl-no.bad{background:#8c2412;}
+.fl-no.warn{background:#8a6b2f;} .fl-no.fun{background:#4a4136;}
+.fl-n{
+  display:block;padding:4px 6px;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:11px;font-weight:700;color:var(--ink);line-height:1.35;
+  height:2.7em;overflow:hidden;
+}
+.fl-tile.now{border-color:var(--red);box-shadow:0 0 0 2px var(--red);}
+.fl-tile.now .fl-n{background:var(--red);color:#fff;}
+@media (max-width:700px){
+  .fv-body{grid-template-columns:1fr;gap:10px;padding:10px;}
+  .fv-shot img{max-height:190px;}
+  .fv-name{font-size:15px;margin:7px 7px 0;padding:6px 9px;}
+  .fv-p{font-size:13px;line-height:1.9;}
+  .fl-grid{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;}
+  .fl-tile img,.fl-no{height:50px;}
+  .fl-n{font-size:10px;height:2.6em;}
+}
 </style>
 </head>
 <body>
@@ -3758,9 +3837,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609012040"></script>
-<script src="players.js?v=202609012040"></script>
-<script src="party.js?v=202609012040"></script>
-<script src="game.js?v=202609012040"></script>
+<script src="qrcode.js?v=202609012230"></script>
+<script src="players.js?v=202609012230"></script>
+<script src="party.js?v=202609012230"></script>
+<script src="game.js?v=202609012230"></script>
 </body>
 </html>

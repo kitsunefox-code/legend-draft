@@ -121,7 +121,7 @@ for(const f of NPB_SEGS){
 console.log("MLB segments:");
 const mlb = [];
 const seenM = new Set();
-for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json","seg_mlb4.json","seg_mlb5.json","seg_mlb6.json","seg_mlb7.json"]){
+for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json","seg_mlb4.json","seg_mlb5.json","seg_mlb6.json","seg_mlb7.json","seg_mlb8.json"]){
   for(const raw of loadSeg(f)){
     const e = cleanEntry(raw, true);
     if(!e) continue;

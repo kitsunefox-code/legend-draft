@@ -3464,6 +3464,150 @@ function confetti(){
   }
 }
 
+
+// ============================================================
+// 選手名鑑 ── 収録した全員を引けるようにする。
+// 名前・読み・球団・年代でしぼり、能力順や読み順で並べ替える
+// ============================================================
+const MK_TABS = [
+  ["all", "すべて"], ["B", "野手"], ["P", "投手"], ["M", "監督"], ["mlb", "助っ人"]
+];
+const MK_PAGE = 240;   // 1392人を一度に描くと重いので、少しずつ足す
+
+function meikanPool(){
+  return PLAYERS.concat(MLB_STARS || []);
+}
+function mkTeams(){
+  const set = new Set(meikanPool().map(p => p.team));
+  return [...set].sort();
+}
+function mkFilter(){
+  const q = (($("mk-q") && $("mk-q").value) || "").trim().toLowerCase();
+  const cat = state.mkCat || "all";
+  const team = ($("mk-team") && $("mk-team").value) || "";
+  const era = ($("mk-era") && $("mk-era").value) || "";
+  return meikanPool().filter(function(p){
+    if(cat === "mlb"){ if(!p.mlb) return false; }
+    else if(cat !== "all"){ if(p.mlb || p.cat !== cat) return false; }
+    if(team && p.team !== team) return false;
+    if(era && p.decade !== era) return false;
+    if(q){
+      const hay = (p.name + " " + (p.y || "") + " " + p.team + " " + (p.fr || "") +
+                   " " + (p.f || "") + " " + (p.desc || "")).toLowerCase();
+      if(hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+}
+function mkSorted(){
+  const list = mkFilter();
+  const how = ($("mk-sort") && $("mk-sort").value) || "ovr";
+  const byKana = function(a, b){
+    const ka = a.y || "んん" + a.name, kb = b.y || "んん" + b.name;
+    return ka.localeCompare(kb, "ja");
+  };
+  if(how === "kana") list.sort(byKana);
+  else if(how === "year") list.sort(function(a,b){ return a.year - b.year || b.ovr - a.ovr; });
+  else if(how === "name") list.sort(function(a,b){ return a.name.localeCompare(b.name, "ja"); });
+  else list.sort(function(a,b){ return b.ovr - a.ovr; });
+  return list;
+}
+// ドラフト中に名鑑を引いたとき、誰がもう取ったかが分かるようにする。
+// 1件ごとに全球団を舐めると重いので、描く前に一度だけ表を作る
+let MK_OWNER = new Map();
+function mkOwnerMap(){
+  MK_OWNER = new Map();
+  (state.parts || []).forEach(function(t){
+    SLOT_DEFS.forEach(function(d){
+      const p = t.slots[d.key];
+      if(p && !MK_OWNER.has(p)) MK_OWNER.set(p, t);
+    });
+  });
+}
+// 名鑑の1件。名前・読み・素性・その年の成績・一行紹介
+function mkEntry(p){
+  const own = MK_OWNER.get(p);
+  const life = [];
+  if(p.b) life.push(p.b + (p.d ? "–" + p.d : "–"));
+  if(p.f) life.push(p.f);
+  const figs = p.cat === "M"
+    ? [["優勝", p.pennants + "回"], ["日本一", p.japan + "回"], ["通算", p.wins + "勝"]]
+    : p.cat === "P"
+      ? [["勝", p.w], ["防", p.era.toFixed(2)], ["奪三振", p.so]]
+      : [["率", avg3(p.avg)], ["本", p.hr], ["点", p.rbi]];
+  return '<div class="mk-e">' +
+    '<div class="mk-av">' + avatarBox(p, 40) + '</div>' +
+    '<div class="mk-b">' +
+    '<div class="mk-h">' +
+      '<span class="mk-n">' + esc(p.name) + '</span>' + titleBadge(p) +
+      (p.y ? '<span class="mk-y">' + esc(p.y) + '</span>' : '') +
+      '<span class="mk-rk">' + rankIcon(p.ovr, 22) + '</span>' +
+    '</div>' +
+    (own ? '<div class="mk-own">' + teamEmblem(own, 15) + esc(own.name) + 'が指名済み</div>' : '') +
+    '<div class="mk-m">' +
+      '<span><b>' + roleLabel(p) + '</b></span>' +
+      (p.cat === "M" ? '' : '<span>' + p.th + '投' + p.bh + '打</span>') +
+      '<span>' + esc(p.team) + '</span>' +
+      '<span>' + p.year + '年</span>' +
+      (life.length ? '<span class="mk-life">' + esc(life.join("　")) + '</span>' : '') +
+    '</div>' +
+    '<div class="mk-s">' + figs.map(function(x){
+      return '<span><i>' + x[0] + '</i>' + x[1] + '</span>';
+    }).join("") + '</div>' +
+    '<div class="mk-d">' + esc(p.desc || "") + '</div>' +
+    '</div>' +
+  '</div>';
+}
+function mkRender(reset){
+  if(reset) state.mkShown = MK_PAGE;
+  if(!state.mkShown) state.mkShown = MK_PAGE;
+  mkOwnerMap();
+  const list = mkSorted();
+  const show = list.slice(0, state.mkShown);
+  const box = $("mk-list");
+  if(!box) return;
+  box.innerHTML = show.length
+    ? show.map(mkEntry).join("") +
+      (list.length > show.length
+        ? '<div class="mk-more"><button class="btn ghost sm" onclick="mkMore()">' +
+          'あと' + (list.length - show.length) + '人を読む</button></div>'
+        : "")
+    : '<div class="mk-none">該当する選手がいません。条件をゆるめてください。</div>';
+  const c = $("mk-count");
+  if(c) c.textContent = list.length + "人";
+  const tabs = $("mk-tabs");
+  if(tabs){
+    tabs.innerHTML = MK_TABS.map(function(x){
+      return '<button class="ft' + ((state.mkCat || "all") === x[0] ? " on" : "") +
+        '" onclick="mkTab(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
+    }).join("");
+  }
+  if(reset) box.scrollTop = 0;
+}
+function mkMore(){ state.mkShown = (state.mkShown || MK_PAGE) + MK_PAGE; mkRender(false); }
+function mkTab(k){ state.mkCat = k; mkRender(true); }
+function openMeikan(){
+  if(state.mkCat === undefined) state.mkCat = "all";
+  const ts = $("mk-team");
+  if(ts && !ts.children.length){
+    ts.innerHTML = '<option value="">球団すべて</option>' +
+      mkTeams().map(function(x){ return '<option>' + esc(x) + '</option>'; }).join("");
+  }
+  const es = $("mk-era");
+  if(es && !es.children.length){
+    const ds = [...new Set(meikanPool().map(p => p.decade))].sort();
+    es.innerHTML = '<option value="">年代すべて</option>' +
+      ds.map(function(x){ return '<option>' + esc(x) + '</option>'; }).join("");
+  }
+  mkRender(true);
+  $("mk-bg").classList.add("show");
+  document.body.style.overflow = "hidden";
+}
+function closeMeikan(){
+  $("mk-bg").classList.remove("show");
+  document.body.style.overflow = "";
+}
+
 // ============================================================
 // 観戦モード: 現在の戦況をURLに畳み込み、QRで各自のスマホへ配る
 // ============================================================

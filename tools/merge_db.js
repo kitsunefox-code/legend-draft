@@ -196,6 +196,30 @@ function applyNumbers(file, arr, cats){
   }
   return hit;
 }
+// 名鑑用のプロフィール(wiki_profile.json: {名前:{y:読み, b:生年, d:没年, f:出身}})
+// tools/fetch_wiki.js が ja.wikipedia の冒頭文から拾った事実だけを持つ
+function applyProfile(file, arr){
+  const p = path.join(dataDir, file);
+  if(!fs.existsSync(p)) return 0;
+  const patch = JSON.parse(fs.readFileSync(p, "utf8"));
+  const map = new Map();
+  for(const k of Object.keys(patch)){ if(patch[k]) map.set(normName(k), patch[k]); }
+  let hit = 0;
+  for(const q of arr){
+    const v = map.get(normName(q.name));
+    if(!v) continue;
+    if(v.y) q.y = v.y;
+    if(v.b) q.b = v.b;
+    if(v.d) q.d = v.d;
+    if(v.f) q.f = v.f;
+    hit++;
+  }
+  return hit;
+}
+console.log("profile patch:");
+console.log("  npb:", applyProfile("wiki_profile.json", db), "matched");
+console.log("  mlb:", applyProfile("wiki_profile.json", mlb), "matched");
+
 console.log("numbers patches:");
 console.log("  bat:", applyNumbers("numbers_bat.json", db, ["B"]), "matched");
 console.log("  pit+mgr:", applyNumbers("numbers_pit.json", db, ["P","M"]), "matched");

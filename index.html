@@ -1622,12 +1622,12 @@ body{
 /* ============================================================
    球界事件簿ビューア ── 資料室の紙面を模した二段組み
    ============================================================ */
-#file-bg{
+#file-bg,#mk-bg{
   position:fixed;inset:0;background:rgba(20,17,10,.86);display:none;z-index:150;
   align-items:stretch;justify-content:center;padding:0;
 }
-#file-bg.show{display:flex;}
-#file-card{
+#file-bg.show,#mk-bg.show{display:flex;}
+#file-card,#mk-card{
   background:
     repeating-linear-gradient(0deg, transparent 0 3px, rgba(120,105,70,.038) 3px 4px),
     var(--paper);
@@ -1672,11 +1672,11 @@ body{
 .ft.on{background:var(--ink);color:var(--paper);}
 .ft.on i{color:var(--amber);}
 .fh-tools{display:flex;align-items:center;gap:10px;flex:none;}
-#file-q{
+#file-q,#mk-q{
   width:210px;padding:5px 9px;font-size:13px;border:1px solid var(--rule2);
   background:var(--paper2);color:var(--ink);font-family:inherit;
 }
-#file-q:focus{outline:2px solid var(--red);outline-offset:1px;}
+#file-q:focus,#mk-q:focus{outline:2px solid var(--red);outline-offset:1px;}
 .fh-n{font-family:"Oswald",sans-serif;font-size:12px;color:var(--ink2);min-width:48px;text-align:right;}
 /* 本体。新聞の段組みに倣い、広い画面では二段で流す */
 #file-list{
@@ -2807,6 +2807,71 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .bk-kanki{justify-content:center;}
   .bk-zu-frame{aspect-ratio:16/10;}
 }
+
+/* ============================================================
+   選手名鑑 ── 史書の人名部。1行1人の見出しに、
+   読み・生没年・出身地・その年の成績を添える
+   ============================================================ */
+#mk-list{
+  flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 22px 40px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
+  gap:0 24px;align-content:start;
+}
+.mk-e{
+  display:grid;grid-template-columns:auto minmax(0,1fr);gap:0 11px;
+  padding:11px 0 10px;border-bottom:1px dashed var(--rule);
+  break-inside:avoid;align-items:start;
+}
+.mk-b{min-width:0;}
+.mk-e:hover{background:rgba(255,255,255,.5);}
+.mk-av{flex:none;}
+/* 見出し行。名前を大きく、読みを右に小さく添える */
+.mk-h{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;min-width:0;}
+.mk-n{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  font-size:16.5px;letter-spacing:.03em;color:var(--ink);
+}
+.mk-y{font-size:10.5px;color:var(--ink2);letter-spacing:.06em;}
+.mk-rk{margin-left:auto;flex:none;}
+/* 素性の行。守備・投打・球団・年を中黒でつなぐ */
+.mk-m{
+  margin-top:3px;font-size:11.5px;color:var(--ink2);line-height:1.7;
+  display:flex;flex-wrap:wrap;gap:0 6px;
+}
+.mk-m b{font-weight:700;color:var(--ink);}
+.mk-m span::after{content:"・";color:var(--rule2);margin-left:6px;}
+.mk-m span:last-child::after{content:"";}
+.mk-life{color:var(--rule2);}
+/* その年の成績 */
+.mk-s{
+  margin-top:5px;display:flex;flex-wrap:wrap;gap:0 12px;
+  font-family:"Oswald",sans-serif;font-size:13px;color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+.mk-s i{font-style:normal;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:10px;color:var(--ink2);margin-right:3px;}
+.mk-d{
+  margin-top:5px;font-size:11.5px;line-height:1.85;color:var(--ink2);
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.mk-own{
+  margin-top:4px;display:flex;align-items:center;gap:5px;
+  font-size:10.5px;letter-spacing:.06em;color:var(--paper);
+  background:var(--ink2);padding:2px 7px;justify-self:start;
+}
+.mk-own img{vertical-align:middle;}
+.mk-more{
+  grid-column:1/-1;display:flex;justify-content:center;padding:20px 0 8px;
+}
+.mk-none{grid-column:1/-1;padding:40px 0;text-align:center;color:var(--ink2);font-size:13px;}
+.fh-tools select{
+  padding:5px 8px;font-size:12.5px;border:1px solid var(--rule2);
+  background:var(--paper2);color:var(--ink);font-family:inherit;
+}
+@media (max-width:700px){
+  #mk-list{grid-template-columns:1fr;padding:12px 14px 36px;}
+  .fh-tools{flex-wrap:wrap;}
+  #mk-q{width:100%;}
+}
 </style>
 </head>
 <body>
@@ -2841,6 +2906,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
       </p>
       <div class="bk-acts">
         <button class="btn lg" onclick="goSetup()">巻を開く</button>
+        <button class="btn ghost" onclick="openMeikan()">選手名鑑を引く</button>
         <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
       </div>
       <dl class="bk-hanrei" id="bk-hanrei"></dl>
@@ -2997,6 +3063,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div class="sub" id="d-round"></div>
     <div style="flex:1"></div>
     <button class="btn sm ghost snd-btn" onclick="toggleSnd()">音:ON</button>
+    <button class="btn sm ghost" onclick="openMeikan()">選手名鑑</button>
     <button class="btn sm ghost" onclick="autoPick()">おまかせ</button>
     <button class="btn sm ghost" onclick="autoAll()">全員おまかせで最後まで</button>
   </div>
@@ -3097,6 +3164,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div class="p-lead">
       <span>この一年に起きた波乱の記録。行をひらくと元ネタの史実が読めます。</span>
       <button class="btn ghost sm" onclick="openFile()">収録事件を全件読む</button>
+      <button class="btn ghost sm" onclick="openMeikan()">選手名鑑を引く</button>
     </div>
     <div id="party-log"></div>
   </div>
@@ -3226,6 +3294,36 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
+<!-- 選手名鑑 -->
+<div id="mk-bg">
+  <div id="mk-card">
+    <header class="fh">
+      <div class="fh-l">
+        <div class="fh-k">球史編纂所　人名部</div>
+        <h2 class="fh-t">選手名鑑</h2>
+        <div class="fh-s">成績はその選手のキャリアハイの年のもの。生没年と出身は Wikipedia の記述に拠ります</div>
+      </div>
+      <button class="fh-x" onclick="closeMeikan()" aria-label="閉じる">×</button>
+    </header>
+    <div class="fh-bar">
+      <div id="mk-tabs" class="ft-row"></div>
+      <div class="fh-tools">
+        <input id="mk-q" type="search" placeholder="名前・読み・球団で引く" oninput="mkRender(true)">
+        <select id="mk-team" onchange="mkRender(true)"></select>
+        <select id="mk-era" onchange="mkRender(true)"></select>
+        <select id="mk-sort" onchange="mkRender(true)">
+          <option value="ovr">能力順</option>
+          <option value="kana">読み順</option>
+          <option value="year">年代順</option>
+          <option value="name">名前順</option>
+        </select>
+        <span id="mk-count" class="fh-n"></span>
+      </div>
+    </div>
+    <div id="mk-list"></div>
+  </div>
+</div>
+
 <!-- 開幕号外 -->
 <div id="opening-bg" onclick="if(event.target===this)closeOpeningGogai()">
   <div id="opening-card">
@@ -3340,9 +3438,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608312110"></script>
-<script src="players.js?v=202608312110"></script>
-<script src="party.js?v=202608312110"></script>
-<script src="game.js?v=202608312110"></script>
+<script src="qrcode.js?v=202609010145"></script>
+<script src="players.js?v=202609010145"></script>
+<script src="party.js?v=202609010145"></script>
+<script src="game.js?v=202609010145"></script>
 </body>
 </html>

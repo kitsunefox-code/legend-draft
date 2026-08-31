@@ -3284,6 +3284,35 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 @media (max-width:700px){
   .pl-b{flex:1;padding:7px 8px;font-size:13px;}
 }
+
+/* 幕の操作。見送る側は控えめに置く */
+.c-acts{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;}
+/* つまんで並べ替える行 */
+.od-row{touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab;}
+.od-row.dragging{
+  cursor:grabbing;background:var(--paper2);
+  box-shadow:0 0 0 2px var(--red), 0 6px 14px -8px rgba(20,16,8,.7);
+  position:relative;z-index:2;
+}
+.od-grip{
+  flex:none;color:var(--rule2);font-size:13px;line-height:1;letter-spacing:-2px;
+  padding-right:2px;
+}
+.od-row:hover .od-grip{color:var(--ink2);}
+.od-hint{
+  margin-left:10px;font-size:9.5px;letter-spacing:.1em;color:var(--amber);
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:400;
+}
+/* 新しく入った選手は目立たせる。組み直しの判断材料にする */
+.od-row.fresh{background:rgba(198,167,79,.13);}
+.od-new{
+  margin-left:6px;font-size:9px;letter-spacing:.1em;color:var(--paper);
+  background:var(--red);padding:1px 5px;vertical-align:1px;
+}
+@media (max-width:700px){
+  .od-row{padding-top:9px;padding-bottom:9px;}
+  .od-grip{font-size:15px;padding-right:4px;}
+}
 </style>
 </head>
 <body>
@@ -3857,13 +3886,16 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div class="c-kicker">ドラフト会議</div>
     <div class="c-title" id="c-title"></div>
     <div class="c-sub" id="c-sub"></div>
-    <button class="btn" id="c-btn"></button>
+    <div class="c-acts">
+      <button class="btn ghost sm" id="c-skip" style="display:none;"></button>
+      <button class="btn" id="c-btn"></button>
+    </div>
   </div>
 </div>
 
-<script src="qrcode.js?v=202609020140"></script>
-<script src="players.js?v=202609020140"></script>
-<script src="party.js?v=202609020140"></script>
-<script src="game.js?v=202609020140"></script>
+<script src="qrcode.js?v=202609020420"></script>
+<script src="players.js?v=202609020420"></script>
+<script src="party.js?v=202609020420"></script>
+<script src="game.js?v=202609020420"></script>
 </body>
 </html>

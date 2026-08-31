@@ -1292,12 +1292,24 @@ function startBidRound(part, teamIdxs){
   }
   bidShowNext();
 }
-function curtain(title, sub, btnLabel, cb){
+// skipLabel を渡すと「見送る」側のボタンが出る(押すと閉じるだけ)
+function curtain(title, sub, btnLabel, cb, skipLabel, skipCb){
   $("c-title").textContent = title;
   $("c-sub").innerHTML = sub;
   const b = $("c-btn");
   b.textContent = btnLabel;
   b.onclick = ()=>{ $("curtain-bg").classList.remove("show"); cb(); };
+  const sk = $("c-skip");
+  if(sk){
+    if(skipLabel){
+      sk.style.display = "";
+      sk.textContent = skipLabel;
+      sk.onclick = ()=>{ $("curtain-bg").classList.remove("show"); if(skipCb) skipCb(); };
+    }else{
+      sk.style.display = "none";
+      sk.onclick = null;
+    }
+  }
   $("curtain-bg").classList.add("show");
 }
 function bidShowNext(){
@@ -3250,23 +3262,26 @@ function renderOrder(){
         ? `${Math.round((st.w||0)*(seasonProg()||1))}勝 防${(st.era||0).toFixed(2)}`
         : `${avg3(st.avg)} ${Math.round((st.hr||0)*(seasonProg()||1))}本`)
       : (p ? "―" : "");
-    return `<div class="od-row">
+    const isNew = p && (p.joined !== undefined && p.joined !== false || p.traded);
+    return `<div class="od-row${odDrag && odDrag.kind===kind && odDrag.i===i ? " dragging" : ""}${isNew ? " fresh" : ""}"
+      onpointerdown="odGrab(event,'${kind}',${i})">
+      <span class="od-grip" aria-hidden="true">⠿</span>
       <span class="od-n">${kind==="rot" ? "第"+(i+1)+"先発" : (i+1)}</span>
       <span class="od-pos">${d ? d.label : ""}</span>
-      <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}</span>
+      <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${line}</span>
-      <button class="od-b" onclick="moveOrder('${kind}',${i},-1)" ${i===0?"disabled":""}>▲</button>
-      <button class="od-b" onclick="moveOrder('${kind}',${i},1)" ${i===arr.length-1?"disabled":""}>▼</button>
+      <button class="od-b" onpointerdown="event.stopPropagation()" onclick="moveOrder('${kind}',${i},-1)" ${i===0?"disabled":""}>▲</button>
+      <button class="od-b" onpointerdown="event.stopPropagation()" onclick="moveOrder('${kind}',${i},1)" ${i===arr.length-1?"disabled":""}>▼</button>
     </div>`;
   };
   $("order-title").innerHTML = teamEmblem(t,20) + " " + esc(t.name) + " ── 打順とローテーション";
   $("order-body").innerHTML =
-    `<div class="od-col">
-       <div class="od-h">打順</div>
+    `<div class="od-col" data-kind="bat">
+       <div class="od-h">打順<span class="od-hint">つまんで動かせます</span></div>
        ${c.order.map((k,i)=>row(c.order,i,"bat")).join("")}
      </div>
-     <div class="od-col">
-       <div class="od-h">先発ローテーション</div>
+     <div class="od-col" data-kind="rot">
+       <div class="od-h">先発ローテーション<span class="od-hint">つまんで動かせます</span></div>
        ${c.rot.map((k,i)=>row(c.rot,i,"rot")).join("")}
        <div class="od-note">上から順に登板します。中継ぎ・抑えは自動です。</div>
        ${polHtml(t)}
@@ -3286,6 +3301,63 @@ function polHtml(t){
   };
   return '<div class="od-h" style="margin-top:14px;">起用法</div>' +
     '<div class="pl-wrap">' + grp("steal", POL_STEAL, pol.steal) + grp("pitch", POL_PITCH, pol.pitch) + '</div>';
+}
+// 選手が入れ替わったら、打順を組み直す機会を出す。
+// 4番に入っていた選手が抜けたのに気づかず開幕、を防ぐ
+function askReorder(t, who){
+  if(!t || t.cpu || state.campCtx) return;
+  const idx = state.parts.indexOf(t);
+  if(idx < 0) return;
+  curtain(esc(t.name) + " に新加入",
+    esc(who) + " が加わりました。<br>打順とローテーションを組み直せます。",
+    "組み直す",
+    function(){ openOrder(idx); },
+    "このままで戦う");
+}
+// ---- つまんで並べ替える ----
+// 指でもマウスでも同じように動かせるよう pointer で受ける。
+// 描き直しで掴んだ要素が消えるので、監視は document に付ける
+let odDrag = null;
+function odGrab(ev, kind, i){
+  if(ev.button !== undefined && ev.button !== 0) return;
+  const c = state.orderCtx;
+  if(!c) return;
+  ev.preventDefault();
+  odDrag = {kind: kind, i: i};
+  document.addEventListener("pointermove", odMove);
+  document.addEventListener("pointerup", odDrop, {once: true});
+  document.addEventListener("pointercancel", odDrop, {once: true});
+  renderOrder();
+}
+function odMove(ev){
+  if(!odDrag) return;
+  const col = document.querySelector('#order-body .od-col[data-kind="' + odDrag.kind + '"]');
+  if(!col) return;
+  const rows = [].slice.call(col.querySelectorAll(".od-row"));
+  let to = -1;
+  for(let k = 0; k < rows.length; k++){
+    const b = rows[k].getBoundingClientRect();
+    if(ev.clientY >= b.top && ev.clientY <= b.bottom){ to = k; break; }
+  }
+  // 端まで来たら先頭/末尾に寄せる
+  if(to < 0 && rows.length){
+    const first = rows[0].getBoundingClientRect();
+    const last = rows[rows.length-1].getBoundingClientRect();
+    if(ev.clientY < first.top) to = 0;
+    else if(ev.clientY > last.bottom) to = rows.length - 1;
+  }
+  if(to < 0 || to === odDrag.i) return;
+  const c = state.orderCtx;
+  const arr = odDrag.kind === "rot" ? c.rot : c.order;
+  arr.splice(to, 0, arr.splice(odDrag.i, 1)[0]);
+  odDrag.i = to;
+  seTap();
+  renderOrder();
+}
+function odDrop(){
+  document.removeEventListener("pointermove", odMove);
+  odDrag = null;
+  renderOrder();
 }
 function moveOrder(kind, i, d){
   const c = state.orderCtx;
@@ -3421,6 +3493,15 @@ function endEventPhase(){
   $("event-bg").classList.remove("show");
   state.eventCtx = null;
   state.scoutPick = null;
+  // 補強やトレードで顔ぶれが変わっていたら、打順を組み直せるようにする
+  const pr = state.pendingReorder;
+  if(pr && !state.rouletteResume){
+    state.pendingReorder = null;
+    $("s-play").disabled = false;
+    if(!state.finished) $("s-skip").disabled = false;
+    askReorder(pr.t, pr.who);
+    return;
+  }
   // ルーレット中のスキャンダル対応が終わったら、残りの球団へ戻る
   if(state.rouletteResume){
     const r = state.rouletteResume; state.rouletteResume = null;
@@ -3581,6 +3662,9 @@ function tradeCommit(){
   telop(txt);
   partyNews("交", "warn", txt, null, A);
   ctx.done.push(A.name + "　" + pa.p.name + "　⇄　" + pb.p.name + "　" + B.name);
+  // 人間の球団に来た選手がいれば、あとで打順を組み直す機会を出す
+  if(!A.cpu) state.pendingReorder = {t: A, who: pb.p.name};
+  else if(!B.cpu) state.pendingReorder = {t: B, who: pa.p.name};
   seWin();
   renderRosterLive(); renderTeamStrip();
   tradeBackToTable();
@@ -3631,6 +3715,7 @@ function signMlb(t, star, slotKey, pool){
   const txt = `【電撃補強】${t.name}がMLBから${star.name}を獲得！ ${released.name}は自由契約に`;
   state.news.unshift({mo:"8月", txt});
   telop(txt);
+  if(!t.cpu) state.pendingReorder = {t: t, who: star.name};
 }
 function advanceMlb(){
   const ctx = state.eventCtx;
@@ -5736,6 +5821,7 @@ function scoutSign(t, key, cur, p){
   state.taken.add(p.id);
   t.slots[key] = p; p.joined = true; p.form = 1;
   if(state.seasonStats && !lineOf(t, p)){ state.seasonStats.push(blankBat(p, t, true)); rebuildStatIdx(); }
+  if(!t.cpu) state.pendingReorder = {t: t, who: p.name};
 }
 const ROULETTE = [
   {id:"training", eff:"ナイン全員の調子が上向く", label:"猛特訓", icon:"練", cls:"good", color:"#2c5c34",

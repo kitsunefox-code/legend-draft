@@ -275,11 +275,26 @@ async function moreMode(){
     }
 
     const wanted = [];
+    const stillNone = [];
     batch.forEach((p, k) => {
       const id = ids[titles[k]] || {};
       const f = (id.qid && wd[id.qid]) || (id.en && en[id.en]) || null;
       if(f) wanted.push({p, file:f});
+      else stillNone.push({p, en: id.en, title: titles[k]});
     });
+    // (3) それでも無ければ Commons を名前で検索する。
+    //     写真の少ない監督や古い選手はここで拾えることがある
+    for(const s2 of stillNone){
+      const q = s2.en || s2.title;
+      let hits = [];
+      try{ hits = await commonsSearch(q); }catch(e){}
+      await sleep(400);
+      if(!hits.length && s2.en && s2.title !== s2.en){
+        try{ hits = await commonsSearch(s2.title); }catch(e){}
+        await sleep(400);
+      }
+      if(hits.length) wanted.push({p: s2.p, file: hits[0]});
+    }
 
     let info = {};
     for(let k = 0; k < wanted.length; k += 20){

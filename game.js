@@ -611,6 +611,41 @@ function parkRoundDone(){
     "選び直す",
     function(){ parkNext(); });
 }
+// 球場の短い呼び名。札に載せるので長い正式名は詰める
+const PARK_SHORT = {
+  "escon":"エスコン", "jingu":"神宮", "hama":"横浜", "zozo":"ZOZOマリン",
+  "paypay":"PayPay", "mazda":"マツダ", "tokyodome":"東京ドーム", "beluna":"ベルーナ",
+  "kyocera":"京セラ", "koshien":"甲子園", "rakuten":"楽天モバイル", "vantelin":"バンテリン",
+  "korakuen":"後楽園", "osaka":"大阪球場", "nishinomiya":"西宮", "kawasaki":"川崎",
+  "heiwadai":"平和台", "fujiidera":"藤井寺", "tokyostadium":"東京スタジアム",
+  "nagoya":"ナゴヤ球場", "hiroshima-old":"広島市民", "nissei":"日生球場",
+  "coors":"クアーズ", "fenway":"フェンウェイ", "wrigley":"リグレー", "yankee":"ヤンキース",
+  "oracle":"オラクル", "petco":"ペトコ", "dodger":"ドジャー", "gabp":"GABP",
+  "tropicana":"トロピカーナ", "polo":"ポロ・グラウンズ",
+  "bocchan":"坊っちゃん", "muscat":"マスカット", "alpen":"アルペン",
+  "cellular":"沖縄セルラー", "sunmarine":"サンマリン", "kitakyushu":"北九州",
+  "ishikawa":"石川県立", "komachi":"こまち", "hardoff":"エコスタ",
+  "kusanagi":"草薙", "obihiro":"帯広の森", "abira":"安平ときわ",
+};
+function parkShort(pk){
+  return PARK_SHORT[pk.id] ||
+    pk.name.replace(/(スタジアム|野球場|球場|フィールド|ドーム|パーク).*$/, "") || pk.name;
+}
+// いま見ている球場。札を押すと切り替わり、上の大きな面が入れ替わる
+function parkPreview(id){
+  const c = state.parkCtx;
+  if(!c) return;
+  c.pv = id;
+  renderParkDraft();
+  const el = document.querySelector("#park-panel .pv");
+  if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+}
+function parkCat(k){
+  const c = state.parkCtx;
+  if(!c) return;
+  c.cat = k;
+  renderParkDraft();
+}
 function renderParkDraft(){
   const c = state.parkCtx;
   if(!c) return;
@@ -626,45 +661,83 @@ function renderParkDraft(){
       (x.park ? '<i>' + esc(x.park.name) + '</i>' : (c.bids[i] !== undefined ? '<i>入札済み</i>' : '')) +
       '</span>';
   }).join("");
-  const CATS = [["NPB","NPB 現行"],["歴史","記憶の中の球場"],["MLB","MLB"],["地方","地方球場"],["草野球","草野球"]];
-  const card = function(pk){
-    const used = taken.has(pk.id);
-    const owner = state.parts.find(x=>x.park && x.park.id === pk.id);
-    const meter = (v, lo, hi) => {
-      const pct = clamp((v - lo) / (hi - lo), 0, 1) * 100;
-      return '<span class="pk-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span>';
-    };
-    const ph = PARK_PHOTO[pk.id];
-    return '<div class="pk-card' + (used ? " used" : "") + '"' +
-      (used || t.cpu ? '' : ' onclick="parkChoose(&quot;' + pk.id + '&quot;)"') + '>' +
-      (ph ? '<div class="pk-ph"><img src="assets/park/' + pk.id + '.jpg" alt="" loading="lazy" onerror="this.remove()">' +
-            '<span class="pk-cr">' + esc([ph.a, ph.l].filter(Boolean).join(" / ")) + '</span></div>' : '') +
-      '<div class="pk-h"><b>' + esc(pk.name) + '</b><span>' + esc(pk.type) + '</span></div>' +
-      '<div class="pk-m"><span class="pk-lb">本塁打</span>' + meter(pk.hr, 0.78, 1.24) +
-        '<span class="pk-v">' + (pk.hr >= 1.12 ? "出やすい" : pk.hr <= 0.90 ? "出にくい" : "標準") + '</span></div>' +
-      '<div class="pk-m"><span class="pk-lb">総得点</span>' + meter(pk.run, 0.90, 1.16) +
-        '<span class="pk-v">' + (pk.run >= 1.06 ? "打高" : pk.run <= 0.96 ? "投高" : "標準") + '</span></div>' +
-      '<div class="pk-n">' + esc(pk.note) + '</div>' +
-      '<div class="pk-f"><span class="pk-g">向く: ' + esc(pk.good) + '</span>' +
-        '<span class="pk-b">不向き: ' + esc(pk.bad) + '</span></div>' +
-      (used ? '<div class="pk-used">' + esc(owner ? owner.name + " の本拠地" : "選択済み") + '</div>' : '') +
-    '</div>';
+
+  const CATS = [["NPB","現行"],["歴史","往年"],["MLB","MLB"],["地方","地方"],["草野球","草野球"]];
+  if(!c.cat) c.cat = "NPB";
+  // 見ている球場。指定が無ければ、この分類の空いている先頭
+  const inCat = PARKS.filter(function(pk){ return pk.cat === c.cat; });
+  if(!c.pv || !PARKS.some(function(pk){ return pk.id === c.pv; })){
+    const free = inCat.find(function(pk){ return !taken.has(pk.id); }) || inCat[0];
+    c.pv = free && free.id;
+  }
+  const pv = PARKS.find(function(pk){ return pk.id === c.pv; }) || PARKS[0];
+  const pvUsed = taken.has(pv.id);
+  const pvOwner = state.parts.find(function(x){ return x.park && x.park.id === pv.id; });
+  const ph = PARK_PHOTO[pv.id];
+
+  const meter = function(v, lo, hi){
+    const pct = clamp((v - lo) / (hi - lo), 0, 1) * 100;
+    return '<span class="pk-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span>';
   };
-  const cards = CATS.map(function(c){
-    const list = PARKS.filter(function(pk){ return pk.cat === c[0]; });
-    if(!list.length) return "";
-    return '<div class="pk-cat">' + esc(c[1]) + '</div>' +
-           '<div class="pk-grid">' + list.map(card).join("") + '</div>';
+  const row = function(k, v){ return '<div class="pv-r"><span class="pv-k">' + k + '</span><span class="pv-v">' + v + '</span></div>'; };
+
+  const preview =
+    '<div class="pv">' +
+      '<div class="pv-name">' + esc(pv.name) + '</div>' +
+      '<div class="pv-body">' +
+        '<div class="pv-shot">' +
+          (ph ? '<img src="assets/park/' + pv.id + '.jpg" alt="" onerror="this.remove()">' +
+                '<span class="pv-cr">' + esc([ph.a, ph.l].filter(Boolean).join(" / ")) + '</span>'
+              : '<div class="pv-noimg">写真なし</div>') +
+        '</div>' +
+        '<div class="pv-data">' +
+          '<div class="pv-h">球場データ</div>' +
+          row("形式", esc(pv.type)) +
+          row("本塁打", meter(pv.hr, 0.78, 1.24) +
+            '<b>' + (pv.hr >= 1.12 ? "出やすい" : pv.hr <= 0.90 ? "出にくい" : "標準") + '</b>') +
+          row("総得点", meter(pv.run, 0.90, 1.16) +
+            '<b>' + (pv.run >= 1.06 ? "打高" : pv.run <= 0.96 ? "投高" : "標準") + '</b>') +
+          row("向く", esc(pv.good)) +
+          row("不向き", esc(pv.bad)) +
+        '</div>' +
+      '</div>' +
+      '<div class="pv-note">' + esc(pv.note) + '</div>' +
+      '<div class="pv-go">' +
+        (pvUsed
+          ? '<span class="pv-used">' + esc(pvOwner ? pvOwner.name + " が獲得済み" : "選択済み") + '</span>'
+          : '<button class="btn lg" onclick="parkChoose(&quot;' + pv.id + '&quot;)">この球場を希望する</button>') +
+      '</div>' +
+    '</div>';
+
+  const tabs = CATS.map(function(x){
+    const n = PARKS.filter(function(pk){ return pk.cat === x[0]; }).length;
+    return '<button class="pk-cat' + (c.cat === x[0] ? " on" : "") +
+      '" onclick="parkCat(&quot;' + x[0] + '&quot;)">' + x[1] + '<i>' + n + '</i></button>';
   }).join("");
+
+  const tiles = inCat.map(function(pk){
+    const used = taken.has(pk.id);
+    const now = pk.id === c.pv;
+    const p2 = PARK_PHOTO[pk.id];
+    return '<button class="pk-tile' + (used ? " used" : "") + (now ? " now" : "") +
+      '" onclick="parkPreview(&quot;' + pk.id + '&quot;)">' +
+      (p2 ? '<img src="assets/park/' + pk.id + '.jpg" alt="" loading="lazy" onerror="this.remove()">'
+          : '<span class="pk-tile-no"></span>') +
+      '<span class="pk-tile-n">' + esc(parkShort(pk)) + '</span>' +
+      (used ? '<span class="pk-tile-x">済</span>' : '') +
+      '</button>';
+  }).join("");
+
   $("park-panel").innerHTML =
     '<h2><span class="kicker">巻之一 下</span>本拠地ドラフト</h2>' +
     '<div class="sub">第' + c.round + '巡の入札。希望が重なったら<b>抽選</b>です。' +
-    '球場の癖はこの一年、全試合につきまといます。' +
-    '狭い箱なら大砲を、広い外野なら投手と足を集めることになります。</div>' +
+    '球場の癖はこの一年、全試合につきまといます。</div>' +
     '<div class="pk-bar-row">' + bar + '</div>' +
     '<div class="pk-turn">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
       '<span class="pk-you">希望する本拠地を1つ選んでください</span></div>' +
-    cards;
+    preview +
+    '<div class="pk-cats">' + tabs + '</div>' +
+    '<div class="pk-grid">' + tiles + '</div>';
 }
 function cpuParkPick(){
   // 入札制になったので、CPUの選択は parkNext の中で済ませている
@@ -2919,6 +2992,25 @@ function statTables(t, light){
 // ============================================================
 // 球界事件簿ビューア(収録された史実イベントを全件読む)
 // ============================================================
+// ダメ助っ人の印。黄色い三角にドクロの警告標識(本人指定の意匠)。
+// 画像を置かずに描くので、どの環境でも同じ形で出る
+function dokuroSvg(px){
+  const n = px || 15;
+  return '<svg class="dokuro" width="' + n + '" height="' + n + '" viewBox="0 0 48 44" aria-hidden="true">' +
+    '<path d="M24 2 L47 42 H1 Z" fill="#111" />' +
+    '<path d="M24 7 L43 40 H5 Z" fill="#ffd400" />' +
+    '<g fill="#111">' +
+      '<path d="M17 32 L31 39 L29.6 41.8 L15.6 34.8 Z"/>' +
+      '<path d="M31 32 L17 39 L18.4 41.8 L32.4 34.8 Z"/>' +
+      '<circle cx="16.4" cy="32.4" r="2.5"/><circle cx="31.6" cy="32.4" r="2.5"/>' +
+      '<circle cx="16.4" cy="39.4" r="2.5"/><circle cx="31.6" cy="39.4" r="2.5"/>' +
+      '<path d="M24 13c-6.1 0-10.6 3.9-10.6 9 0 3 1.6 5.5 4 7v3.2h13.2V29c2.4-1.5 4-4 4-7 0-5.1-4.5-9-10.6-9z"/>' +
+    '</g>' +
+    '<path d="M18.6 21.6l4.2 1.9-3.9 1.9-2.2-1.9z" fill="#ffd400"/>' +
+    '<path d="M29.4 21.6l-4.2 1.9 3.9 1.9 2.2-1.9z" fill="#ffd400"/>' +
+    '<path d="M24 25.6l1.5 2.6h-3z" fill="#ffd400"/>' +
+  '</svg>';
+}
 const FILE_CATS = [
   {k:"all",   label:"すべて"},
   {k:"pic",   label:"挿絵あり"},
@@ -2930,6 +3022,7 @@ const FILE_CATS = [
   {k:"showa", label:"昭和"},
   {k:"hei",   label:"平成・令和"},
   {k:"mlb",   label:"MLB"},
+  {k:"dame",  label:"ダメ助っ人"},
   {k:"misc",  label:"助っ人・珍記録"},
 ];
 function fileCatOf(e){ return e.cat || "misc"; }

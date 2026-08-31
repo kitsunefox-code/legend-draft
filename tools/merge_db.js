@@ -297,7 +297,7 @@ console.log("=== MLB", mlb.length, "players ===");
 console.log("  野手", count(mlb,p=>p.cat==="B"), " SP", count(mlb,p=>p.role==="SP"), " RP/CL", count(mlb,p=>p.role==="RP"||p.role==="CL"));
 
 // ---- パーティーモードの史実パロディ・イベント ----
-const PARTY_FILES = ["party_npb_showa.json","party_npb_heisei.json","party_mlb.json","party_misc.json","party_scandal1.json","party_scandal2.json","party_scandal3.json","party_scandal4.json","party_gossip.json"];
+const PARTY_FILES = ["party_npb_showa.json","party_npb_heisei.json","party_mlb.json","party_misc.json","party_scandal1.json","party_scandal2.json","party_scandal3.json","party_scandal4.json","party_gossip.json","party_damesuke.json"];
 const VALID_EFFECT = new Set(["none","moodUp","moodDown","formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown","leave","mgrRest","mgrBack"]);
 const VALID_TARGET = new Set(["team","player","pitcher","foreign","manager","twoPlayers","twoTeams"]);
 const VALID_CLS = new Set(["good","bad","warn","fun"]);
@@ -307,7 +307,7 @@ const LORE_CAT = {
   "party_mlb.json":"mlb", "party_misc.json":"misc",
   "party_scandal1.json":"sc1", "party_scandal2.json":"sc2",
   "party_scandal3.json":"sc3", "party_scandal4.json":"sc4",
-  "party_gossip.json":"gos",
+  "party_gossip.json":"gos", "party_damesuke.json":"dame",
 };
 const lore = [], loreSeen = new Set();
 for(const f of PARTY_FILES){

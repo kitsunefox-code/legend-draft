@@ -308,7 +308,10 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
   font-size:15px;letter-spacing:1px;min-height:1em;
 }
 #d-announce .an-k{color:#fff;background:var(--red);font-size:10px;padding:2px 7px;margin-right:9px;letter-spacing:2px;vertical-align:2px;font-family:"Yu Gothic",sans-serif;}
-#curtain-bg{position:fixed;inset:0;background:var(--ink);display:none;align-items:center;justify-content:center;z-index:80;padding:20px;}
+/* 幕は「端末を渡す」目隠し。本拠地選びや中継など、
+   どの局面の上にも降りてくるので常に最前面に置く。
+   z-index を低くすると、幕のボタンが下の盤に覆われて押せなくなる */
+#curtain-bg{position:fixed;inset:0;background:var(--ink);display:none;align-items:center;justify-content:center;z-index:200;padding:20px;}
 #curtain-bg.show{display:flex;}
 #curtain{text-align:center;color:var(--paper);max-width:480px;}
 #curtain .c-kicker{font-size:12px;letter-spacing:8px;color:#9b917a;margin-bottom:18px;}
@@ -3633,6 +3636,63 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
      画面下に固定したい帯が中に閉じ込められる。狭い画面では透過だけで出す */
   .screen.active{animation:fadein .26s ease;}
 }
+
+/* ============================================================
+   決めるボタンは画面の下に固定する。
+   入れ子の枠の中で sticky にすると、枠が伸びたときや
+   スマホのバーが出たときに画面外へ逃げてしまうため
+   ============================================================ */
+@media (max-width:700px){
+  /* 本拠地の盤は、上(見出し〜球場の下見〜区分)を貼り付けたまま
+     札の格子だけを繰る。区分の見出しが下の決定ボタンに
+     潜り込んで押せなくなるのを防ぐ */
+  #park-bg{overflow:hidden;align-items:stretch;padding:0;}
+  #park-panel{
+    max-height:none;height:100%;border:0;border-top:5px solid var(--ink);
+    padding:0;box-shadow:none;overflow:hidden;
+    display:flex;flex-direction:column;
+  }
+  #park-panel > *{flex:none;margin-left:12px;margin-right:12px;}
+  #park-panel h2{margin:10px 12px 0;font-size:17px;}
+  #park-panel .sub{display:none;}
+  .pk-bar-row{margin:8px 12px;gap:4px;}
+  .pk-step{padding:2px 6px;font-size:10px;}
+  .pk-turn{margin:0 12px 8px;}
+  /* 下見の面はここでは要点だけ。写真は低く、注記は畳む */
+  .pv{margin:0 12px;}
+  .pv-body{padding:8px 10px 0;gap:9px;}
+  .pv-shot img{max-height:104px;}
+  .pv-note{display:none;}
+  .pv-r{padding:2px 0;}
+  .pk-cats{margin:8px 12px 0;font-size:12px;}
+  .pk-cat{padding:5px 9px;}
+  /* #park-panel > * の flex:none に負けないよう、id から指す */
+  #park-panel > .pk-grid{
+    flex:1 1 auto;min-height:0;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    margin:8px 12px 0;padding-bottom:calc(78px + env(safe-area-inset-bottom, 0px));
+    grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;
+    /* 高さが決まった格子は既定だと行を詰めて名前を切ってしまう。
+       行は中身なりに取り、はみ出したぶんは繰って見る */
+    align-content:start;grid-auto-rows:min-content;
+  }
+  .pk-tile img, .pk-tile-no{height:56px;}
+  .pk-tile-n{font-size:11px;padding:3px 5px;}
+  .pk-foot{
+    position:fixed;left:0;right:0;bottom:0;z-index:140;
+    margin:0;padding:9px 14px calc(9px + env(safe-area-inset-bottom, 0px));
+    background:var(--paper);
+    box-shadow:0 -8px 14px -10px rgba(20,16,8,.6);
+  }
+  /* 編成の画面も同じ扱いにする */
+  #order-bg{overflow:hidden;align-items:stretch;padding:0;}
+  #order-card{max-height:none;height:100%;overflow-y:auto;padding-bottom:96px;}
+  .od-foot{
+    position:fixed;left:0;right:0;bottom:0;z-index:140;
+    margin:0;padding:9px 14px calc(9px + env(safe-area-inset-bottom, 0px));
+    background:var(--paper);box-shadow:0 -8px 14px -10px rgba(20,16,8,.6);
+  }
+}
 </style>
 </head>
 <body>
@@ -4227,9 +4287,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609011740"></script>
-<script src="players.js?v=202609011740"></script>
-<script src="party.js?v=202609011740"></script>
-<script src="game.js?v=202609011740"></script>
+<script src="qrcode.js?v=202609020940"></script>
+<script src="players.js?v=202609020940"></script>
+<script src="party.js?v=202609020940"></script>
+<script src="game.js?v=202609020940"></script>
 </body>
 </html>

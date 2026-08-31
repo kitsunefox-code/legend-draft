@@ -171,7 +171,7 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
   font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
 }
 .draft-banner .sub{color:#cfc7b2;}
-.pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(162px,1fr));gap:8px;max-height:400px;overflow-y:auto;padding:4px 2px;}
+.pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(206px,1fr));gap:9px;max-height:min(56vh,540px);overflow-y:auto;padding:4px 2px 8px;}
 .pcard{
   background:#fff;border:1px solid var(--rule);border-radius:2px;padding:9px 10px;cursor:pointer;
   transition:border-color .1s;position:relative;box-shadow:1px 1px 0 rgba(34,30,23,.08);
@@ -627,7 +627,7 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
   .draft-banner{padding:10px 12px;gap:8px;}
   .draft-banner .who{font-size:17px;}
   .draft-banner .sub{font-size:11.5px;}
-  .pool{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));max-height:48vh;}
+  .pool{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));max-height:50vh;}
   .pcard .nm{font-size:13px;}
   .rec-row{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
   .roster-box{min-width:100%;}
@@ -2139,6 +2139,149 @@ body{
 }
 .rl-park b{color:var(--amber);font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14px;}
 .rl-park span{color:#7fa48c;font-size:11px;}
+
+/* ============================================================
+   選手カードの作り直し
+   162px幅に肩書き・所属・成績・ランク・コストを詰めていたため、
+   名前が切れ、ランク印が名前に重なっていた。段を分けて整理する
+   ============================================================ */
+.pcard{padding:10px 11px 8px 13px;display:flex;flex-direction:column;gap:0;}
+.pcard .pc-row{align-items:flex-start;gap:10px;}
+.pcard .nm{
+  font-size:14.5px;font-weight:900;letter-spacing:.04em;line-height:1.35;
+  padding-right:18px;white-space:normal;overflow:visible;text-overflow:clip;
+  display:flex;align-items:center;gap:4px;flex-wrap:wrap;
+}
+.pcard .meta{font-size:11px;color:var(--ink2);margin-top:4px;line-height:1.55;}
+/* 成績は等幅の数字で。カード間で桁が揃うと比べやすい */
+.pc-stat{
+  margin-top:7px;padding-top:6px;border-top:1px dashed var(--rule);
+  font-family:"Oswald",sans-serif;font-size:11.5px;color:var(--ink2);
+  font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* 下段にランクとコスト。選ぶときに一番見る2つを並べて置く */
+.pc-foot{
+  margin-top:7px;padding-top:6px;border-top:1px solid var(--rule);
+  display:flex;align-items:center;gap:8px;
+}
+.pc-foot img,.pc-foot .rank{flex:none;}
+.pc-cost{
+  margin-left:auto;font-family:"Oswald",sans-serif;font-size:17px;font-weight:600;
+  color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;
+}
+.pc-cost i{font-style:normal;font-size:10px;color:var(--ink2);margin-left:2px;}
+.wstar{top:9px;right:8px;font-size:16px;}
+.pos-badge{margin-right:5px;}
+@media (max-width:680px){
+  .pcard{padding:9px 9px 7px 11px;}
+  .pcard .nm{font-size:13.5px;}
+  .pc-cost{font-size:15px;}
+}
+
+/* ============================================================
+   入力まわり。素のブラウザ部品が並ぶと一気に安っぽくなるので、
+   紙面の見た目に合わせて作り直す
+   ============================================================ */
+select, input[type="text"], input[type="search"], input[type="number"]{
+  font-family:inherit;font-size:13px;color:var(--ink);
+  background:var(--paper2);border:1px solid var(--rule2);border-radius:0;
+  padding:7px 10px;line-height:1.4;
+  box-shadow:inset 0 1px 2px rgba(93,82,58,.08);
+  transition:border-color .12s, box-shadow .12s;
+}
+select{
+  -webkit-appearance:none;appearance:none;padding-right:28px;cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,var(--ink2) 50%),
+                   linear-gradient(135deg,var(--ink2) 50%,transparent 50%);
+  background-position:calc(100% - 15px) 52%, calc(100% - 10px) 52%;
+  background-size:5px 5px, 5px 5px;background-repeat:no-repeat;
+}
+select:hover, input[type="text"]:hover, input[type="search"]:hover{border-color:var(--rule2);}
+select:focus, input[type="text"]:focus, input[type="search"]:focus{
+  outline:none;border-color:var(--red);box-shadow:0 0 0 2px rgba(167,44,24,.16);
+}
+/* 絞り込みの一列。ラベルを添えて何の欄か分かるようにする */
+.f-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;}
+.f-item{display:flex;flex-direction:column;gap:3px;}
+.f-item > label{
+  font-size:9.5px;letter-spacing:.16em;color:var(--ink2);padding-left:1px;
+}
+.f-item.grow{flex:1;min-width:150px;}
+.f-item.grow input{width:100%;}
+@media (max-width:680px){
+  .f-item{flex:1 1 calc(50% - 4px);min-width:0;}
+  .f-item select{width:100%;}
+}
+
+/* 絞り込みの下の補助行 */
+.f-note{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  font-size:11.5px;color:var(--ink2);
+  border-top:1px solid var(--rule);padding-top:8px;margin-bottom:10px;
+}
+.f-note #pool-count{
+  font-family:"Oswald",sans-serif;color:var(--ink);font-size:12.5px;flex:none;
+}
+.f-legend{margin-left:auto;}
+@media (max-width:680px){
+  .f-legend{margin-left:0;}
+}
+
+/* ============================================================
+   ロースター欄。空き枠が「─ 空き ─」という文字列だったので、
+   枠の見た目そのもので空きを示し、埋まった枠との差を強くする
+   ============================================================ */
+.roster-box .slot{
+  display:flex;align-items:center;gap:7px;padding:5px 7px;
+  border-bottom:1px dashed var(--rule);font-size:12.5px;cursor:pointer;line-height:1.5;
+}
+.roster-box .slot:hover{background:rgba(150,120,60,.09);}
+.roster-box .slot .sl{
+  flex:none;width:30px;text-align:center;font-size:10.5px;color:var(--ink2);
+  border:1px solid var(--rule);padding:1px 0;background:var(--paper2);
+}
+.roster-box .slot b{
+  flex:1;min-width:0;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.sl-y{flex:none;font-family:"Oswald",sans-serif;font-size:10px;color:var(--rule2);}
+.sl-c{
+  flex:none;font-family:"Oswald",sans-serif;font-size:12px;font-weight:600;color:var(--ink2);
+  font-variant-numeric:tabular-nums;
+}
+.sl-c i{font-style:normal;font-size:9px;margin-left:1px;}
+/* 空き枠は薄い破線の帯にして、埋まっていないことが一目で分かるようにする */
+.roster-box .slot.empty{background:transparent;}
+.sl-empty{
+  flex:1;font-size:10.5px;letter-spacing:.24em;color:#a72c1866;text-indent:.24em;
+  border-bottom:1px dotted rgba(167,44,24,.35);text-align:center;padding-bottom:1px;
+}
+.roster-box .slot.empty:hover .sl-empty{color:var(--red);border-color:var(--red);}
+.roster-box .sec{
+  font-size:10px;letter-spacing:.22em;color:var(--paper);background:var(--ink2);
+  padding:2px 8px;margin:9px 0 4px;display:inline-block;
+}
+.roster-box .sec:first-child{margin-top:2px;}
+/* おすすめは本文カードと同じ組みに。幅もそろえる */
+.rec-row{grid-template-columns:repeat(auto-fill,minmax(206px,1fr))!important;gap:9px;}
+.pcard.rec .rec-label{
+  font-size:9.5px;letter-spacing:.18em;color:#fff;background:var(--goldseal);
+  display:inline-block;padding:1px 8px;margin-bottom:7px;
+}
+@media (max-width:680px){
+  .rec-row{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))!important;}
+  .roster-box .slot{font-size:12px;}
+}
+.lead-none{
+  padding:22px 4px;text-align:center;font-size:12.5px;color:#7fa48c;letter-spacing:.06em;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+/* 本拠地の説明は長いので1行に収め、続きはツールチップで */
+.rl-park span{
+  display:inline-block;max-width:100%;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;vertical-align:bottom;
+}
 </style>
 </head>
 <body>
@@ -2275,7 +2418,8 @@ body{
   <div id="d-announce"><span class="an-k">実況</span>ドラフト会議、開会。</div>
 
   <div class="panel" style="padding:12px;">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+    <div class="f-row">
+      <div class="f-item"><label>ポジション</label>
       <select id="f-slot" onchange="renderPool()">
         <option value="">全ポジション</option>
         <option value="MGR">監督</option>
@@ -2289,18 +2433,24 @@ body{
         <option value="SP">先発投手</option>
         <option value="RP">中継ぎ</option>
         <option value="CL">抑え</option>
-      </select>
-      <select id="f-fr" onchange="renderPool()"><option value="">全球団</option></select>
-      <select id="f-era" onchange="renderPool()"><option value="">全年代</option></select>
+      </select></div>
+      <div class="f-item"><label>出身球団</label>
+      <select id="f-fr" onchange="renderPool()"><option value="">全球団</option></select></div>
+      <div class="f-item"><label>年代</label>
+      <select id="f-era" onchange="renderPool()"><option value="">全年代</option></select></div>
+      <div class="f-item"><label>並び順</label>
       <select id="f-sort" onchange="renderPool()">
         <option value="ovr">能力順</option>
         <option value="year">年代順</option>
         <option value="name">名前順</option>
         <option value="cost">コスト順</option>
-      </select>
-      <input type="text" id="f-name" placeholder="選手名で検索" oninput="renderPool()" style="width:150px;">
-      <span class="sub" id="pool-count"></span>
-      <span class="sub" style="margin-left:auto;">★=主要タイトル数　<span class="seal">三冠</span>=三冠王　空き枠クリックで絞り込み</span>
+      </select></div>
+      <div class="f-item grow"><label>選手名で検索</label>
+      <input type="search" id="f-name" placeholder="例：王貞治" oninput="renderPool()"></div>
+    </div>
+    <div class="f-note">
+      <span id="pool-count"></span>
+      <span class="f-legend">★ 主要タイトル数　<span class="seal">三冠</span> 三冠王　空き枠をクリックすると絞り込めます</span>
     </div>
     <div id="recs-wrap"><div class="sub" style="margin:2px 0 4px;letter-spacing:2px;">編集部のおすすめ（クリックで詳細）</div><div id="recs" class="rec-row"></div></div>
     <div id="watch-row"></div>
@@ -2593,9 +2743,9 @@ body{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608301604"></script>
-<script src="players.js?v=202608301604"></script>
-<script src="party.js?v=202608301604"></script>
-<script src="game.js?v=202608301604"></script>
+<script src="qrcode.js?v=202608311049"></script>
+<script src="players.js?v=202608311049"></script>
+<script src="party.js?v=202608311049"></script>
+<script src="game.js?v=202608311049"></script>
 </body>
 </html>

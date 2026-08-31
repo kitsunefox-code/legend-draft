@@ -559,13 +559,14 @@ function renderRecs(){
     <div class="pcard rec" onclick="openModal('${r.p.id}')">
       <div class="rec-label">${r.label}</div>
       <div class="pc-row">
-        ${avatarBox(r.p, 36)}
+        ${avatarBox(r.p, 44)}
         <div class="pc-main">
           <div class="nm">${esc(r.p.name)}${titleBadge(r.p)}</div>
-          <div class="meta">${roleLabel(r.p)}・${esc(r.p.team)}・${r.p.year}年 <span style="float:right;color:var(--gold)">${r.p.cost}pt</span></div>
-          <div class="meta">${statShort(r.p)}<span style="float:right;">${rankIcon(r.p.ovr, 22)}</span></div>
+          <div class="meta"><span class="pos-badge pos-${r.p.cat==="M"?"M":r.p.twoWay?"W":r.p.cat}">${roleLabel(r.p)}</span>${esc(r.p.team)}・${r.p.year}年</div>
         </div>
       </div>
+      <div class="pc-stat">${statShort(r.p)}</div>
+      <div class="pc-foot">${rankIcon(r.p.ovr, 22)}<span class="pc-cost">${r.p.cost}<i>pt</i></span></div>
     </div>`).join("");
 }
 
@@ -592,18 +593,20 @@ function renderPool(){
   $("pool-count").textContent = list.length > LIMIT
     ? `${list.length}名中 ${LIMIT}名を表示（絞り込み・検索で全員に到達できます）`
     : `${list.length}名`;
+  // ランクとコストは「選ぶときに一番見る数字」なので、
+  // 名前に重ねず下段に独立させる
   $("pool").innerHTML = shown.map(p=>`
     <div class="pcard spine-${p.cat==="M"?"M":p.twoWay?"W":p.cat}" onclick="openModal('${p.id}')">
-      <span class="rank-wrap">${rankIcon(p.ovr, 30)}</span>
-      ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')">★</span>`}
+      ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')" title="注目リスト">★</span>`}
       <div class="pc-row">
-        ${avatarBox(p)}
+        ${avatarBox(p, 44)}
         <div class="pc-main">
           <div class="nm">${esc(p.name)}${titleBadge(p)}</div>
           <div class="meta"><span class="pos-badge pos-${p.cat==="M"?"M":p.twoWay?"W":p.cat}">${roleLabel(p)}</span>${handMark(p)}${esc(p.team)}・${p.year}年</div>
-          <div class="meta">${statShort(p)}<span style="float:right;color:var(--gold)">${p.cost}pt</span></div>
         </div>
       </div>
+      <div class="pc-stat">${statShort(p)}</div>
+      <div class="pc-foot">${rankIcon(p.ovr, 22)}<span class="pc-cost">${p.cost}<i>pt</i></span></div>
     </div>`).join("");
 }
 // ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----
@@ -669,8 +672,9 @@ function renderRosters(){
       for(const k of keys){
         const d = SLOT_DEFS.find(x=>x.key===k);
         const p = t.slots[k];
-        html += `<div class="slot ${p?"":"empty"}" onclick="slotFilter('${d.grp}')"><span class="sl">${d.label}</span>${
-          p ? `<b>${esc(p.name)}</b>${titleBadge(p)} <span style="opacity:.6">('${String(p.year).slice(2)}・${p.cost}pt)</span>${p.awakened?" <span class='seal g'>覚</span>":""}${p.traded?" <span class='seal b'>交</span>":""}${p.joined!==undefined?" <span class='seal b'>米</span>":""}` : "<span style='color:#a72c1866'>─ 空き ─</span>"}</div>`;
+        html += `<div class="slot ${p?"":"empty"}" onclick="slotFilter('${d.grp}')" title="${p?"":"クリックでこの枠の候補に絞り込む"}"><span class="sl">${d.label}</span>${
+          p ? `<b>${esc(p.name)}</b>${titleBadge(p)}<span class="sl-y">'${String(p.year).slice(2)}</span><span class="sl-c">${p.cost}<i>pt</i></span>${p.awakened?"<span class='seal g'>覚</span>":""}${p.traded?"<span class='seal b'>交</span>":""}${p.joined!==undefined?"<span class='seal b'>米</span>":""}`
+            : `<span class="sl-empty">空き</span>`}</div>`;
       }
     }
     return `<div class="roster-box ${i===state.currentIdx?"turn":""}">
@@ -1874,6 +1878,8 @@ function makeRecorder(batT, pitT, seenBat, seenPit){
     const bs = lineOf(batT, bat);
     if(bs){
       seenBat.add(bs);
+      if(kind === "sb"){ bs.sb = (bs.sb||0) + 1; recalcBat(bs); return; }
+      if(kind === "cs"){ return; }                    // 盗塁死は打席に数えない
       bs.pa++;
       bs.rbi += runs;
       if(kind === "bb"){ bs.bb++; }
@@ -2035,15 +2041,37 @@ function playPA(st, bat, pit, park, rec){
   if(rec) rec(bat, pit, "out", 0);
   return 0;
 }
+// 盗塁。一塁に走者がいて二塁が空いていれば、足のある選手だけが仕掛ける
+function trySteal(st, runner, pit, rec){
+  if(!st.on[0] || st.on[1] || !runner) return;
+  const sb = runner.sb || 0;
+  if(sb < 8) return;                                  // 足の無い選手は走らない
+  const go = clamp(sb / 250, 0.02, 0.46);             // 仕掛ける頻度
+  if(rnd() > go) return;
+  const ok = rnd() < clamp(0.60 + sb / 420, 0.55, 0.85);   // 成功率
+  if(ok){
+    st.on[0] = false; st.on[1] = true;
+    if(rec) rec(runner, pit, "sb", 0);
+  }else{
+    st.on[0] = false; st.outs++;
+    if(rec) rec(runner, pit, "cs", 0);
+  }
+}
 // 半イニング。3アウトまで打席を回す
 function playHalf(order, idx, pit, park, rec){
   const st = {outs:0, on:[false,false,false]};
   let runs = 0;
   let guard = 0;
+  let prev = null;                                     // 一塁走者(直前に出た打者)
   while(st.outs < 3 && guard++ < 40){
     const bat = order[idx % order.length];
     idx++;
+    trySteal(st, prev, pit, rec);
+    if(st.outs >= 3) break;
+    const before = st.on[0];
     runs += playPA(st, bat, pit, park, rec);
+    prev = (st.on[0] && !before) ? bat : (st.on[0] ? prev : null);
+    if(st.on[0] && !prev) prev = bat;
   }
   return {runs, idx};
 }
@@ -2380,7 +2408,13 @@ function leadersHtml(entries, prog){
     ["セーブ", topN(P.filter(x=>x.role==="CL"),"sv"), s=>c(s.sv)+"S"],
     ["ホールド", topN(P.filter(x=>x.role==="RP"),"hld"), s=>c(s.hld)+"H"],
   ];
+  // まだ1試合も終わっていないと、全員0で並んだ意味のない一覧になる
+  const played = entries.some(s => (s.pa || 0) > 0 || (s.outs || 0) > 0);
+  if(!played){
+    return '<div class="lead-none">開幕を待っています。試合が始まると、ここに各部門の上位5人が並びます</div>';
+  }
   return `<div class="lead-grid">` + defs.map(([label, arr, fmt])=>{
+    arr = arr.filter(s => s.kind === "B" ? (s.pa||0) > 0 : (s.outs||0) > 0);
     if(!arr.length) return "";
     return `<div class="lead-cell"><div class="lead-k">${label}</div>` +
       arr.map((s,i)=>`<div class="lead-row${i===0?" first":""}">
@@ -2695,7 +2729,7 @@ function renderRosterLive(){
   const t = state.parts[state.rosterTab] || state.parts[0];
   const m = t.slots.MGR;
   const editable = !t.cpu && !state.finished;
-  body.innerHTML = (t.park ? `<div class="rl-park">本拠地　<b>${esc(t.park.name)}</b>　<span>${esc(t.park.type)}／${esc(t.park.note)}</span></div>` : "")
+  body.innerHTML = (t.park ? `<div class="rl-park">本拠地　<b>${esc(t.park.name)}</b>　<span title="${esc(t.park.note)}">${esc(t.park.type)}／${esc(t.park.note)}</span></div>` : "")
     + (editable ? `<div class="rl-edit"><button class="btn ghost sm" onclick="openOrder(${state.parts.indexOf(t)})">打順・ローテを組む</button></div>` : "")
     + (m ? `<div class="rl-mgr">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
     + statTables(t, false);

@@ -171,7 +171,8 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
   font-family:"Zen Old Mincho","Yu Mincho","Hiragino Mincho ProN",serif;
 }
 .draft-banner .sub{color:#cfc7b2;}
-.pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(206px,1fr));gap:9px;max-height:min(56vh,540px);overflow-y:auto;padding:4px 2px 8px;}
+/* 候補の面。上に一人・下に札の二段構えなので、中を積むだけにする */
+.pool{display:block;padding:4px 2px 8px;}
 .pcard{
   background:#fff;border:1px solid var(--rule);border-radius:2px;padding:9px 10px;cursor:pointer;
   transition:border-color .1s;position:relative;box-shadow:1px 1px 0 rgba(34,30,23,.08);
@@ -3478,6 +3479,119 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .od-h{font-size:12px;padding:4px 8px;}
   .od-note{font-size:10.5px;}
 }
+
+/* 本拠地を決める帯。面の下に貼り付けて、札を繰っていても押せるようにする */
+.pk-foot{
+  position:sticky;bottom:0;z-index:6;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin:14px -16px -16px;padding:10px 16px;
+  background:linear-gradient(180deg,rgba(240,236,224,0),var(--paper) 30%);
+  border-top:2px solid var(--ink);
+}
+.pk-foot-n{
+  flex:1;min-width:0;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:13px;font-weight:900;letter-spacing:.08em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pk-foot .btn{flex:none;}
+@media (max-width:700px){
+  .pk-foot{margin:12px -14px -14px;padding:9px 14px;gap:8px;}
+  .pk-foot-n{flex:1 0 100%;font-size:12px;}
+  .pk-foot .btn{flex:1;padding:11px 0;font-size:15px;}
+  .pv-go{display:none;}
+}
+
+/* ============================================================
+   候補の選び方 ── 本拠地と同じ組み方。上に一人を大きく、下に札。
+   1000人超を縦に積むと繰りきれないので
+   ============================================================ */
+.pl-body{grid-template-columns:minmax(0,0.8fr) minmax(0,1.4fr);}
+.pl-shot img{max-height:210px;object-position:50% 20%;}
+.pl-av{display:flex;align-items:center;justify-content:center;min-height:140px;background:var(--paper2);}
+.pl-figs .m-figs{margin:0;}
+.pl-tags{display:flex;gap:5px;flex-wrap:wrap;margin-top:9px;}
+.pl-rb{margin-top:8px;}
+.pl-more{display:flex;gap:8px;padding:10px 14px 0;flex-wrap:wrap;}
+/* 指名する帯。札を繰っていても押せるよう下に貼り付ける */
+.pl-foot{
+  position:sticky;bottom:0;z-index:6;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin:12px 0 12px;padding:10px 12px;
+  background:linear-gradient(180deg,rgba(240,236,224,0),var(--paper) 30%);
+  border-top:2px solid var(--ink);
+}
+.pl-foot-n{
+  flex:1;min-width:0;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:13.5px;font-weight:900;letter-spacing:.06em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pl-foot-n i{
+  font-style:normal;font-family:"Oswald",sans-serif;font-size:11px;
+  color:var(--paper);background:var(--red);padding:1px 6px;margin-left:8px;
+}
+/* 候補の札 */
+.pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:7px;}
+.pl-tile{
+  position:relative;border:1px solid var(--rule2);background:var(--paper2);
+  padding:0;cursor:pointer;overflow:hidden;display:block;text-align:left;
+}
+.pl-tile img{width:100%;height:62px;object-fit:cover;object-position:50% 20%;display:block;}
+.pl-tile-av{
+  display:flex;align-items:center;justify-content:center;height:62px;
+  background:repeating-linear-gradient(135deg,var(--paper2) 0 5px,rgba(0,0,0,.03) 5px 10px);
+}
+.pl-tile-n{
+  display:block;padding:4px 6px 2px;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:11.5px;font-weight:700;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pl-tile-f{
+  display:flex;align-items:center;gap:5px;padding:0 6px 5px;
+}
+.pl-tile-f i{
+  font-style:normal;font-family:"Oswald",sans-serif;font-size:11px;color:var(--ink2);
+  margin-left:auto;
+}
+.pl-tile.now{border-color:var(--red);box-shadow:0 0 0 2px var(--red);}
+.pl-tile.now .pl-tile-n{background:var(--red);color:#fff;}
+.pl-tile-w{
+  position:absolute;top:3px;right:4px;color:var(--amber);font-size:12px;
+  text-shadow:0 0 3px rgba(0,0,0,.8);
+}
+@media (max-width:700px){
+  .pl-body{grid-template-columns:1fr;gap:10px;padding:10px 10px 0;}
+  .pl-shot img{max-height:170px;}
+  .pl-more{padding:8px 10px 0;}
+  .pl-more .btn{flex:1;}
+  .pl-foot{margin:10px -14px 10px;padding:9px 14px;gap:8px;}
+  .pl-foot-n{flex:1 0 100%;font-size:12.5px;}
+  .pl-foot .btn{flex:1;padding:11px 0;font-size:15px;}
+  .pl-grid{grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:6px;}
+  .pl-tile img,.pl-tile-av{height:52px;}
+  .pl-tile-n{font-size:10.5px;}
+}
+
+@media (max-width:700px){
+  /* おすすめは一列にして横に流す。本体(候補の面)を押し下げないため */
+  #recs-wrap{margin-bottom:8px;}
+  #recs-wrap > .sub{font-size:10.5px;margin:0 0 4px !important;letter-spacing:1px !important;}
+  .rec-row{
+    display:flex !important;gap:7px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    padding-bottom:4px;scroll-snap-type:x proximity;
+  }
+  .rec-row > *{flex:0 0 62%;max-width:62%;scroll-snap-align:start;}
+  /* 凡例は畳む。絞り込みの中で説明済み */
+  .f-legend{display:none;}
+  .f-note{font-size:11px;margin-bottom:6px;}
+  #watch-row:empty{display:none;}
+}
+
+/* 札のランク章は小さく。名前とコストが読めることが先 */
+.pl-tile-f .rk-ic{width:18px !important;height:18px !important;}
+.pl-tile-f{padding:2px 6px 5px;}
+@media (max-width:700px){
+  .pl-tile-f .rk-ic{width:16px !important;height:16px !important;}
+}
 </style>
 </head>
 <body>
@@ -4072,9 +4186,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609021130"></script>
-<script src="players.js?v=202609021130"></script>
-<script src="party.js?v=202609021130"></script>
-<script src="game.js?v=202609021130"></script>
+<script src="qrcode.js?v=202609011520"></script>
+<script src="players.js?v=202609011520"></script>
+<script src="party.js?v=202609011520"></script>
+<script src="game.js?v=202609011520"></script>
 </body>
 </html>

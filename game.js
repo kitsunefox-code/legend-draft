@@ -655,6 +655,7 @@ function parkRoundDone(){
   c.groups = null;
   c.queue = null;
   c.qi = 0;
+  c.pv = null;               // 取られた球場を見たまま次の巡に入らない
   const names = rest.map(function(i){ return state.parts[i].name; }).join("、");
   curtain("第" + c.round + "巡へ",
     esc(names) + " が抽選に外れました。<br>残った球場から選び直してください。",
@@ -714,11 +715,14 @@ function renderParkDraft(){
 
   const CATS = [["NPB","現行"],["歴史","往年"],["MLB","MLB"],["地方","地方"],["草野球","草野球"]];
   if(!c.cat) c.cat = "NPB";
-  // 見ている球場。指定が無ければ、この分類の空いている先頭
+  // 見ている球場。前の巡で見ていた球場が取られていることがあるので、
+  // 取られていたら空いている先頭へ移す(決めるボタンが消えて進めなくなる)
   const inCat = PARKS.filter(function(pk){ return pk.cat === c.cat; });
-  if(!c.pv || !PARKS.some(function(pk){ return pk.id === c.pv; })){
-    const free = inCat.find(function(pk){ return !taken.has(pk.id); }) || inCat[0];
-    c.pv = free && free.id;
+  const pvOk = c.pv && PARKS.some(function(pk){ return pk.id === c.pv; }) && !taken.has(c.pv);
+  if(!pvOk){
+    const free = inCat.find(function(pk){ return !taken.has(pk.id); }) ||
+                 PARKS.find(function(pk){ return !taken.has(pk.id); }) || inCat[0];
+    if(free){ c.pv = free.id; c.cat = free.cat; }
   }
   const pv = PARKS.find(function(pk){ return pk.id === c.pv; }) || PARKS[0];
   const pvUsed = taken.has(pv.id);
@@ -752,11 +756,14 @@ function renderParkDraft(){
         '</div>' +
       '</div>' +
       '<div class="pv-note">' + esc(pv.note) + '</div>' +
-      '<div class="pv-go">' +
-        (pvUsed
-          ? '<span class="pv-used">' + esc(pvOwner ? pvOwner.name + " が獲得済み" : "選択済み") + '</span>'
-          : '<button class="btn lg" onclick="parkChoose(&quot;' + pv.id + '&quot;)">この球場を希望する</button>') +
-      '</div>' +
+    '</div>';
+  // 決めるボタンは面の下に貼り付ける。札を繰っている最中でも押せるように
+  const foot =
+    '<div class="pk-foot">' +
+      '<span class="pk-foot-n">' + esc(pv.name) + '</span>' +
+      (pvUsed
+        ? '<span class="pv-used">' + esc(pvOwner ? pvOwner.name + " が獲得済み" : "選択済み") + '</span>'
+        : '<button class="btn lg" onclick="parkChoose(&quot;' + pv.id + '&quot;)">この球場を希望する</button>') +
     '</div>';
 
   const tabs = CATS.map(function(x){
@@ -787,7 +794,8 @@ function renderParkDraft(){
       '<span class="pk-you">希望する本拠地を1つ選んでください</span></div>' +
     preview +
     '<div class="pk-cats">' + tabs + '</div>' +
-    '<div class="pk-grid">' + tiles + '</div>';
+    '<div class="pk-grid">' + tiles + '</div>' +
+    foot;
 }
 function cpuParkPick(){
   // 入札制になったので、CPUの選択は parkNext の中で済ませている
@@ -990,37 +998,94 @@ function filterMatchesSlot(p, f){
   if(f==="MGR") return p.cat==="M";
   return p.cat==="B" && p.pos.includes(f);
 }
-function renderPool(){
-  const t = currentTeam(); if(!t) return;
-  const fSlot=$("f-slot").value, fFr=$("f-fr").value, fEra=$("f-era").value, sort=$("f-sort").value;
-  const q = ($("f-name").value||"").trim();
+// 見ている候補。札を押すと上の面が入れ替わる
+function poolPick(id){
+  state.poolPv = id;
+  renderPool();
+  const el = document.querySelector("#pool-pv");
+  if(el && el.scrollIntoView) el.scrollIntoView({block:"nearest"});
+}
+function poolList(){
+  const t = currentTeam();
+  if(!t) return [];
+  const fSlot = $("f-slot").value, fFr = $("f-fr").value, fEra = $("f-era").value, sort = $("f-sort").value;
+  const q = ($("f-name").value || "").trim();
   const {pool} = validPool(t);
-  let list = pool.filter(p=>filterMatchesSlot(p,fSlot) && (!fFr || p.fr===fFr) && (!fEra || p.decade===fEra) &&
-    (!q || p.name.includes(q)));
-  if(sort==="ovr") list.sort((a,b)=>b.ovr-a.ovr);
-  else if(sort==="year") list.sort((a,b)=>a.year-b.year);
-  else if(sort==="cost") list.sort((a,b)=>a.cost-b.cost || b.ovr-a.ovr);
-  else list.sort((a,b)=>a.name.localeCompare(b.name,"ja"));
+  let list = pool.filter(function(p){
+    return filterMatchesSlot(p, fSlot) && (!fFr || p.fr === fFr) &&
+           (!fEra || p.decade === fEra) && (!q || p.name.includes(q));
+  });
+  if(sort === "ovr") list.sort(function(a,b){ return b.ovr - a.ovr; });
+  else if(sort === "year") list.sort(function(a,b){ return a.year - b.year; });
+  else if(sort === "cost") list.sort(function(a,b){ return a.cost - b.cost || b.ovr - a.ovr; });
+  else list.sort(function(a,b){ return a.name.localeCompare(b.name, "ja"); });
+  return list;
+}
+// 上に一人を大きく、下に候補の札。本拠地の選び方と同じ組み方にそろえる
+function renderPool(){
+  const t = currentTeam();
+  if(!t) return;
+  const list = poolList();
   const LIMIT = 140;
   const shown = list.slice(0, LIMIT);
   $("pool-count").textContent = list.length > LIMIT
-    ? `${list.length}名中 ${LIMIT}名を表示（絞り込み・検索で全員に到達できます）`
-    : `${list.length}名`;
-  // ランクとコストは「選ぶときに一番見る数字」なので、
-  // 名前に重ねず下段に独立させる
-  $("pool").innerHTML = shown.map(p=>`
-    <div class="pcard spine-${p.cat==="M"?"M":p.twoWay?"W":p.cat}" onclick="openModal('${p.id}')">
-      ${t.cpu?"":`<span class="wstar ${t.watch.has(p.id)?"on":""}" onclick="event.stopPropagation();toggleWatch('${p.id}')" title="注目リスト">★</span>`}
-      <div class="pc-row">
-        ${avatarBox(p, 44)}
-        <div class="pc-main">
-          <div class="nm">${esc(p.name)}${titleBadge(p)}</div>
-          <div class="meta"><span class="pos-badge pos-${p.cat==="M"?"M":p.twoWay?"W":p.cat}">${roleLabel(p)}</span>${handMark(p)}${esc(p.team)}・${p.year}年</div>
-        </div>
-      </div>
-      <div class="pc-stat">${statShort(p)}</div>
-      <div class="pc-foot">${rankIcon(p.ovr, 22)}<span class="pc-cost">${p.cost}<i>pt</i></span></div>
-    </div>`).join("");
+    ? list.length + "名中 " + LIMIT + "名を表示（絞り込み・検索で全員に到達できます）"
+    : list.length + "名";
+
+  let pv = shown.find(function(p){ return p.id === state.poolPv; }) || shown[0];
+  state.poolPv = pv ? pv.id : null;
+
+  const preview = pv ? (function(){
+    const can = !t.cpu && (canTake(t, pv) || (validPool(t).over && canTake(t, pv, true)));
+    const bid = state.bid && state.bid.stage === "collect";
+    return '<div id="pool-pv" class="pv">' +
+      '<div class="pv-name">' + esc(pv.name) + titleBadge(pv) + '</div>' +
+      '<div class="pv-body pl-body">' +
+        '<div class="pv-shot pl-shot">' +
+          (pv.ph !== undefined
+            ? '<img src="assets/face/' + pv.ph + '.jpg" alt="" onerror="this.remove()">'
+            : '<div class="pl-av">' + avatarBox(pv, 64) + '</div>') +
+        '</div>' +
+        '<div class="pv-data">' +
+          '<div class="pv-h">' + roleLabel(pv) + '　' + esc(pv.team) + '　' + pv.year + '年</div>' +
+          '<div class="pl-figs">' + figuresHtml(statFigures(pv)) + '</div>' +
+          '<div class="pl-tags">' +
+            '<span class="tag key">コスト <b>' + pv.cost + '</b>pt</span>' +
+            ((pv.th || pv.bh) ? '<span class="tag">' + (pv.th||"？") + '投' + (pv.bh||"？") + '打</span>' : "") +
+            '<span class="tag">' + esc(pv.decade) + '</span>' +
+            (pv.tc ? '<span class="tag hot">三冠王</span>' : "") +
+          '</div>' +
+          (intlRibbon(pv) ? '<div class="pl-rb">' + intlRibbon(pv) + '</div>' : "") +
+        '</div>' +
+      '</div>' +
+      '<div class="pv-note">' + esc(pv.desc || "") + '</div>' +
+      '<div class="pl-more"><button class="btn ghost sm" onclick="openModal(&quot;' + pv.id + '&quot;)">詳しく見る</button>' +
+        (t.cpu ? "" : '<button class="btn ghost sm" onclick="toggleWatch(&quot;' + pv.id + '&quot;)">' +
+          (t.watch.has(pv.id) ? "★ 注目から外す" : "☆ 注目に入れる") + '</button>') +
+      '</div>' +
+    '</div>' +
+    '<div class="pl-foot">' +
+      '<span class="pl-foot-n">' + esc(pv.name) + '<i>' + pv.cost + 'pt</i></span>' +
+      (can
+        ? '<button class="btn lg" onclick="poolPickGo(&quot;' + pv.id + '&quot;)">' +
+          (bid ? "この選手に入札する" : "この選手を指名する") + '</button>'
+        : '<span class="pv-used">' + (t.cpu ? "CPUの手番です" : "いまは指名できません") + '</span>') +
+    '</div>';
+  })() : '<div class="fe-empty">該当する選手がいません。絞り込みをゆるめてください。</div>';
+
+  const tiles = shown.map(function(p){
+    const now = p.id === state.poolPv;
+    return '<button class="pl-tile' + (now ? " now" : "") + '" onclick="poolPick(&quot;' + p.id + '&quot;)">' +
+      (p.ph !== undefined
+        ? '<img src="assets/face/' + p.ph + '.jpg" alt="" loading="lazy" onerror="this.remove()">'
+        : '<span class="pl-tile-av">' + avatarSvg(p, 34) + '</span>') +
+      '<span class="pl-tile-n">' + esc(p.name) + '</span>' +
+      '<span class="pl-tile-f">' + rankIcon(p.ovr, 16) + '<i>' + p.cost + '</i></span>' +
+      (!t.cpu && t.watch.has(p.id) ? '<span class="pl-tile-w">★</span>' : "") +
+      '</button>';
+  }).join("");
+
+  $("pool").innerHTML = preview + '<div class="pl-grid">' + tiles + '</div>';
 }
 // ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----
 function toggleWatch(pid){
@@ -1231,6 +1296,14 @@ function openModal(id){
   $("modal-bg").classList.add("show");
 }
 function closeModal(){ $("modal-bg").classList.remove("show"); }
+// 一覧から直に指名する。詳細を開かずに決められるように
+function poolPickGo(id){
+  const t = currentTeam(), p = findPlayer(id);
+  if(!t || t.cpu || !p) return;
+  if(!canTake(t, p) && !(validPool(t).over && canTake(t, p, true))) return;
+  if(state.bid && state.bid.stage === "collect"){ registerBid(p); return; }
+  doPick(t, p);
+}
 function pickFromModal(){
   const t = currentTeam(), p = state.modalPlayer;
   if(!t || t.cpu) return;

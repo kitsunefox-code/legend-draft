@@ -1,7 +1,7 @@
 "use strict";
 // ============================================================
 // レジェンドドラフト 〜歴代最強ペナント〜 (リアル編成版)
-// ロースター: 監督1 / スタメン野手9(捕一二三遊外×3指) / 控え3 / 先発3 / 中継2 / 抑え1
+// ロースター: 監督1 / スタメン野手9(捕一二三遊外×3指) / 控え3 / 先発4 / 中継3 / 抑え1
 // ============================================================
 
 const FRANCHISES = ["巨人","阪神","中日","ヤクルト","広島","DeNA","ソフトバンク","西武","ロッテ","日本ハム","オリックス","近鉄","楽天","その他"];
@@ -28,12 +28,13 @@ const SLOT_DEFS = [
   {key:"SP4", grp:"SP",  label:"先発"},
   {key:"RP1", grp:"RP",  label:"中継"},
   {key:"RP2", grp:"RP",  label:"中継"},
+  {key:"RP3", grp:"RP",  label:"中継"},
   {key:"CL",  grp:"CL",  label:"抑え"},
 ];
 const LINEUP_KEYS = ["C","B1","B2","B3","SS","OF1","OF2","OF3","DH"];
 const BENCH_KEYS = ["BN1","BN2","BN3"];
 const SP_KEYS = ["SP1","SP2","SP3","SP4"];
-const RP_KEYS = ["RP1","RP2"];
+const RP_KEYS = ["RP1","RP2","RP3"];
 
 // ---------- utils ----------
 const $ = id => document.getElementById(id);
@@ -322,7 +323,7 @@ function startDraft(){
     ["外野", n*3, pool.filter(p=>eligibleGrp(p,"外")).length],
     ["野手全体", n*12, pool.filter(p=>p.cat==="B").length],
     ["先発", n*3, pool.filter(p=>eligibleGrp(p,"SP")).length],
-    ["救援(中継ぎ・抑え)", n*3, pool.filter(p=>p.cat==="P"&&(p.role==="RP"||p.role==="CL")).length],
+    ["救援(中継ぎ・抑え)", n*4, pool.filter(p=>p.cat==="P"&&(p.role==="RP"||p.role==="CL")).length],
   ];
   const lack = needs.filter(([,need,have])=>have<need);
   if(lack.length){
@@ -707,7 +708,7 @@ function statShort(p){
 
 function renderRosters(){
   $("d-rosters").innerHTML = state.parts.map((t,i)=>{
-    const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",["SP1","SP2","SP3","SP4","RP1","RP2","CL"]]];
+    const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",["SP1","SP2","SP3","SP4","RP1","RP2","RP3","CL"]]];
     let html = "";
     for(const [sec,keys] of secs){
       html += `<div class="sec">${sec}</div>`;
@@ -2019,14 +2020,15 @@ function creditGame(A, B, rA, rB, seen){
     const ws = win === A ? sa : sb, ls = lose === A ? sa : sb;
     if(ws) ws.w++;
     if(ls) ls.l++;
+    // セーブ・ホールドは、その試合に実際に投げた投手にだけ付ける
+    const diff = Math.abs(rA - rB);
     const cl = win.slots.CL;
     const cs = cl && !isOut(cl) ? lineOf(win, cl) : null;
-    const diff = Math.abs(rA - rB);
-    if(cs && diff <= 3 && cs !== ws) cs.sv++;
+    if(cs && diff <= 3 && cs !== ws && seen.pit.has(cs)) cs.sv++;
     const rp = RP_KEYS.map(k => win.slots[k]).filter(x => x && !isOut(x));
     for(const r of rp){
       const rs = lineOf(win, r);
-      if(rs && diff <= 3 && rnd() < 0.55) rs.hld++;
+      if(rs && rs !== ws && rs !== cs && diff <= 3 && seen.pit.has(rs) && rnd() < 0.7) rs.hld++;
     }
   }
 }
@@ -2185,21 +2187,21 @@ function rollGame(A, B, keep){
   let rA = 0, rB = 0, ia = 0, ib = 0;
   const spA = starterOf(A), spB = starterOf(B);
   for(let inn = 1; inn <= 9; inn++){
-    const pB = pitcherForInning(B, inn, spB).p;   // Aの攻撃を受けるのはBの投手
+    const pB = pitcherForInning(B, inn, spB, rB - rA).p;   // Aの攻撃を受けるのはBの投手
     const ra = playHalf(oa, ia, pB, park, recA);
     rA += ra.runs; ia = ra.idx;
     if(inn === 9 && rB > rA) break;               // 裏の攻撃は不要
-    const pA = pitcherForInning(A, inn, spA).p;
+    const pA = pitcherForInning(A, inn, spA, rA - rB).p;
     const rb = playHalf(ob, ib, pA, park, recB);
     rB += rb.runs; ib = rb.idx;
     if(inn === 9 && rB > rA) break;               // サヨナラ
   }
   // 延長は最大3イニング。決着しなければ引き分け
   for(let ex = 0; ex < 3 && rA === rB; ex++){
-    const pB = pitcherForInning(B, 9, spB).p;
+    const pB = pitcherForInning(B, 9, spB, rB - rA).p;
     const ra = playHalf(oa, ia, pB, park, recA);
     rA += ra.runs; ia = ra.idx;
-    const pA = pitcherForInning(A, 9, spA).p;
+    const pA = pitcherForInning(A, 9, spA, rA - rB).p;
     const rb = playHalf(ob, ib, pA, park, recB);
     rB += rb.runs; ib = rb.idx;
   }
@@ -3717,21 +3719,39 @@ function splitInnings(runs){
 }
 function starterOf(t){
   const keys = rotKeys(t);
-  const k = keys[(t.rotIdx || 0) % keys.length];
-  const p = t.slots[k];
-  if(p && !isOut(p)) return p;
-  // 予定の先発が離脱していれば、投げられる者を繰り上げる
-  const alt = keys.map(x=>t.slots[x]).filter(x=>x && !isOut(x));
-  return alt[0] || p || t.slots.SP1;
+  const n = keys.length;
+  const at = (t.rotIdx || 0) % n;
+  // 予定の先発が離脱していれば、ローテの並び順に繰り上げる。
+  // 常に1番手を代役にしていた頃は、その1人だけが53登板338回になっていた
+  for(let i = 0; i < n; i++){
+    const p = t.slots[keys[(at + i) % n]];
+    if(p && !isOut(p)) return p;
+  }
+  return t.slots[keys[at]] || t.slots.SP1;
 }
-function pitcherForInning(t, inn, sp){
+// 中継ぎ3人は日替わりで回す。毎日同じ2人を出していた頃は
+// 全員が144登板してしまい、成績表が現実離れして見えた
+function reliefOf(t, n){
+  const ps = RP_KEYS.map(k => t.slots[k]).filter(p => p && !isOut(p));
+  if(!ps.length) return t.slots.RP1 || t.slots.CL || t.slots.SP1;
+  const gi = (t.W || 0) + (t.L || 0) + (t.T || 0);
+  return ps[(gi + n) % ps.length];
+}
+// lead は「そのイニングを投げる側の点差」。1〜3点差の9回だけ抑えが出る
+function pitcherForInning(t, inn, sp, lead){
   const st = (sp && !isOut(sp)) ? sp : starterOf(t);
-  // 先発は6回まで投げきる。6回をローテの控えに投げさせていた頃は
-  // 1番手だけが全144試合に登板してしまっていた
   if(inn <= 6) return {p:st, key:"SP", label:"先発"};
-  if(inn === 7) return {p:t.slots.RP1 || t.slots.SP1, key:"RP", label:"中継ぎ"};
-  if(inn === 8) return {p:t.slots.RP2 || t.slots.RP1 || t.slots.SP1, key:"RP", label:"セットアッパー"};
-  return {p:t.slots.CL || t.slots.RP1 || t.slots.SP1, key:"CL", label:"抑え"};
+  // 好投した日は7回も投げる。采配の下見と本番で結果が変わらないよう、
+  // 消化試合数と投手の力から決める(乱数は使わない)
+  if(inn === 7 && (((t.W||0)+(t.L||0)+(t.T||0) + (st.ovr||78)) % 5) < 2)
+    return {p:st, key:"SP", label:"先発"};
+  if(inn === 7) return {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"};
+  if(inn === 8) return {p:reliefOf(t, 1), key:"RP", label:"セットアッパー"};
+  const save = lead === undefined || (lead >= 1 && lead <= 3);
+  const cl = t.slots.CL;
+  if(save && cl && !isOut(cl)) return {p:cl, key:"CL", label:"抑え"};
+  if(save) return {p:reliefOf(t, 2), key:"CL", label:"抑え"};
+  return {p:reliefOf(t, 2), key:"RP", label:"中継ぎ"};
 }
 function basesLabel(b){
   const on = [b[0]?"一":"", b[1]?"二":"", b[2]?"三":""].filter(Boolean);
@@ -3914,7 +3934,12 @@ function buildGameScript(g){
       if(!top && inn === 9 && skipBottom9){ script.push({t:"x"}); continue; }
       const batT = top ? g.A : g.B;
       const pitT = top ? g.B : g.A;
-      const info = pitcherForInning(pitT, inn, top ? g.spB : g.spA);
+      // そのイニングを迎えた時点の点差で継投を決める(最終スコアではない)
+      let sa = 0, sb = 0;
+      for(let k = 0; k < inn - 1; k++){ sa += ia[k]; sb += ib[k]; }
+      if(!top) sa += ia[inn-1];
+      const lead = top ? (sb - sa) : (sa - sb);
+      const info = pitcherForInning(pitT, inn, top ? g.spB : g.spA, lead);
       const prev = top ? prevPA : prevPB;
       if(prev && prev !== info.p){
         script.push({t:"chg", text:`― 投手交代　${pitT.name}　${prev.name} → ${info.p.name}（${info.label}）―`});

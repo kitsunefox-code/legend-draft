@@ -2374,7 +2374,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 .st-lb span{display:block;font-size:11px;color:var(--ink2);line-height:1.65;margin-top:2px;}
 .st-in{flex:1;min-width:0;}
 .st-in select{min-width:min(320px,100%);}
-/* 21枠の見取り図 */
+/* 編成の見取り図 */
 .roster-map{display:flex;flex-direction:column;gap:7px;margin-top:8px;}
 .rm-g{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
 .rm-h{
@@ -2951,14 +2951,33 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 
   <div class="panel">
-    <b>これから組む21枠</b>
-    <div class="roster-map">
-      <div class="rm-g"><span class="rm-h">首脳陣</span><i>監督</i></div>
-      <div class="rm-g"><span class="rm-h">スタメン</span><i>捕</i><i>一</i><i>二</i><i>三</i><i>遊</i><i>左</i><i>中</i><i>右</i><i>指</i></div>
-      <div class="rm-g"><span class="rm-h">控え</span><i>控</i><i>控</i><i>控</i></div>
-      <div class="rm-g"><span class="rm-h">投手</span><i>先発</i><i>先発</i><i>先発</i><i>先発</i><i>中継</i><i>中継</i><i>中継</i><i>抑え</i></div>
+    <b>編成<span class="pn-cnt" id="rm-total">全21枠</span></b>
+    <div class="sub" style="margin:4px 0 12px;">枚数を変えると、指名の順番も戦い方も変わります。迷ったらそのままで。</div>
+
+    <div class="st-row">
+      <div class="st-lb"><b>先発</b><span>厚くすると1人あたりの登板と投球回が減ります</span></div>
+      <div class="st-in">
+        <select id="opt-sp" onchange="renderRosterMap()"><option value="3">3人</option><option value="4" selected>4人</option><option value="5">5人</option><option value="6">6人</option></select>
+      </div>
     </div>
+
+    <div class="st-row">
+      <div class="st-lb"><b>中継ぎ</b><span>7回・8回を回す枚数。少ないと同じ顔が毎日出ます</span></div>
+      <div class="st-in">
+        <select id="opt-rp" onchange="renderRosterMap()"><option value="2">2人</option><option value="3" selected>3人</option><option value="4">4人</option><option value="5">5人</option></select>
+      </div>
+    </div>
+
+    <div class="st-row">
+      <div class="st-lb"><b>控え野手</b><span>離脱した野手の穴を埋めます</span></div>
+      <div class="st-in">
+        <select id="opt-bn" onchange="renderRosterMap()"><option value="2">2人</option><option value="3" selected>3人</option><option value="4">4人</option><option value="5">5人</option></select>
+      </div>
+    </div>
+
+    <div class="roster-map" id="roster-map"></div>
     <div class="sub" style="margin-top:10px;line-height:1.95;">
+      抑えは常に1人。9回に1〜3点差で勝っている時だけ登板します。<br>
       二刀流の選手は「指名打者」と「先発」の2枠を同時に埋めます。<br>
       名将は采配に優れ、<b>安い監督ほど育成力が高い</b>（開幕時に無名級の選手が「覚醒」しやすくなります）。
     </div>
@@ -3321,9 +3340,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608311940"></script>
-<script src="players.js?v=202608311940"></script>
-<script src="party.js?v=202608311940"></script>
-<script src="game.js?v=202608311940"></script>
+<script src="qrcode.js?v=202608312110"></script>
+<script src="players.js?v=202608312110"></script>
+<script src="party.js?v=202608312110"></script>
+<script src="game.js?v=202608312110"></script>
 </body>
 </html>

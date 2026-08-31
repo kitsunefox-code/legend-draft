@@ -8,33 +8,34 @@ const FRANCHISES = ["巨人","阪神","中日","ヤクルト","広島","DeNA","�
 const COLORS = ["#a72c18","#22456b","#2c5c34","#9a7714","#4a3568","#7a4b21"];
 const MONTHS = ["4月","5月","6月","7月","8月","9月","10月"];
 
-const SLOT_DEFS = [
-  {key:"MGR", grp:"MGR", label:"監督"},
-  {key:"C",   grp:"捕",  label:"捕"},
-  {key:"B1",  grp:"一",  label:"一"},
-  {key:"B2",  grp:"二",  label:"二"},
-  {key:"B3",  grp:"三",  label:"三"},
-  {key:"SS",  grp:"遊",  label:"遊"},
-  {key:"OF1", grp:"外",  label:"左"},
-  {key:"OF2", grp:"外",  label:"中"},
-  {key:"OF3", grp:"外",  label:"右"},
-  {key:"DH",  grp:"DH",  label:"指"},
-  {key:"BN1", grp:"BN",  label:"控"},
-  {key:"BN2", grp:"BN",  label:"控"},
-  {key:"BN3", grp:"BN",  label:"控"},
-  {key:"SP1", grp:"SP",  label:"先発"},
-  {key:"SP2", grp:"SP",  label:"先発"},
-  {key:"SP3", grp:"SP",  label:"先発"},
-  {key:"SP4", grp:"SP",  label:"先発"},
-  {key:"RP1", grp:"RP",  label:"中継"},
-  {key:"RP2", grp:"RP",  label:"中継"},
-  {key:"RP3", grp:"RP",  label:"中継"},
-  {key:"CL",  grp:"CL",  label:"抑え"},
-];
+// 編成表は設定画面で組み替える。既定は先発4・中継3・控え3の21枠。
+// 配列はあちこちが参照を握っているので、作り直さず中身を入れ替える
+const SLOT_DEFS = [];
 const LINEUP_KEYS = ["C","B1","B2","B3","SS","OF1","OF2","OF3","DH"];
-const BENCH_KEYS = ["BN1","BN2","BN3"];
-const SP_KEYS = ["SP1","SP2","SP3","SP4"];
-const RP_KEYS = ["RP1","RP2","RP3"];
+const BENCH_KEYS = [];
+const SP_KEYS = [];
+const RP_KEYS = [];
+const ROSTER_RANGE = {sp:[3,6], rp:[2,5], bn:[2,5]};
+let ROSTER = {sp:4, rp:3, bn:3};
+function applyRoster(sp, rp, bn){
+  const fit = (v, r) => Math.max(r[0], Math.min(r[1], Number(v) || r[0]));
+  ROSTER = {sp:fit(sp, ROSTER_RANGE.sp), rp:fit(rp, ROSTER_RANGE.rp), bn:fit(bn, ROSTER_RANGE.bn)};
+  const fill = (arr, pre, n) => { arr.length = 0; for(let i = 1; i <= n; i++) arr.push(pre + i); };
+  fill(BENCH_KEYS, "BN", ROSTER.bn);
+  fill(SP_KEYS, "SP", ROSTER.sp);
+  fill(RP_KEYS, "RP", ROSTER.rp);
+  SLOT_DEFS.length = 0;
+  SLOT_DEFS.push({key:"MGR", grp:"MGR", label:"監督"});
+  [["C","捕","捕"],["B1","一","一"],["B2","二","二"],["B3","三","三"],["SS","遊","遊"],
+   ["OF1","外","左"],["OF2","外","中"],["OF3","外","右"],["DH","DH","指"]]
+    .forEach(x => SLOT_DEFS.push({key:x[0], grp:x[1], label:x[2]}));
+  BENCH_KEYS.forEach(k => SLOT_DEFS.push({key:k, grp:"BN", label:"控"}));
+  SP_KEYS.forEach(k => SLOT_DEFS.push({key:k, grp:"SP", label:"先発"}));
+  RP_KEYS.forEach(k => SLOT_DEFS.push({key:k, grp:"RP", label:"中継"}));
+  SLOT_DEFS.push({key:"CL", grp:"CL", label:"抑え"});
+  return ROSTER;
+}
+applyRoster(4, 3, 3);
 
 // ---------- utils ----------
 const $ = id => document.getElementById(id);
@@ -205,6 +206,7 @@ function buildFrontPage(){
 // ============================================================
 function goSetup(){
   show("scr-setup");
+  renderRosterMap();
   if(!$("p-list").children.length){ addPlayer(); addPlayer(); addPlayer(); }
   if(!$("era-chips").children.length){
     const decades = [...new Set(PLAYERS.map(p=>p.decade))].sort();
@@ -216,6 +218,24 @@ function goSetup(){
       $("era-chips").appendChild(c);
     });
   }
+}
+function optNum(id, dflt){ const e = $(id); return e ? (Number(e.value) || dflt) : dflt; }
+// 設定画面の見取り図。選んだ枚数をそのまま並べて見せる
+function renderRosterMap(){
+  const box = $("roster-map");
+  if(!box) return;
+  const sp = optNum("opt-sp", 4), rp = optNum("opt-rp", 3), bn = optNum("opt-bn", 3);
+  const total = 1 + 9 + bn + sp + rp + 1;
+  const row = (h, cells) => '<div class="rm-g"><span class="rm-h">' + h + '</span>' +
+    cells.map(c => '<i>' + c + '</i>').join("") + '</div>';
+  const rep = (n, t) => Array.from({length:n}, () => t);
+  box.innerHTML =
+    row("首脳陣", ["監督"]) +
+    row("スタメン", ["捕","一","二","三","遊","左","中","右","指"]) +
+    row("控え", rep(bn, "控")) +
+    row("投手", rep(sp, "先発").concat(rep(rp, "中継"), ["抑え"]));
+  const t = $("rm-total");
+  if(t) t.textContent = "全" + total + "枠";
 }
 function addPlayer(){
   const list = $("p-list");
@@ -288,6 +308,8 @@ function newTeam(name, fr, cpu, color, emblem){
 function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
+  // 枠を組んでからチームを作る(newTeamがSP_KEYSを写し取るため順序が大事)
+  applyRoster(optNum("opt-sp", 4), optNum("opt-rp", 3), optNum("opt-bn", 3));
   emblemPool = null;
   emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i))
     .filter(i => !rows.some(r => Number(r.dataset.em) === i));   // 選ばれた分はCPUに回さない
@@ -321,9 +343,9 @@ function startDraft(){
     ["三塁", n, pool.filter(p=>eligibleGrp(p,"三")).length],
     ["遊撃", n, pool.filter(p=>eligibleGrp(p,"遊")).length],
     ["外野", n*3, pool.filter(p=>eligibleGrp(p,"外")).length],
-    ["野手全体", n*12, pool.filter(p=>p.cat==="B").length],
-    ["先発", n*3, pool.filter(p=>eligibleGrp(p,"SP")).length],
-    ["救援(中継ぎ・抑え)", n*4, pool.filter(p=>p.cat==="P"&&(p.role==="RP"||p.role==="CL")).length],
+    ["野手全体", n*(9+ROSTER.bn), pool.filter(p=>p.cat==="B").length],
+    ["先発", n*ROSTER.sp, pool.filter(p=>eligibleGrp(p,"SP")).length],
+    ["救援(中継ぎ・抑え)", n*(ROSTER.rp+1), pool.filter(p=>p.cat==="P"&&(p.role==="RP"||p.role==="CL")).length],
   ];
   const lack = needs.filter(([,need,have])=>have<need);
   if(lack.length){
@@ -708,7 +730,7 @@ function statShort(p){
 
 function renderRosters(){
   $("d-rosters").innerHTML = state.parts.map((t,i)=>{
-    const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",["SP1","SP2","SP3","SP4","RP1","RP2","RP3","CL"]]];
+    const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",[...SP_KEYS, ...RP_KEYS, "CL"]]];
     let html = "";
     for(const [sec,keys] of secs){
       html += `<div class="sec">${sec}</div>`;
@@ -3450,7 +3472,7 @@ function pById(i){ return i>=100000 ? MLB_STARS[i-100000] : PLAYERS[i]; }
 function buildSnapshot(){
   const total = state.schedule.length || 1;
   return {
-    d: state.day, g: total,
+    d: state.day, g: total, r: [ROSTER.sp, ROSTER.rp, ROSTER.bn],
     teams: state.parts.map(t=>({
       n: t.name, W: t.W, L: t.L, T: t.T,
       s: SLOT_DEFS.map(d=>{
@@ -3506,6 +3528,8 @@ async function tryEnterSpectator(){
       bytes = new Uint8Array(await new Response(stream).arrayBuffer());
     }
     const snap = JSON.parse(new TextDecoder().decode(bytes));
+    // 主催者が組んだ枠数に合わせてから読む
+    if(Array.isArray(snap.r)) applyRoster(snap.r[0], snap.r[1], snap.r[2]);
     renderSpectator(snap);
     return true;
   }catch(e){

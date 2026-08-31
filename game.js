@@ -4550,19 +4550,28 @@ function loreText(e, x){
 // ── 史実イベントの号外カット ───────────────────────────────
 // 挿絵のあるイベントだけは試合を止めて大きく見せる(415件中11件)
 const EVENT_PIC = new Set([
-  "backscreen-3renpatsu","ball-touitsu","bat-orete-kossetsu","chien-koui",
+  "108-year-title","86-year-title","ame-mukou","backscreen-3renpatsu",
+  "ball-tobu","ball-touitsu","bambino-curse","bat-orete-kossetsu",
+  "beer-kake-me","beer-night-riot","black-sox","boy-homer","chien-koui",
   "daida-manrui-sayonara","daida-sayonara","dairanto","daiso-specialist",
-  "daisou-gyakusou","dengeki-intai","densetsu-no-renpai",
-  "dotonbori-tobikomi","douage-shippai","dousei-suzume","go-eikyu-fumetsu",
-  "go-heading","hamakaze","heading-jiken","hikouki-chien","juten-ichikyu",
-  "kaimaku-26-0","kamino-otsuge","kantoku-fukki","kanzen-shiai",
-  "keiyakukin-chouka","koushin-etsunen","kyudan-gappei","maboroshi-homerun",
-  "magic-shometsu","make-drama","make-legend","muhai-24shou","nijuichikyu",
-  "nitouryu-kousou","no-hit-no-run","noumu-called","rabbit-ball",
-  "raiu-chudan","renzoku-sanshin","request-konran","rookie-7kyudan",
-  "sayonara-balk","sebangou-machigai","shinkyudan-tanjo","shomei-shoutou",
-  "shuzai-kyohi","sign-nusumi","sousha-oikoshi","suketto-mikikoku",
-  "uniform-wasure","yon-shissaku"
+  "daisou-gyakusou","dengeki-intai","densetsu-no-renpai","disco-demolition",
+  "dotonbori-tobikomi","douage-shippai","dousei-suzume","draft-uratorihiki",
+  "fan-interference","first-base-tunnel","gambling-ban","go-eikyu-fumetsu",
+  "go-heading","go-otachidai-uta","goat-curse","hamakaze","heading-jiken",
+  "hero-shitsugen","hikouki-chien","iseki-negai-teishutsu",
+  "jidakyu-kossetsu","juten-ichikyu","kaimaku-26-0","kamino-otsuge",
+  "kankyaku-rannyu","kantoku-fukki","kanzen-shiai","keiyakukin-chouka",
+  "koushin-etsunen","kyudan-gappei","limping-walkoff","maboroshi-homerun",
+  "magic-shometsu","make-drama","make-legend","manager-tirade",
+  "mascot-chinji","muhai-24shou","nijuichikyu","nitouryu-kousou",
+  "no-hit-no-run","noumu-called","pitchclock-ihan","rabbit-ball",
+  "raiu-chudan","renzoku-sanshin","request-konran","robot-shinpan",
+  "rookie-7kyudan","saishusen_daida","sayonara-balk","sayonara_error",
+  "sebangou-machigai","sengeki-gai-tsuukoku","shinki-sannyu",
+  "shinkyudan-tanjo","shomei-shoutou","shuzai-kyohi","sign-nusumi",
+  "sign-stealing","sns-enjou","sousha-oikoshi","steroid-report",
+  "suketto-mikikoku","suketto-rainichi-kyohi","trade-dengeki",
+  "two-out-comeback","uniform-wasure","yon-shissaku","zanryu-dengeki"
 ]);
 function showEventPic(e, txt, after){
   const wasPlaying = state.playing;

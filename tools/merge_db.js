@@ -220,6 +220,27 @@ console.log("profile patch:");
 console.log("  npb:", applyProfile("wiki_profile.json", db), "matched");
 console.log("  mlb:", applyProfile("wiki_profile.json", mlb), "matched");
 
+// 名鑑の顔写真(photo_credit.json: {名前:{i:番号, a:作者, l:ライセンス, u:出典URL}})
+// CC BY / BY-SA は作者とライセンスの表示が要るので、必ず一緒に持ち回る
+function applyPhoto(file, arr){
+  const p = path.join(dataDir, file);
+  if(!fs.existsSync(p)) return 0;
+  const patch = JSON.parse(fs.readFileSync(p, "utf8"));
+  const map = new Map();
+  for(const k of Object.keys(patch)){ if(patch[k]) map.set(normName(k), patch[k]); }
+  let hit = 0;
+  for(const q of arr){
+    const v = map.get(normName(q.name));
+    if(!v) continue;
+    q.ph = v.i; q.pa = v.a || ""; q.pl = v.l || ""; q.pu = v.u || "";
+    hit++;
+  }
+  return hit;
+}
+console.log("photo patch:");
+console.log("  npb:", applyPhoto("photo_credit.json", db), "matched");
+console.log("  mlb:", applyPhoto("photo_credit.json", mlb), "matched");
+
 console.log("numbers patches:");
 console.log("  bat:", applyNumbers("numbers_bat.json", db, ["B"]), "matched");
 console.log("  pit+mgr:", applyNumbers("numbers_pit.json", db, ["P","M"]), "matched");

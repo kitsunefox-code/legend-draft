@@ -15,7 +15,10 @@ const LINEUP_KEYS = ["C","B1","B2","B3","SS","OF1","OF2","OF3","DH"];
 const BENCH_KEYS = [];
 const SP_KEYS = [];
 const RP_KEYS = [];
-const ROSTER_RANGE = {sp:[3,6], rp:[2,5], bn:[2,5]};
+// すべて最大にすると、スタメン9+控え7+先発6+中継6+抑え1で29人。
+// NPBの一軍出場選手登録(2019年〜)と同じ人数になる
+const ROSTER_RANGE = {sp:[3,6], rp:[2,6], bn:[2,7]};
+const NPB_ROSTER = 29;
 let ROSTER = {sp:4, rp:3, bn:3};
 function applyRoster(sp, rp, bn){
   const fit = (v, r) => Math.max(r[0], Math.min(r[1], Number(v) || r[0]));
@@ -236,6 +239,14 @@ function renderRosterMap(){
     row("投手", rep(sp, "先発").concat(rep(rp, "中継"), ["抑え"]));
   const t = $("rm-total");
   if(t) t.textContent = "全" + total + "枠";
+  const n = $("rm-note");
+  if(n){
+    const players = total - 1;   // 監督は選手登録に入らない
+    n.textContent = players === NPB_ROSTER
+      ? "選手" + players + "人 ── NPBの一軍出場選手登録と同じ人数です"
+      : "選手" + players + "人（NPBの一軍登録は" + NPB_ROSTER + "人）";
+    n.classList.toggle("on", players === NPB_ROSTER);
+  }
 }
 function addPlayer(){
   const list = $("p-list");
@@ -712,6 +723,14 @@ function handMark(p){
   return p.bh ? `<span class="hand${p.bh!=="右"?" lh":""}">${p.bh}打</span>` : "";
 }
 // タイトルホルダーの印: 「三冠」印=三冠王 / ★n=主要タイトル獲得数
+// 選手詳細でも写真を出す。出典は名鑑と同じ扱いで下に添える
+function modalFace(p){
+  const img = '<img class="m-face" src="assets/face/' + p.ph + '.jpg" alt="" ' +
+    'width="56" height="72" loading="lazy" onerror="this.remove()">';
+  return p.pu
+    ? '<a class="mk-facelink" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
+    : img;
+}
 function titleBadge(p){
   if(p.cat==="M") return "";
   if(p.tc) return ` <span class="seal">三冠</span>${p.titles?`<span class="tbadge">★${p.titles}</span>`:""}`;
@@ -789,7 +808,7 @@ function openModal(id){
   const p = findPlayer(id); if(!p) return;
   state.modalPlayer = p;
   $("m-name").innerHTML =
-    '<span class="m-av">' + avatarBox(p, 56) + '</span>' +
+    '<span class="m-av">' + (p.ph !== undefined ? modalFace(p) : avatarBox(p, 56)) + '</span>' +
     '<span class="m-nm-t"><b>' + esc(p.name) + titleBadge(p) + '</b>' +
       '<span class="m-sub">' + p.year + '年・' + esc(p.team) + '</span></span>' +
     '<span class="m-rank">' + rankIcon(p.ovr, 40) + '</span>';
@@ -816,7 +835,13 @@ function openModal(id){
   $("m-stats").innerHTML =
     '<div class="m-yr">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
     figuresHtml(statFigures(p)) + extra;
-  $("m-desc").textContent = p.desc;
+  // プロフィールと写真の出典。表示が要るライセンスがあるので必ず添える
+  const life = [];
+  if(p.y) life.push(p.y);
+  if(p.b) life.push(p.b + (p.d ? "–" + p.d : "–"));
+  if(p.f) life.push(p.f);
+  $("m-desc").innerHTML = (life.length ? '<div class="m-life">' + esc(life.join("　")) + '</div>' : "") +
+    '<div>' + esc(p.desc || "") + '</div>' + faceCredit(p);
   const t = currentTeam();
   const canPick = $("scr-draft").classList.contains("active") && t && !t.cpu && !p.mlb &&
     (canTake(t,p) || (validPool(t).over && canTake(t,p,true)));
@@ -3512,6 +3537,29 @@ function mkSorted(){
   else list.sort(function(a,b){ return b.ovr - a.ovr; });
   return list;
 }
+// 顔写真。Wikimedia Commons の自由ライセンスのものだけを置いてある。
+// CC BY / BY-SA は作者とライセンスの表示が条件なので、写真の下に必ず添える
+function facePic(p){
+  if(p.ph === undefined) return avatarBox(p, 40);
+  const img = '<img class="mk-face" src="assets/face/' + p.ph + '.jpg" alt="" ' +
+    'width="44" height="56" loading="lazy" onerror="this.remove()">';
+  const wrap = p.pu
+    ? '<a class="mk-facelink" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
+    : img;
+  return '<div class="mk-fw">' + wrap +
+    (p.no !== undefined ? '<span class="mk-fno">' + p.no + '</span>' : '') + '</div>';
+}
+// 写真の出典。CC BY / BY-SA は作者とライセンスの表示が条件なので、
+// 44pxの写真の下ではなく、読める大きさで項目の末尾に置く
+function faceCredit(p){
+  if(p.ph === undefined) return "";
+  const cr = [p.pa, p.pl].filter(Boolean).join(" / ");
+  if(!cr) return "";
+  return '<div class="mk-cr">写真: ' +
+    (p.pu ? '<a href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + esc(cr) + '</a>'
+          : esc(cr)) + '</div>';
+}
+
 // ドラフト中に名鑑を引いたとき、誰がもう取ったかが分かるようにする。
 // 1件ごとに全球団を舐めると重いので、描く前に一度だけ表を作る
 let MK_OWNER = new Map();
@@ -3536,7 +3584,7 @@ function mkEntry(p){
       ? [["勝", p.w], ["防", p.era.toFixed(2)], ["奪三振", p.so]]
       : [["率", avg3(p.avg)], ["本", p.hr], ["点", p.rbi]];
   return '<div class="mk-e">' +
-    '<div class="mk-av">' + avatarBox(p, 40) + '</div>' +
+    '<div class="mk-av">' + facePic(p) + '</div>' +
     '<div class="mk-b">' +
     '<div class="mk-h">' +
       '<span class="mk-n">' + esc(p.name) + '</span>' + titleBadge(p) +
@@ -3555,9 +3603,70 @@ function mkEntry(p){
       return '<span><i>' + x[0] + '</i>' + x[1] + '</span>';
     }).join("") + '</div>' +
     '<div class="mk-d">' + esc(p.desc || "") + '</div>' +
+    faceCredit(p) +
     '</div>' +
   '</div>';
 }
+// ---- 対照年表 ----
+// 史書の作法にならい、日本と米国を左右に並べて同じ時代を突き合わせる。
+// 「この年、日本に川上がいて、海の向こうにディマジオがいた」が一目で分かる
+function mkEra(p){
+  const y = p.year;
+  if(y < 1920) return "1900〜1910年代";
+  return Math.floor(y / 10) * 10 + "年代";
+}
+function eraStart(k){ return k === "1900〜1910年代" ? 1900 : parseInt(k, 10); }
+const MK_ERA_NOTE = {
+  "1900〜1910年代": "日本にはまだ職業野球がない。米国はデッドボール時代",
+  "1920年代": "六大学の時代。米国はルースが球場を変えた",
+  "1930年代": "職業野球の始まり。沢村とルースが同じ空の下にいた",
+  "1940年代": "戦争で中断し、再び球音が戻る",
+  "1950年代": "二リーグ分立。米国はニューヨーク三球団の時代",
+  "1960年代": "巨人V9の助走。米国は投高打低へ",
+  "1970年代": "王・長嶋の全盛。米国はフリーエージェント元年",
+  "1980年代": "西武黄金期と助っ人の大砲",
+  "1990年代": "野茂の海峡越え。米国は本塁打の狂騒",
+  "2000年代": "松井・イチローの時代",
+  "2010年代": "投手の球速が上がりきる",
+  "2020年代": "大谷の二刀流",
+};
+// 年表の1行。一覧より詰めて、名前と球団と一つの数字だけにする
+function mkRow(p){
+  const own = MK_OWNER.get(p);
+  const s = p.cat === "M" ? p.pennants + "回優勝"
+    : p.cat === "P" ? (p.role === "CL" ? p.sv + "S" : p.w + "勝")
+    : p.hr + "本";
+  return '<div class="tl-r">' +
+    '<span class="tl-y">' + p.year + '</span>' +
+    (p.ph !== undefined
+      ? '<img class="tl-f" src="assets/face/' + p.ph + '.jpg" alt="" width="24" height="30" loading="lazy" onerror="this.remove()">'
+      : '<span class="tl-f tl-nf"></span>') +
+    '<span class="tl-n">' + esc(p.name) + '</span>' + titleBadge(p) +
+    '<span class="tl-t">' + esc(p.team) + '</span>' +
+    '<span class="tl-s">' + s + '</span>' +
+    (own ? '<span class="tl-o" title="' + esc(own.name) + 'が指名済み">●</span>' : '') +
+  '</div>';
+}
+function mkTimeline(list){
+  const eras = {};
+  list.forEach(function(p){ (eras[mkEra(p)] = eras[mkEra(p)] || []).push(p); });
+  const order = Object.keys(eras).sort(function(a, b){ return eraStart(a) - eraStart(b); });
+  if(!order.length) return '<div class="mk-none">該当する選手がいません。条件をゆるめてください。</div>';
+  return order.map(function(k){
+    const byYear = function(a, b){ return a.year - b.year || b.ovr - a.ovr; };
+    const jp = eras[k].filter(function(p){ return !p.mlb; }).sort(byYear);
+    const us = eras[k].filter(function(p){ return p.mlb; }).sort(byYear);
+    const col = (ttl, arr) => '<div class="tl-c"><div class="tl-ch">' + ttl +
+      '<i>' + arr.length + '人</i></div>' +
+      (arr.length ? arr.map(mkRow).join("") : '<div class="tl-none">この年代の収録なし</div>') + '</div>';
+    return '<section class="tl-e">' +
+      '<h3 class="tl-h"><span>' + esc(k) + '</span>' +
+        (MK_ERA_NOTE[k] ? '<i>' + esc(MK_ERA_NOTE[k]) + '</i>' : '') + '</h3>' +
+      '<div class="tl-cols">' + col("日本", jp) + col("米国", us) + '</div>' +
+    '</section>';
+  }).join("");
+}
+function mkView(v){ state.mkView = v; mkRender(true); }
 function mkRender(reset){
   if(reset) state.mkShown = MK_PAGE;
   if(!state.mkShown) state.mkShown = MK_PAGE;
@@ -3566,13 +3675,20 @@ function mkRender(reset){
   const show = list.slice(0, state.mkShown);
   const box = $("mk-list");
   if(!box) return;
-  box.innerHTML = show.length
-    ? show.map(mkEntry).join("") +
-      (list.length > show.length
-        ? '<div class="mk-more"><button class="btn ghost sm" onclick="mkMore()">' +
-          'あと' + (list.length - show.length) + '人を読む</button></div>'
-        : "")
-    : '<div class="mk-none">該当する選手がいません。条件をゆるめてください。</div>';
+  const tl = state.mkView === "tl";
+  box.classList.toggle("tl-mode", tl);
+  if(tl){
+    // 年表は年代でまとめて全件並べる。区切りがあるので長くても読める
+    box.innerHTML = mkTimeline(list);
+  }else{
+    box.innerHTML = show.length
+      ? show.map(mkEntry).join("") +
+        (list.length > show.length
+          ? '<div class="mk-more"><button class="btn ghost sm" onclick="mkMore()">' +
+            'あと' + (list.length - show.length) + '人を読む</button></div>'
+          : "")
+      : '<div class="mk-none">該当する選手がいません。条件をゆるめてください。</div>';
+  }
   const c = $("mk-count");
   if(c) c.textContent = list.length + "人";
   const tabs = $("mk-tabs");
@@ -3580,6 +3696,11 @@ function mkRender(reset){
     tabs.innerHTML = MK_TABS.map(function(x){
       return '<button class="ft' + ((state.mkCat || "all") === x[0] ? " on" : "") +
         '" onclick="mkTab(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
+    }).join("") +
+    '<span class="ft-sp"></span>' +
+    [["list", "名鑑"], ["tl", "年表"]].map(function(x){
+      return '<button class="ft ft-v' + ((state.mkView || "list") === x[0] ? " on" : "") +
+        '" onclick="mkView(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
     }).join("");
   }
   if(reset) box.scrollTop = 0;

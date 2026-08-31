@@ -35,11 +35,14 @@ function cleanEntry(raw, isMLB){
   if(raw.cat === "M"){
     e.cat = "M";
     e.team = String(raw.team||"").trim() || "-";
-    e.fr = FR.has(raw.fr) ? raw.fr : "その他";
-    e.year = clamp(Math.round(num(raw.year, 1980)), 1936, 2026);
-    e.pennants = clamp(Math.round(num(raw.pennants)), 0, 12);
-    e.japan = clamp(Math.round(num(raw.japan)), 0, 11);
-    e.wins = clamp(Math.round(num(raw.wins)), 0, 1800);
+    // MLBの監督は日本より桁が大きい。コニー・マックの3731勝や
+    // 1920年代の指揮まで入るので、上限と下限をリーグで分ける
+    e.fr = isMLB ? "MLB" : (FR.has(raw.fr) ? raw.fr : "その他");
+    if(isMLB) e.mlb = true;
+    e.year = clamp(Math.round(num(raw.year, 1980)), isMLB ? 1900 : 1936, 2026);
+    e.pennants = clamp(Math.round(num(raw.pennants)), 0, isMLB ? 12 : 12);
+    e.japan = clamp(Math.round(num(raw.japan)), 0, isMLB ? 10 : 11);
+    e.wins = clamp(Math.round(num(raw.wins)), 0, isMLB ? 4000 : 1800);
     e.desc = String(raw.desc||"").trim().slice(0, 100);
     if(Number.isFinite(Number(raw.no))) e.no = clamp(Math.round(Number(raw.no)), 0, 199);
     return e;
@@ -121,7 +124,7 @@ for(const f of NPB_SEGS){
 console.log("MLB segments:");
 const mlb = [];
 const seenM = new Set();
-for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json","seg_mlb4.json","seg_mlb5.json","seg_mlb6.json","seg_mlb7.json","seg_mlb8.json"]){
+for(const f of ["seg_mlb.json","seg_mlb2.json","seg_mlb3.json","seg_mlb4.json","seg_mlb5.json","seg_mlb6.json","seg_mlb7.json","seg_mlb8.json","seg_mlb_mgr.json"]){
   for(const raw of loadSeg(f)){
     const e = cleanEntry(raw, true);
     if(!e) continue;

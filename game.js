@@ -125,6 +125,9 @@ function prepPlayer(p, idPrefix, i){
 }
 const PLAYERS = DB.map((p,i)=>prepPlayer(p,"N",i));
 const MLB_STARS = MLB_DB.map((p,i)=>prepPlayer(p,"M",i));
+// ドラフトの対象。既定は日本球界だが、メジャー限定にすると差し替わる。
+// 名鑑や検索はいつも両方を見るので、ここを見るのは指名まわりだけ
+let POOL = PLAYERS;
 
 // ---------- 適格判定 ----------
 function eligibleGrp(p, grp){
@@ -212,7 +215,7 @@ function goSetup(){
   renderRosterMap();
   if(!$("p-list").children.length){ addPlayer(); addPlayer(); addPlayer(); }
   if(!$("era-chips").children.length){
-    const decades = [...new Set(PLAYERS.map(p=>p.decade))].sort();
+    const decades = [...new Set(POOL.map(p=>p.decade))].sort();
     decades.forEach(d=>{
       const c = document.createElement("span");
       c.className="chip"; c.textContent=d;
@@ -321,6 +324,9 @@ function startDraft(){
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
   // 枠を組んでからチームを作る(newTeamがSP_KEYSを写し取るため順序が大事)
   applyRoster(optNum("opt-sp", 4), optNum("opt-rp", 3), optNum("opt-bn", 3));
+  // メジャー限定。指名の対象を丸ごと差し替える
+  state.opts.mlbOnly = $("opt-mlbonly") ? $("opt-mlbonly").checked : false;
+  POOL = state.opts.mlbOnly ? MLB_STARS : PLAYERS;
   emblemPool = null;
   emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i))
     .filter(i => !rows.some(r => Number(r.dataset.em) === i));   // 選ばれた分はCPUに回さない
@@ -330,7 +336,8 @@ function startDraft(){
     row.dataset.em !== undefined ? Number(row.dataset.em) : undefined));
   state.eras = new Set([...$("era-chips").children].filter(c=>c.classList.contains("on")).map(c=>c.dataset.era));
   state.opts.trade = $("opt-trade").checked;
-  state.opts.mlb = $("opt-mlb").checked && MLB_STARS.length > 0;
+  state.opts.mlb = $("opt-mlb").checked && MLB_STARS.length > 0 && !state.opts.mlbOnly;
+  if(state.opts.mlbOnly) state.parts.forEach(function(x){ x.fr = ""; });   // 系譜は日本の球団の話
   state.budget = Number($("opt-budget").value) || 140;
   state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
   state.opts.party = $("opt-party") ? $("opt-party").checked : false;
@@ -345,7 +352,7 @@ function startDraft(){
   }
   // プール枯渇チェック
   const n = state.parts.length;
-  const pool = PLAYERS.filter(p=>poolOK(p));
+  const pool = POOL.filter(p=>poolOK(p));
   const needs = [
     ["監督", n, pool.filter(p=>p.cat==="M").length],
     ["捕手", n, pool.filter(p=>eligibleGrp(p,"捕")).length],
@@ -360,7 +367,12 @@ function startDraft(){
   ];
   const lack = needs.filter(([,need,have])=>have<need);
   if(lack.length){
-    alert("縛りがきつすぎて選手が足りません！\n" + lack.map(([nm,need,have])=>`・${nm}: ${have}/${need}人`).join("\n") + "\n年代の選択を増やしてください。");
+    const NLC = String.fromCharCode(10);
+    const hint = state.opts.mlbOnly
+      ? NLC + "枠を減らすか、参加人数を減らしてください。"
+      : NLC + "年代の選択を増やしてください。";
+    alert("選手が足りません！" + NLC +
+      lack.map(function(x){ return x[0] + ": " + x[2] + "/" + x[1] + "人"; }).join(NLC) + hint);
     return;
   }
 
@@ -370,7 +382,7 @@ function startDraft(){
   cheapCache = {size:-1, map:null};
   state.order = shuffle(state.parts.map((_,i)=>i));
   $("f-fr").innerHTML = `<option value="">全球団</option>` + FRANCHISES.map(f=>`<option>${f}</option>`).join("");
-  const decades=[...new Set(PLAYERS.map(p=>p.decade))].sort();
+  const decades=[...new Set(POOL.map(p=>p.decade))].sort();
   $("f-era").innerHTML = `<option value="">全年代</option>` + decades.map(d=>`<option>${d}</option>`).join("");
   if(state.opts.park){ startParkDraft(); return; }
   state.parts.forEach(t=>{ if(!t.park) t.park = PARKS.find(x=>x.id==="fujiidera"); });  // 球場なしなら癖のない球場
@@ -777,7 +789,7 @@ function currentPhase(){
 let cheapCache = {size:-1, map:null};
 function grpReserveMap(){
   if(cheapCache.size === state.taken.size) return cheapCache.map;
-  const avail = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p));
+  const avail = POOL.filter(p=>!state.taken.has(p.id) && poolOK(p));
   // ポジションごとの残り需要(全チーム合計)
   const demand = {};
   for(const t of state.parts) for(const d of openSlots(t)) demand[d.grp] = (demand[d.grp]||0)+1;
@@ -826,10 +838,10 @@ function assign(t,p){
   if(d) t.slots[d.key] = p;
 }
 function validPool(t, respectFr=true){
-  let pool = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && canTake(t,p));
+  let pool = POOL.filter(p=>!state.taken.has(p.id) && poolOK(p) && canTake(t,p));
   let over = false;
   if(!pool.length){ // 資金難で候補ゼロ→特例で予算超過を許可(最安値の選手を拾えるように)
-    pool = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && canTake(t,p,true));
+    pool = POOL.filter(p=>!state.taken.has(p.id) && poolOK(p) && canTake(t,p,true));
     over = true;
   }
   if(respectFr && t.fr){
@@ -5460,7 +5472,7 @@ function startEmergency(t, slotKey, reason){
   const wasPlaying = state.playing;
   stopTimer();
   state.resumeAfterEvent = wasPlaying;
-  const cands = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat!=="M" && !p.twoWay && eligibleGrp(p, d.grp))
+  const cands = POOL.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat!=="M" && !p.twoWay && eligibleGrp(p, d.grp))
     .sort((a,b)=>b.ovr-a.ovr);
   const luck = reinforceLuck(t);
   const watch = t.watch || new Set();
@@ -5647,7 +5659,7 @@ const ROULETTE = [
    run(t){
      const key = BENCH_KEYS.find(k=>t.slots[k]) || BENCH_KEYS[0];
      const cur = t.slots[key];
-     const all = PLAYERS.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat==="B" && !p.twoWay)
+     const all = POOL.filter(p=>!state.taken.has(p.id) && poolOK(p) && p.cat==="B" && !p.twoWay)
        .sort((a,b)=>b.ovr-a.ovr);
      if(!all.length || !cur) return null;
      // 良い目とはいえ大物が確定で来るわけではない

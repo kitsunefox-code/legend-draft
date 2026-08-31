@@ -285,6 +285,25 @@ console.log("career patch:");
 console.log("  npb:", applyCareer("career.json", db), "matched");
 console.log("  mlb:", applyCareer("career.json", mlb), "matched");
 
+// 引き当てた記事名(wiki_alias.json)。名鑑から出典へ飛べるようにする。
+// 名前がそのまま記事名の人は持たない(その場で組み立てられるので)
+function applyWikiTitle(file, arr){
+  const p = path.join(dataDir, file);
+  if(!fs.existsSync(p)) return 0;
+  const j = JSON.parse(fs.readFileSync(p, "utf8"));
+  const map = new Map();
+  for(const k of Object.keys(j)){ if(j[k]) map.set(normName(k), j[k]); }
+  let hit = 0;
+  for(const q of arr){
+    const v = map.get(normName(q.name));
+    if(v && normName(v) !== normName(q.name)){ q.wk = v; hit++; }
+  }
+  return hit;
+}
+console.log("wiki title:");
+console.log("  npb:", applyWikiTitle("wiki_alias.json", db), "matched");
+console.log("  mlb:", applyWikiTitle("wiki_alias.json", mlb), "matched");
+
 console.log("numbers patches:");
 console.log("  bat:", applyNumbers("numbers_bat.json", db, ["B"]), "matched");
 console.log("  pit+mgr:", applyNumbers("numbers_pit.json", db, ["P","M"]), "matched");

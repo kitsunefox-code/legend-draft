@@ -210,9 +210,28 @@ function buildFrontPage(){
 // ============================================================
 // 設定画面
 // ============================================================
+// 設定の畳んである欄をひらく。狭い画面でだけ効く
+function foldPanel(el){
+  const p = el.closest(".panel");
+  if(!p) return;
+  const on = p.classList.toggle("open");
+  const a = el.querySelector(".fd-a");
+  if(a) a.textContent = on ? "−" : "＋";
+  seTap();
+}
+// 畳んだ見出しに要点を出す。開かずとも今の設定が分かるように
+function foldSummary(){
+  const ev = $("ev-cnt");
+  if(ev){
+    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-cpu","opt-mlbonly"];
+    const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
+    ev.textContent = n + "件 入り";
+  }
+}
 function goSetup(){
   show("scr-setup");
   renderRosterMap();
+  foldSummary();
   if(!$("p-list").children.length){ addPlayer(); addPlayer(); addPlayer(); }
   if(!$("era-chips").children.length){
     const decades = [...new Set(POOL.map(p=>p.decade))].sort();
@@ -228,6 +247,7 @@ function goSetup(){
 function optNum(id, dflt){ const e = $(id); return e ? (Number(e.value) || dflt) : dflt; }
 // 設定画面の見取り図。選んだ枚数をそのまま並べて見せる
 function renderRosterMap(){
+  foldSummary();
   const box = $("roster-map");
   if(!box) return;
   const sp = optNum("opt-sp", 4), rp = optNum("opt-rp", 3), bn = optNum("opt-bn", 3);
@@ -1103,6 +1123,27 @@ function figuresHtml(list){
       '<span class="mf-v">' + x.v + (x.u ? '<i>' + x.u + '</i>' : '') + '</span></div>';
   }).join("") + '</div>';
 }
+// 詳細の下段。同じ球団の収録選手へ渡り歩けるようにし、出典も置く
+function mateChips(p){
+  const pool = PLAYERS.concat(MLB_STARS || []);
+  const mates = pool.filter(function(x){
+    return x !== p && x.team === p.team && x.cat !== "M";
+  }).sort(function(a, b){ return Math.abs(a.year - p.year) - Math.abs(b.year - p.year); }).slice(0, 10);
+  if(!mates.length) return "";
+  return '<div class="m-sec"><div class="m-sec-h">' + esc(p.team) + ' の収録選手</div>' +
+    '<div class="m-mates">' + mates.map(function(x){
+      return '<button class="m-mate" onclick="openModal(&quot;' + x.id + '&quot;)">' +
+        (x.ph !== undefined ? '<img src="assets/face/' + x.ph + '.jpg" alt="" loading="lazy" onerror="this.remove()">' : '') +
+        '<span>' + esc(x.name) + '</span><i>' + x.year + '</i></button>';
+    }).join("") + '</div></div>';
+}
+function wikiLink(p){
+  const t = p.wk || p.name.replace(/\([^)]*\)/g, "").trim();
+  if(!t) return "";
+  return '<div class="m-src">' +
+    '<a href="https://ja.wikipedia.org/wiki/' + encodeURIComponent(t) + '" target="_blank" rel="noopener noreferrer">' +
+    'Wikipedia でこの選手を読む</a></div>';
+}
 function openModal(id){
   const p = findPlayer(id); if(!p) return;
   state.modalPlayer = p;
@@ -1143,7 +1184,8 @@ function openModal(id){
   if(p.b) life.push(p.b + (p.d ? "–" + p.d : "–"));
   if(p.f) life.push(p.f);
   $("m-desc").innerHTML = (life.length ? '<div class="m-life">' + esc(life.join("　")) + '</div>' : "") +
-    '<div>' + esc(p.desc || "") + '</div>' + intlLines(p) + faceCredit(p);
+    '<div>' + esc(p.desc || "") + '</div>' + intlLines(p) + faceCredit(p) +
+    mateChips(p) + wikiLink(p);
   const t = currentTeam();
   const canPick = $("scr-draft").classList.contains("active") && t && !t.cpu && !p.mlb &&
     (canTake(t,p) || (validPool(t).over && canTake(t,p,true)));
@@ -4155,7 +4197,35 @@ function mkEntry(p){
 function careerFigs(p){
   const c = p.car;
   if(!c) return null;
-  const n = x => (x === undefined || x === null) ? null : x;
+  if(p.cat === "P"){
+    return [
+      c.g   != null ? ["登板", c.g] : null,
+      c.w   != null ? ["勝敗", c.w + "-" + (c.l != null ? c.l : "?")] : null,
+      c.sv  ? ["セーブ", c.sv] : null,
+      c.hld ? ["ホールド", c.hld] : null,
+      c.ip  != null ? ["投球回", Math.round(c.ip)] : null,
+      c.so  != null ? ["奪三振", c.so] : null,
+      c.era != null ? ["防御率", c.era.toFixed(2)] : null,
+      c.whip != null ? ["WHIP", c.whip.toFixed(2)] : null,
+    ].filter(Boolean);
+  }
+  return [
+    c.g   != null ? ["試合", c.g] : null,
+    c.ab  != null ? ["打数", c.ab] : null,
+    c.h   != null ? ["安打", c.h] : null,
+    c.hr  != null ? ["本塁打", c.hr] : null,
+    c.rbi != null ? ["打点", c.rbi] : null,
+    c.sb  ? ["盗塁", c.sb] : null,
+    c.avg != null ? ["打率", avg3(c.avg)] : null,
+    c.obp != null ? ["出塁率", avg3(c.obp)] : null,
+    c.slg != null ? ["長打率", avg3(c.slg)] : null,
+    c.ops != null ? ["OPS", c.ops.toFixed(3).replace(/^0/, "")] : null,
+  ].filter(Boolean);
+}
+// 名鑑の一覧に出す一行版。ここは詰めて主要な数字だけ
+function careerBrief(p){
+  const c = p.car;
+  if(!c) return null;
   if(p.cat === "P"){
     return [
       c.g   != null ? ["登板", c.g] : null,
@@ -4176,7 +4246,7 @@ function careerFigs(p){
   ].filter(Boolean);
 }
 function careerLine(p){
-  const f = careerFigs(p);
+  const f = careerBrief(p);
   if(!f) return "";
   const yr = p.car.yr ? '<span class="cr-y">' + p.car.yr + '年</span>' : "";
   return '<div class="mk-car"><span class="cr-k">通算</span>' + yr +

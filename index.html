@@ -3313,6 +3313,58 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .od-row{padding-top:9px;padding-bottom:9px;}
   .od-grip{font-size:15px;padding-right:4px;}
 }
+
+/* 選手詳細の下段。同じ球団の顔ぶれと出典 */
+.m-sec{margin-top:14px;border-top:1px solid var(--rule);padding-top:10px;}
+.m-sec-h{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:11px;font-weight:900;
+  letter-spacing:.2em;color:var(--paper);background:var(--ink2);
+  padding:3px 9px;display:inline-block;margin-bottom:8px;
+}
+.m-mates{display:flex;gap:6px;flex-wrap:wrap;}
+.m-mate{
+  display:flex;align-items:center;gap:6px;cursor:pointer;
+  border:1px solid var(--rule2);background:var(--paper2);padding:3px 8px 3px 3px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:11.5px;color:var(--ink);
+}
+.m-mate:hover{border-color:var(--ink);background:#fff;}
+.m-mate img{width:20px;height:25px;object-fit:cover;object-position:50% 22%;display:block;border:1px solid var(--rule);}
+.m-mate i{font-style:normal;font-family:"Oswald",sans-serif;font-size:9.5px;color:var(--rule2);}
+.m-src{margin-top:12px;font-size:11px;}
+.m-src a{color:var(--ink2);text-decoration:none;border-bottom:1px dotted var(--rule2);}
+.m-src a:hover{color:var(--red);border-bottom-color:var(--red);}
+@media (max-width:700px){
+  .m-mate span{max-width:6.5em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+}
+
+/* ============================================================
+   狭い画面の設定 ── そのままだと4画面ぶんスクロールする。
+   参加者だけ開いておき、あとは畳んで見出しに要点を出す
+   ============================================================ */
+.fd-a{display:none;}
+@media (max-width:700px){
+  .panel.fold > b{
+    display:flex;align-items:center;gap:8px;cursor:pointer;
+    margin:0;padding:2px 0;
+  }
+  .panel.fold > b .fd-a{
+    display:inline-flex;margin-left:auto;font-style:normal;
+    font-family:"Oswald",sans-serif;font-size:13px;color:var(--red);
+    width:22px;height:22px;align-items:center;justify-content:center;
+    border:1px solid var(--rule2);background:var(--paper2);
+  }
+  .panel.fold:not(.open) > *:not(b){display:none;}
+  .panel.fold{padding-top:12px;padding-bottom:12px;}
+  .panel.fold.open{padding-bottom:16px;}
+  /* 事件簿の頭も詰める。開いた時点で一件は読ませたい */
+  #file-card .fh{padding:10px 14px 8px;}
+  #file-card .fh-k{display:none;}
+  #file-card .fh-t{font-size:21px;letter-spacing:.14em;}
+  #file-card .fh-s{font-size:9.5px;line-height:1.45;margin-top:3px;}
+  #file-card .fh-x{width:32px;height:32px;font-size:16px;}
+  .fv-shot img{max-height:150px;}
+  .fv-name{font-size:14.5px;padding:5px 9px;}
+}
 </style>
 </head>
 <body>
@@ -3376,8 +3428,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <button class="btn ghost sm" onclick="addPlayer()">＋ 参加者を追加</button>
   </div>
 
-  <div class="panel">
-    <b>縛り<span class="pn-cnt">なくても遊べます</span></b>
+  <div class="panel fold">
+    <b onclick="foldPanel(this)">縛り<span class="pn-cnt">なくても遊べます</span><i class="fd-a">＋</i></b>
     <div class="sub" style="margin:4px 0 12px;">きつくするほど渋い戦いになります。迷ったらそのままで。</div>
 
     <div class="st-row">
@@ -3409,53 +3461,53 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     </div>
   </div>
 
-  <div class="panel">
-    <b>シーズンイベント</b>
+  <div class="panel fold">
+    <b onclick="foldPanel(this)">シーズンイベント<span class="pn-cnt" id="ev-cnt"></span><i class="fd-a">＋</i></b>
     <div class="opt-grid">
       <label class="opt-tile">
-        <input type="checkbox" id="opt-trade" checked>
+        <input type="checkbox" id="opt-trade" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">交渉テーブル<span class="ot-tag">卓上</span></span>
         <span class="ot-d">6月末に自動停止。全球団の「穴」と「出せる選手」が並ぶので、あとは卓上で口頭で交渉。話がついた分だけ何件でも成立させられる</span></span>
       </label>
       <label class="opt-tile mlbonly">
-        <input type="checkbox" id="opt-mlbonly">
+        <input type="checkbox" id="opt-mlbonly" onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">メジャー限定<span class="ot-tag">MLB</span></span>
         <span class="ot-d">日本球界を離れ、歴代メジャーリーガーだけでドラフトする。ルースからスキーンズまで391人・監督19人が対象。系譜縛りとMLB補強は外れます</span></span>
       </label>
       <label class="opt-tile">
-        <input type="checkbox" id="opt-mlb" checked>
+        <input type="checkbox" id="opt-mlb" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">MLBスター補強</span>
         <span class="ot-d">7月末に自動停止。最下位から順に歴代メジャーリーガーを指名（コスト不要）</span></span>
       </label>
       <label class="opt-tile">
-        <input type="checkbox" id="opt-park" checked>
+        <input type="checkbox" id="opt-park" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">本拠地ドラフト<span class="ot-tag">球場</span></span>
         <span class="ot-d">選手より先に本拠地を選ぶ。狭い箱・広い外野・ドームで本塁打と得点の出方が変わり、集めるべき選手も変わる</span></span>
       </label>
       <label class="opt-tile">
-        <input type="checkbox" id="opt-injury" checked>
+        <input type="checkbox" id="opt-injury" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">故障者リスト<span class="ot-tag">離脱</span></span>
         <span class="ot-d">肉離れ・骨折などで主力が数日〜数週間離脱する。離脱中は成績が積み上がらず、控えが穴を埋める</span></span>
       </label>
       <label class="opt-tile">
-        <input type="checkbox" id="opt-saihai" checked>
+        <input type="checkbox" id="opt-saihai" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">監督の采配<span class="ot-tag">決断</span></span>
         <span class="ot-d">1点差で負けている試合が、確定する前に止まる。シーズン4回だけ、代打・継投・敬遠を自分で選んで結果をひっくり返せる</span></span>
       </label>
       <label class="opt-tile party">
-        <input type="checkbox" id="opt-party" checked>
+        <input type="checkbox" id="opt-party" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">パーティーモード<span class="ot-tag">波乱</span></span>
         <span class="ot-d">監督休養・スキャンダル謹慎→緊急補強・助っ人帰国・乱闘・食中毒・珍事件など30種の事件が発生。あなたの決断を迫る選択イベントも</span></span>
       </label>
       <label class="opt-tile">
-        <input type="checkbox" id="opt-cpu" checked>
+        <input type="checkbox" id="opt-cpu" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">CPU球団で補充</span>
         <span class="ot-d">参加者が3人以下のとき、CPU球団を足して4球団リーグにする</span></span>
@@ -3463,8 +3515,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     </div>
   </div>
 
-  <div class="panel">
-    <b>編成<span class="pn-cnt" id="rm-total">全21枠</span></b>
+  <div class="panel fold">
+    <b onclick="foldPanel(this)">編成<span class="pn-cnt" id="rm-total">全21枠</span><i class="fd-a">＋</i></b>
     <div class="sub" style="margin:4px 0 12px;">枚数を変えると、指名の順番も戦い方も変わります。迷ったらそのままで。</div>
 
     <div class="st-row">
@@ -3893,9 +3945,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609020420"></script>
-<script src="players.js?v=202609020420"></script>
-<script src="party.js?v=202609020420"></script>
-<script src="game.js?v=202609020420"></script>
+<script src="qrcode.js?v=202609020620"></script>
+<script src="players.js?v=202609020620"></script>
+<script src="party.js?v=202609020620"></script>
+<script src="game.js?v=202609020620"></script>
 </body>
 </html>

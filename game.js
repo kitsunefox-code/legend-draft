@@ -161,9 +161,9 @@ function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.r
 // 挿絵と事件を毎回引き直すので、開くたびに違う紙面になる
 function buildFrontPage(){
   const d = new Date();
-  const iss = $("fp-issue"), dt = $("fp-date");
-  if(iss) iss.textContent = "第" + (1 + (d.getFullYear() % 90)) + "号";
-  if(dt) dt.textContent = d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日";
+  const dt = $("bk-date"), iss = $("fp-issue");
+  if(dt) dt.textContent = d.getFullYear() + "年 編";
+  if(iss) iss.textContent = "巻頭　一丁";
 
   const withPic = PARTY_LORE.filter(e => EVENT_PIC.has(e.id));
   if(withPic.length){
@@ -171,17 +171,31 @@ function buildFrontPage(){
     const img = $("fp-img"), cap = $("fp-cap");
     if(img){
       img.src = "assets/event/" + e.id + ".jpg";
-      img.onerror = function(){ const f = this.closest(".fp-photo"); if(f) f.style.display = "none"; };
+      img.onerror = function(){ const f = this.closest(".bk-zu"); if(f) f.style.display = "none"; };
     }
     if(cap){
       const head = (/^【([^】]+)】/.exec(e.text) || [null,"球史の一場面"])[1];
-      cap.textContent = "▲ " + head + " ―― " + (e.note || "").split("。")[0];
+      cap.textContent = "図　" + head + " ―― " + (e.note || "").split("。")[0];
     }
+  }
+  // 凡例。この一巻に何が収められているかを数で示す
+  const hz = $("bk-hanrei");
+  if(hz){
+    const rows = [
+      ["収録選手", DB.length + "名", "戦前から現代まで"],
+      ["本拠地",   PARKS.length + "球場", "NPB・MLB・往年の球場・地方球場"],
+      ["球界事件簿", PARTY_LORE.length + "件", "元ネタの史実つき"]
+    ];
+    hz.innerHTML = rows.map(function(r){
+      const m = /^(\d+)(.*)$/.exec(r[1]);
+      return '<dt>' + r[0] + '</dt><dd><b>' + (m ? m[1] : r[1]) + '</b>' +
+             (m ? m[2] : "") + '<span class="hr-n">　' + r[2] + '</span></dd>';
+    }).join("");
   }
   const tz = $("fp-teaser");
   if(tz){
     const e = pick1(PARTY_LORE);
-    tz.textContent = plainText(e.text).replace(/^【[^】]+】/, "【" + (/^【([^】]+)】/.exec(e.text)||[null,""])[1] + "】");
+    tz.textContent = plainText(e.text);
   }
 }
 
@@ -376,7 +390,7 @@ function renderParkDraft(){
            '<div class="pk-grid">' + list.map(card).join("") + '</div>';
   }).join("");
   $("park-panel").innerHTML =
-    '<h2><span class="kicker">第一面</span>本拠地ドラフト</h2>' +
+    '<h2><span class="kicker">巻之一 下</span>本拠地ドラフト</h2>' +
     '<div class="sub">選手より先に本拠地を決めます。球場の癖はこの一年、全試合につきまといます。' +
     '狭い箱なら大砲を、広い外野なら投手と足を集めることになります。</div>' +
     '<div class="pk-bar-row">' + bar + '</div>' +
@@ -1871,7 +1885,7 @@ function tick(){
       if(state.resumeAfterLive){ state.resumeAfterLive=false; startTimer(); }
     };
     showLiveGame(broadcast.label, broadcast.g, ()=>{
-      // 開幕日は中継したカード以外も戦われている。全結果を号外で出す
+      // 開幕日は中継したカード以外も戦われている。全結果を「開幕の記」として出す
       if(broadcast.opening && broadcast.opening.length) showOpeningGogai(broadcast.opening, broadcast.g, afterLive);
       else afterLive();
     });
@@ -2392,7 +2406,7 @@ function renderPartyLog(){
         ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
         ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
       </div>
-      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" onclick="event.stopPropagation();replayEventPic(${i})">号外カットを見る</button>`:""}</div>`:""}
+      ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" onclick="event.stopPropagation();replayEventPic(${i})">図を見る</button>`:""}</div>`:""}
     </div>`;
   }).join("") : `<div class="sub" style="padding:6px 2px;">まだ事件は起きていません。何かが起こるのを待ちましょう…</div>`;
 }
@@ -2720,7 +2734,7 @@ function showFilePic(id){
   const keep = state.playing;
   showEventPic(e, plainText(e.text));
   state.picResume = keep;
-  $("pic-date").textContent = "球史事件簿より";
+  $("pic-date").textContent = "球界事件簿より";
 }
 
 // ============================================================
@@ -2906,6 +2920,7 @@ function startEvent(type, ev){
 function endEventPhase(){
   $("event-bg").classList.remove("show");
   state.eventCtx = null;
+  state.scoutPick = null;
   // ルーレット中のスキャンダル対応が終わったら、残りの球団へ戻る
   if(state.rouletteResume){
     const r = state.rouletteResume; state.rouletteResume = null;
@@ -3236,7 +3251,12 @@ function computeTitles(){
   // MVP: 優勝チームで最も活躍した選手
   const champ = standingsSorted()[0];
   const cand = S.filter(s=>s.t===champ && !s.bench).map(s=>{
-    const score = s.kind==="B" ? (s.avg-0.25)*300 + s.hr*0.8 + s.rbi*0.15 : s.w*2.2 + s.sv*1.2 + s.hld*0.8 + Math.max(0,(3.6-s.era))*6;
+    // 率の貢献は出場した分だけ数える。61試合の.436がMVPになるのを防ぐ
+    const playB = Math.min(1, (s.pa || 0) / Math.max(1, reqPA(s)));
+    const playP = Math.min(1, (s.ip || 0) / Math.max(1, reqIP(s)));
+    const score = s.kind==="B"
+      ? (s.avg-0.25)*300*playB + s.hr*0.8 + s.rbi*0.15
+      : s.w*2.2 + s.sv*1.2 + s.hld*0.8 + Math.max(0,(3.6-s.era))*6*(s.role==="SP" ? playP : 1);
     return {s, score};
   }).sort((a,b)=>b.score-a.score);
   if(cand.length){
@@ -3666,7 +3686,7 @@ function showGogai(champ){
   for(let i=0;i<10;i++){
     const m = document.createElement("span");
     m.className = "gogai-mini";
-    m.textContent = "号外";
+    m.textContent = "特筆";
     m.style.left = (rnd()*94)+"vw";
     m.style.animationDuration = (3+rnd()*3.5)+"s";
     m.style.animationDelay = (rnd()*2.5)+"s";
@@ -3704,15 +3724,11 @@ function starterOf(t){
   const alt = keys.map(x=>t.slots[x]).filter(x=>x && !isOut(x));
   return alt[0] || p || t.slots.SP1;
 }
-function longReliefOf(t, sp){
-  // 先発の次に控えている番手(ロングリリーフ役)。当日の先発とは別人を選ぶ
-  const ps = rotKeys(t).map(k=>t.slots[k]).filter(p=>p && p !== sp);
-  return ps.length ? ps[0] : (sp || starterOf(t));
-}
 function pitcherForInning(t, inn, sp){
   const st = (sp && !isOut(sp)) ? sp : starterOf(t);
-  if(inn <= 5) return {p:st, key:"SP", label:"先発"};
-  if(inn === 6) return {p:longReliefOf(t, st), key:"SP", label:"先発"};
+  // 先発は6回まで投げきる。6回をローテの控えに投げさせていた頃は
+  // 1番手だけが全144試合に登板してしまっていた
+  if(inn <= 6) return {p:st, key:"SP", label:"先発"};
   if(inn === 7) return {p:t.slots.RP1 || t.slots.SP1, key:"RP", label:"中継ぎ"};
   if(inn === 8) return {p:t.slots.RP2 || t.slots.RP1 || t.slots.SP1, key:"RP", label:"セットアッパー"};
   return {p:t.slots.CL || t.slots.RP1 || t.slots.SP1, key:"CL", label:"抑え"};
@@ -4801,12 +4817,12 @@ function snapPaper(){
   ctx.lineWidth = 1; ctx.strokeRect(20,20,W-40,H-40);
   // 見出し
   ctx.fillStyle = "#a72c18"; ctx.fillRect(40,44,110,34);
-  ctx.fillStyle = "#fdf9ef"; ctx.font = `bold 20px ${mincho}`; ctx.fillText("球史特報", 52, 68);
+  ctx.fillStyle = "#fdf9ef"; ctx.font = `bold 20px ${mincho}`; ctx.fillText("球史編纂", 52, 68);
   ctx.fillStyle = "#221e17"; ctx.font = `900 52px ${mincho}`;
   ctx.fillText("ドラフト会議 全指名選手", 170, 84);
   ctx.font = `15px ${mincho}`; ctx.fillStyle = "#57503f";
   const capLbl = state.rankCap ? `能力縛り:${state.rankCap===93?"S以下":state.rankCap===88?"A以下":"B以下"}　` : "";
-  ctx.fillText(`${capLbl}コスト上限${state.budget}pt　参加${n}球団 ―― 球史新聞社`, 172, 112);
+  ctx.fillText(`${capLbl}コスト上限${state.budget}pt　参加${n}球団 ―― 球史編纂所`, 172, 112);
   ctx.strokeStyle = "#221e17"; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.moveTo(40,130); ctx.lineTo(W-40,130); ctx.stroke();
   // 各チーム
@@ -4840,7 +4856,7 @@ function snapPaper(){
   ctx.fillStyle = "#8f8468"; ctx.font = `12px ${mincho}`;
   ctx.fillText("kusayakyu-navi.com/legend-draft ── 成績はキャリアハイ年の実測に基づく", 40, H-32);
   const url = cv.toDataURL("image/png");
-  $("paper-img").innerHTML = `<img src="${url}" style="max-width:100%;border:1px solid var(--rule2);" alt="ドラフト記念紙面">`;
+  $("paper-img").innerHTML = `<img src="${url}" style="max-width:100%;border:1px solid var(--rule2);" alt="ドラフト記念の一葉">`;
   $("paper-dl").href = url;
   $("paper-dl").download = "legend-draft-shimen.png";
   $("paper-bg").classList.add("show");
@@ -4931,7 +4947,8 @@ function startRoulette(no){
 }
 function rouletteRender(){
   const ctx = state.eventCtx;
-  if(!ctx) return;
+  // 補強の選択中に別のイベントへ移ることがある。その時は描き直さない
+  if(!ctx || ctx.type !== "roulette" || !ctx.queue) return;
   const t = ctx.queue[ctx.idx];
   const N = ROULETTE.length;
   const seg = 360 / N;
@@ -5041,7 +5058,9 @@ function scoutChoose(i){
   state.scoutPick = null;
   seWin();
   renderRosterLive(); renderTeamStrip();
-  rouletteRender();
+  const ctx = state.eventCtx;
+  if(ctx && ctx.type === "roulette") rouletteRender();
+  else endEventPhase();
 }
 function rouletteSpin(){
   const ctx = state.eventCtx;
@@ -5098,7 +5117,7 @@ function rouletteSpin(){
 }
 function rouletteNext(){
   const ctx = state.eventCtx;
-  if(!ctx) return;
+  if(!ctx || state.scoutPick) return;
   ctx.idx++; ctx.result = null; ctx.spinning = false; ctx.wheelDeg = 0;
   if(ctx.idx >= ctx.queue.length){ endEventPhase(); return; }
   rouletteRender();

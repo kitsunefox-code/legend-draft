@@ -1754,12 +1754,14 @@ body{
 .p-lead>span{flex:1 1 100%;}
 @media (min-width:1100px){ .p-lead>span{flex:1 1 auto;min-width:240px;} }
 
-/* 欄名に通し番号の柱を添える。ただの飾りではなく面の順序を示す */
+/* 柱に丁数を添える。和装本は算用数字ではなく漢数字を通す */
 .panel>b:first-child::before,.board .p-head-b::before{
-  content:attr(data-col);font-family:"Oswald",sans-serif;font-size:10px;letter-spacing:.2em;
-  color:var(--red);margin-right:10px;vertical-align:2px;
+  content:attr(data-col);font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:11px;font-weight:900;line-height:1;
+  color:var(--paper);background:var(--red);
+  padding:3px 5px 4px;margin-right:10px;vertical-align:2px;
 }
-.board .p-head-b::before{color:var(--amber);}
+.board .p-head-b::before{color:#123024;background:var(--amber);}
 
 /* 盤面の欄名。級数を上げ、白抜きで締める */
 .board .p-head-b{
@@ -2651,6 +2653,160 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 @media (prefers-reduced-motion:reduce){
   .fp-flag,.fp-photo,.fp-lead,.fp-t1,.fp-t2,.fp-seal,.fp-sub,.fp-body,.fp-acts,.fp-strip{animation:none;}
 }
+
+/* ============================================================
+   和装本の体裁 ── 日刊紙ではなく、球史を記した書物として組む
+   匡郭(本文を囲む枠)・界線・版心・柱・題簽の作法にならう
+   ============================================================ */
+:root{ --ai:#1f3350; --ai2:#16253b; --kincha:#8a6b2f; }
+
+#scr-title{text-align:left;padding-top:14px;}
+#scr-title::before{opacity:.07;}
+
+/* 表紙。藍の布目に題簽を貼る */
+.bk-cover{
+  position:relative;display:flex;align-items:flex-start;gap:clamp(18px,4vw,44px);
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.028) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(0deg, rgba(0,0,0,.05) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg, var(--ai), var(--ai2));
+  border:1px solid #0d1727;
+  padding:clamp(22px,4vw,38px) clamp(20px,4vw,40px);
+  box-shadow:inset 0 0 60px rgba(0,0,0,.45), 4px 6px 0 rgba(20,16,8,.28);
+  animation:bkCover .55s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes bkCover{from{opacity:0;transform:translateY(-10px);}to{opacity:1;transform:none;}}
+/* 題簽 ── 表紙に貼られた細長い題名札 */
+.bk-daisen{
+  flex:none;background:var(--paper2);border:1px solid #b6a882;
+  padding:clamp(16px,2.6vw,26px) clamp(10px,1.6vw,16px);
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+  box-shadow:1px 2px 0 rgba(0,0,0,.35), inset 0 0 0 3px var(--paper2), inset 0 0 0 4px #cabf9f;
+  animation:bkDaisen .5s .12s cubic-bezier(.2,1.5,.4,1) both;
+}
+@keyframes bkDaisen{from{opacity:0;transform:scale(.9) rotate(-2deg);}to{opacity:1;transform:none;}}
+.bk-title{
+  writing-mode:vertical-rl;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-weight:900;font-size:clamp(40px,7vw,68px);letter-spacing:.16em;line-height:1;
+  color:var(--ink);
+}
+.bk-kan{
+  writing-mode:vertical-rl;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:11px;letter-spacing:.3em;color:var(--ink2);
+}
+.bk-seal{
+  position:absolute;right:clamp(16px,3vw,34px);bottom:clamp(16px,3vw,28px);
+  width:56px;height:56px;background:var(--red);color:#fff;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:13px;line-height:1.25;
+  letter-spacing:.06em;transform:rotate(-8deg);box-shadow:1px 2px 0 rgba(0,0,0,.35);
+  animation:bkSeal .5s .42s cubic-bezier(.2,1.7,.4,1) both;
+}
+@keyframes bkSeal{from{opacity:0;transform:rotate(-30deg) scale(.5);}to{opacity:1;transform:rotate(-8deg) scale(1);}}
+.bk-side{flex:1;min-width:0;padding-top:6px;color:var(--paper);}
+.bk-naidai{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  font-size:clamp(26px,4.6vw,44px);letter-spacing:.14em;line-height:1.25;
+  animation:bkIn .5s .22s cubic-bezier(.2,.9,.3,1) both;
+}
+.bk-sub{
+  margin-top:12px;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:clamp(12px,1.7vw,15px);letter-spacing:.42em;color:#c6cfdd;
+  border-top:1px solid #3d5573;padding-top:9px;display:inline-block;
+  animation:bkIn .5s .3s cubic-bezier(.2,.9,.3,1) both;
+}
+@keyframes bkIn{from{opacity:0;transform:translateX(8px);}to{opacity:1;transform:none;}}
+.bk-kanki{
+  margin-top:clamp(16px,3vw,30px);display:flex;gap:16px;flex-wrap:wrap;
+  font-size:10.5px;letter-spacing:.2em;color:#94a3b8;
+  animation:bkIn .5s .38s cubic-bezier(.2,.9,.3,1) both;
+}
+
+/* 見返し ── 序と口絵。匡郭で囲む */
+.bk-inner{
+  display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 26px;
+  align-items:start;margin-top:20px;
+  animation:bkIn .55s .3s cubic-bezier(.2,.9,.3,1) both;
+}
+.bk-lead{
+  border:1px solid var(--ink);padding:0;
+  background:rgba(255,255,255,.4);
+  box-shadow:inset 0 0 0 4px var(--paper), inset 0 0 0 5px var(--rule2);
+}
+.bk-jo{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:15px;
+  letter-spacing:.3em;color:var(--paper);background:var(--ink);
+  padding:5px 0;margin:9px 9px 0;text-align:center;text-indent:.3em;
+}
+.bk-body{
+  margin:0;padding:15px 20px 4px;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:14.5px;line-height:2.15;color:var(--ink);text-align:justify;
+}
+.bk-acts{display:flex;gap:11px;flex-wrap:wrap;padding:6px 20px 18px;}
+/* 口絵 */
+.bk-zu{margin:0;}
+.bk-zu-frame{
+  border:1px solid var(--ink);padding:5px;background:#fff;
+  box-shadow:inset 0 0 0 3px #fff, inset 0 0 0 4px var(--rule);
+}
+.bk-zu-frame img{width:100%;height:auto;max-height:46vh;object-fit:cover;display:block;filter:saturate(.86) contrast(1.03);}
+.bk-zu figcaption{
+  margin-top:8px;font-size:11px;line-height:1.8;color:var(--ink2);
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+  border-top:1px solid var(--rule);padding-top:6px;
+}
+/* 柱(版心) ── 書名と丁数を通す */
+.bk-hashira{
+  display:flex;align-items:baseline;gap:14px;margin-top:20px;padding-top:9px;
+  border-top:1px solid var(--ink);position:relative;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.bk-hashira::before{content:"";position:absolute;left:0;right:0;top:-4px;border-top:1px solid var(--ink);}
+.bk-h-l{flex:none;font-size:11px;letter-spacing:.24em;color:var(--ink2);}
+.bk-h-c{flex:1;min-width:0;font-size:12.5px;line-height:1.8;color:var(--ink2);}
+.bk-h-r{flex:none;font-size:11px;letter-spacing:.16em;color:var(--rule2);}
+@media (max-width:820px){
+  .bk-cover{flex-direction:column;align-items:center;text-align:center;gap:16px;padding:22px 16px 26px;}
+  .bk-side{text-align:center;}
+  .bk-sub{border-top:none;}
+  .bk-kanki{justify-content:center;}
+
+  .bk-inner{grid-template-columns:1fr;gap:18px 0;}
+  .bk-acts .btn{flex:1 1 100%;white-space:nowrap;}
+  /* 柱は狭い画面では書名と丁数を一行に、本文は下へ落とす */
+  .bk-hashira{flex-wrap:wrap;justify-content:space-between;row-gap:7px;}
+  .bk-h-c{order:3;flex:1 0 100%;}
+}
+@media (prefers-reduced-motion:reduce){
+  .bk-cover,.bk-daisen,.bk-seal,.bk-naidai,.bk-sub,.bk-kanki,.bk-inner{animation:none;}
+}
+
+/* 刊記。朱印を割り印のように行頭へ置く */
+.bk-kanki{display:flex;align-items:center;gap:20px;}
+.bk-kanki-t{display:flex;gap:16px;flex-wrap:wrap;}
+.bk-seal{
+  position:static;flex:none;width:52px;height:52px;background:var(--red);color:#fff;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;font-size:12.5px;line-height:1.25;
+  letter-spacing:.06em;transform:rotate(-8deg);box-shadow:1px 2px 0 rgba(0,0,0,.35);
+}
+/* 凡例。この巻に何が収められているかを示す */
+.bk-hanrei{
+  margin:0;padding:12px 20px 18px;border-top:1px solid var(--rule);
+  display:grid;grid-template-columns:auto 1fr;gap:6px 14px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:12.5px;line-height:1.7;
+}
+.bk-hanrei dt{color:var(--ink2);letter-spacing:.16em;white-space:nowrap;}
+.bk-hanrei dd{margin:0;color:var(--ink);}
+.bk-hanrei dd b{font-weight:900;font-size:15px;margin-right:2px;}
+.bk-hanrei .hr-n{color:var(--ink2);font-size:11px;}
+/* 口絵は一枚の図版。天地を切って序と背丈をそろえる */
+.bk-zu-frame{aspect-ratio:5/4;overflow:hidden;}
+.bk-zu-frame img{width:100%;height:100%;max-height:none;object-fit:cover;}
+@media (max-width:820px){
+  .bk-kanki{justify-content:center;}
+  .bk-zu-frame{aspect-ratio:16/10;}
+}
 </style>
 </head>
 <body>
@@ -2658,51 +2814,53 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 
 <!-- ================= TITLE ================= -->
 <div id="scr-title" class="screen active">
-  <!-- 題字帯 -->
-  <div class="fp-flag">
-    <div class="fp-flag-l"><span id="fp-issue">第一号</span><span id="fp-date"></span></div>
-    <div class="fp-name">球史新聞</div>
-    <div class="fp-flag-r"><span>プロ野球九十年</span><span>定価 無料</span></div>
-  </div>
-
-  <div class="fp-grid">
-    <!-- 一面写真 -->
-    <figure class="fp-photo">
-      <div class="fp-frame"><img id="fp-img" alt=""></div>
-      <figcaption id="fp-cap"></figcaption>
-    </figure>
-
-    <!-- トップ記事 -->
-    <div class="fp-lead">
-      <div class="fp-kicker">歴代最強の球団を、この卓で決める</div>
-      <h1 class="fp-title">
-        <span class="fp-t1">レジェンド</span>
-        <span class="fp-t2">ドラフト</span>
-        <span class="fp-seal">球史<br>特報</span>
-      </h1>
-      <div class="fp-sub">― 歴代最強ペナント ―</div>
-      <p class="fp-body">
-        戦前の豪傑から現代の怪物まで。日本プロ野球の名選手をドラフトで奪い合い、
-        監督を据え、本拠地を選び、一四四試合を戦い抜く。
-        栄冠を手にするのは、どの球団か。
-      </p>
-      <div class="fp-acts">
-        <button class="btn lg" onclick="goSetup()">開幕準備をはじめる</button>
-        <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
+  <!-- 表紙 ── 題簽を貼った和装本の体裁 -->
+  <div class="bk-cover">
+    <div class="bk-daisen">
+      <span class="bk-title">球史</span>
+      <span class="bk-kan">全一巻</span>
+    </div>
+    <div class="bk-side">
+      <div class="bk-naidai">レジェンドドラフト</div>
+      <div class="bk-sub">歴代最強ペナント</div>
+      <div class="bk-kanki">
+        <div class="bk-seal">球史<br>編纂</div>
+        <div class="bk-kanki-t"><span>球史編纂所</span><span id="bk-date"></span></div>
       </div>
     </div>
   </div>
 
-  <!-- 下段の帯 -->
-  <div class="fp-strip">
-    <span class="fp-strip-h">本日の紙面より</span>
-    <span class="fp-strip-t" id="fp-teaser"></span>
+  <!-- 見返し ── 序と口絵 -->
+  <div class="bk-inner">
+    <div class="bk-lead">
+      <div class="bk-jo">序</div>
+      <p class="bk-body">
+        戦前の豪傑から現代の怪物まで。日本プロ野球の名選手をこの卓で奪い合い、
+        監督を据え、本拠地を選び、一四四試合を戦い抜く。
+        栄冠を手にするのは、どの球団か。
+      </p>
+      <div class="bk-acts">
+        <button class="btn lg" onclick="goSetup()">巻を開く</button>
+        <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
+      </div>
+      <dl class="bk-hanrei" id="bk-hanrei"></dl>
+    </div>
+    <figure class="bk-zu">
+      <div class="bk-zu-frame"><img id="fp-img" alt=""></div>
+      <figcaption id="fp-cap"></figcaption>
+    </figure>
+  </div>
+
+  <div class="bk-hashira">
+    <span class="bk-h-l">球史　巻頭</span>
+    <span class="bk-h-c" id="fp-teaser"></span>
+    <span class="bk-h-r" id="fp-issue"></span>
   </div>
 </div>
 
 <!-- ================= SETUP ================= -->
 <div id="scr-setup" class="screen">
-  <h1><span class="kicker">第一面</span>球団結成<span class="en">FRANCHISE</span></h1>
+  <h1><span class="kicker">巻之一</span>球団結成<span class="en">FRANCHISE</span></h1>
 
   <div class="panel setup-main">
     <b>参加者<span class="pn-cnt">2〜6人</span></b>
@@ -2814,7 +2972,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 
 <!-- ================= DRAFT ================= -->
 <div id="scr-draft" class="screen">
-  <h1><span class="kicker">第二面</span>ドラフト会議<span class="en">THE DRAFT</span></h1>
+  <h1><span class="kicker">巻之二</span>ドラフト会議<span class="en">THE DRAFT</span></h1>
   <div class="draft-banner">
     <div class="who" id="d-who"></div>
     <div class="sub" id="d-round"></div>
@@ -2870,7 +3028,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 
 <!-- ================= SEASON ================= -->
 <div id="scr-season" class="screen">
-  <h1><span class="kicker">第三面</span>ペナントレース<span class="en">PENNANT RACE</span></h1>
+  <h1><span class="kicker">巻之三</span>ペナントレース<span class="en">PENNANT RACE</span></h1>
   <div class="board">
     <div class="month-head">
       <div class="month-big" id="s-date">開幕前</div>
@@ -2893,30 +3051,30 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 
   <div class="board">
-    <div class="p-head-b" data-col="01">順位表<span class="hb-r"><a href="javascript:snapPaper()">記念紙面を保存</a>　<a href="javascript:openQr()">観戦用QR</a></span></div>
+    <div class="p-head-b" data-col="一">順位表<span class="hb-r"><a href="javascript:snapPaper()">記念の一葉を残す</a>　<a href="javascript:openQr()">観戦用QR</a></span></div>
     <table id="standings"></table>
   </div>
 
   <div class="board">
-    <div class="p-head-b" data-col="02">部門別トップ</div>
+    <div class="p-head-b" data-col="二">部門別トップ</div>
     <div id="leaders"></div>
   </div>
 
   <div class="board">
-    <div class="p-head-b" data-col="03">所属選手の成績</div>
+    <div class="p-head-b" data-col="三">所属選手の成績</div>
     <div id="roster-tabs" style="margin-bottom:6px;"></div>
     <div id="roster-live"></div>
   </div>
 
   <div class="np-grid">
   <div class="panel np-wide" id="chart-box">
-    <b data-col="04">ペナントの軌跡</b>
+    <b data-col="四">ペナントの軌跡</b>
     <div class="p-lead"><span>各球団の貯金（勝ち越し数）の推移。0の線を下回れば負け越し。</span></div>
     <div id="chart"></div>
   </div>
 
   <div class="panel" id="party-box" style="display:none;">
-    <b data-col="05">球界事件簿</b>
+    <b data-col="五">球界事件簿</b>
     <div class="p-lead">
       <span>この一年に起きた波乱の記録。行をひらくと元ネタの史実が読めます。</span>
       <button class="btn ghost sm" onclick="openFile()">収録事件を全件読む</button>
@@ -2925,8 +3083,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 
   <div class="panel">
-    <b data-col="06">運動面</b>
-    <div class="p-lead"><span>その日の紙面に載った記事から。</span></div>
+    <b data-col="六">雑記</b>
+    <div class="p-lead"><span>その日の記録から書き留めたもの。</span></div>
     <div id="news"></div>
   </div>
   </div>
@@ -2963,7 +3121,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 
   <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
-    <button class="btn ghost" onclick="snapPaper()">記念紙面を保存</button>
+    <button class="btn ghost" onclick="snapPaper()">記念の一葉を残す</button>
     <button class="btn ghost" onclick="openQr()">観戦用QRを表示</button>
     <button class="btn" onclick="location.reload()">もう一度あそぶ</button>
   </div>
@@ -2988,7 +3146,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<footer>本紙の成績・記録は各選手のキャリアハイ年の実成績に基づく ── 球史編集局</footer>
+<footer>本書の成績・記録は各選手のキャリアハイ年の実成績に基づく ── 球史編纂所</footer>
 </div>
 
 <!-- player modal -->
@@ -3032,7 +3190,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   <div id="file-card">
     <header class="fh">
       <div class="fh-l">
-        <div class="fh-k">球史新聞社　資料室</div>
+        <div class="fh-k">球史編纂所　資料庫</div>
         <h2 class="fh-t">球界事件簿</h2>
         <div class="fh-s">本作に収録された事件はすべて実際の出来事に材を取っています</div>
       </div>
@@ -3052,8 +3210,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <!-- 開幕号外 -->
 <div id="opening-bg" onclick="if(event.target===this)closeOpeningGogai()">
   <div id="opening-card">
-    <div class="og-go">号外</div>
-    <div class="og-k">球史新聞社 ── 開幕特別号外</div>
+    <div class="og-go">特筆</div>
+    <div class="og-k">球史編纂所 ── 開幕の記</div>
     <h2 class="og-h">開　幕</h2>
     <div id="og-body"></div>
     <div style="text-align:right;margin-top:14px;">
@@ -3079,7 +3237,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <!-- 史実イベントの号外カット -->
 <div id="pic-bg">
   <div id="pic-card">
-    <div class="pc-kicker"><span class="pc-seal">号外</span><span id="pic-date"></span></div>
+    <div class="pc-kicker"><span class="pc-seal">図</span><span id="pic-date"></span></div>
     <h2 id="pic-head"></h2>
     <div class="pc-frame"><img id="pic-img" alt=""></div>
     <p id="pic-txt"></p>
@@ -3090,7 +3248,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<!-- 記念紙面プレビュー -->
+<!-- 記念の一葉 -->
 <div id="paper-bg" onclick="if(event.target===this)this.classList.remove('show')">
   <div style="background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:16px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;text-align:center;">
     <div id="paper-img"></div>
@@ -3134,12 +3292,12 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <!-- 優勝号外 -->
 <div id="gogai-bg" onclick="closeGogai()">
   <div id="gogai">
-    <div class="gg-go">号外</div>
-    <div class="gg-k">球史新聞社 ── 特別号外</div>
+    <div class="gg-go">特筆</div>
+    <div class="gg-k">球史編纂所 ── 巻末の記</div>
     <div class="gg-team" id="gg-team"></div>
     <div class="gg-v" id="gg-v">優　勝</div>
     <div class="gg-sub" id="gg-sub"></div>
-    <div class="gg-tap">── 画面をタップして紙面へ ──</div>
+    <div class="gg-tap">── 画面をタップして本文へ ──</div>
   </div>
 </div>
 
@@ -3163,9 +3321,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608311422"></script>
-<script src="players.js?v=202608311422"></script>
-<script src="party.js?v=202608311422"></script>
-<script src="game.js?v=202608311422"></script>
+<script src="qrcode.js?v=202608311710"></script>
+<script src="players.js?v=202608311710"></script>
+<script src="party.js?v=202608311710"></script>
+<script src="game.js?v=202608311710"></script>
 </body>
 </html>

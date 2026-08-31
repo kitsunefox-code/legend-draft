@@ -157,6 +157,34 @@ function budgetLeft(t){ return state.budget - t.spent; }
 
 function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active")); $(id).classList.add("active"); }
 
+// ---- 開始画面の一面を組む ----
+// 挿絵と事件を毎回引き直すので、開くたびに違う紙面になる
+function buildFrontPage(){
+  const d = new Date();
+  const iss = $("fp-issue"), dt = $("fp-date");
+  if(iss) iss.textContent = "第" + (1 + (d.getFullYear() % 90)) + "号";
+  if(dt) dt.textContent = d.getFullYear() + "年" + (d.getMonth()+1) + "月" + d.getDate() + "日";
+
+  const withPic = PARTY_LORE.filter(e => EVENT_PIC.has(e.id));
+  if(withPic.length){
+    const e = pick1(withPic);
+    const img = $("fp-img"), cap = $("fp-cap");
+    if(img){
+      img.src = "assets/event/" + e.id + ".jpg";
+      img.onerror = function(){ const f = this.closest(".fp-photo"); if(f) f.style.display = "none"; };
+    }
+    if(cap){
+      const head = (/^【([^】]+)】/.exec(e.text) || [null,"球史の一場面"])[1];
+      cap.textContent = "▲ " + head + " ―― " + (e.note || "").split("。")[0];
+    }
+  }
+  const tz = $("fp-teaser");
+  if(tz){
+    const e = pick1(PARTY_LORE);
+    tz.textContent = plainText(e.text).replace(/^【[^】]+】/, "【" + (/^【([^】]+)】/.exec(e.text)||[null,""])[1] + "】");
+  }
+}
+
 // ============================================================
 // 設定画面
 // ============================================================
@@ -5231,3 +5259,6 @@ function showSuper(e){
   clearTimeout(state.superTimer);
   state.superTimer = setTimeout(function(){ box.classList.remove("in"); }, 1900);
 }
+
+// 一面の写真と紙面よりは、すべての定義がそろってから組む
+buildFrontPage();

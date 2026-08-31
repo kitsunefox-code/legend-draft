@@ -2530,6 +2530,127 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .sr-team b{font-size:14px;}
   .sr-grid{grid-template-columns:repeat(4,1fr);}
 }
+
+/* ============================================================
+   開始画面 ── 中央に題字を置くだけだったのを、
+   球史新聞の一面そのものとして組み直す
+   ============================================================ */
+#scr-title{text-align:left;padding-top:16px;}
+#scr-title::before{opacity:.10;}
+
+/* 題字帯。新聞の題号にならい、太罫と細罫の二重線で締める */
+.fp-flag{
+  display:flex;align-items:flex-end;gap:14px;
+  border-bottom:4px solid var(--ink);padding-bottom:9px;margin-bottom:3px;position:relative;
+  animation:fpFlag .5s cubic-bezier(.2,.9,.3,1) both;
+}
+.fp-flag::after{content:"";position:absolute;left:0;right:0;bottom:-5px;border-bottom:1px solid var(--ink);}
+@keyframes fpFlag{from{opacity:0;transform:translateY(-8px);}to{opacity:1;transform:none;}}
+.fp-flag-l,.fp-flag-r{
+  flex:1;display:flex;flex-direction:column;gap:2px;
+  font-size:10.5px;letter-spacing:.16em;color:var(--ink2);padding-bottom:3px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+.fp-flag-r{align-items:flex-end;text-align:right;}
+.fp-name{
+  flex:none;font-family:"Zen Old Mincho","Yu Mincho",serif;font-weight:900;
+  font-size:clamp(28px,5.2vw,46px);letter-spacing:.24em;line-height:1;text-indent:.24em;
+}
+
+/* 一面の段組み。広い画面では写真と記事を左右に */
+.fp-grid{
+  display:grid;grid-template-columns:minmax(0,42%) minmax(0,1fr);
+  gap:0 28px;align-items:start;padding-top:22px;
+}
+.fp-photo{margin:0;animation:fpPhoto .7s .12s cubic-bezier(.2,.9,.3,1) both;}
+@keyframes fpPhoto{from{opacity:0;transform:translateY(14px) scale(.985);}to{opacity:1;transform:none;}}
+.fp-frame{
+  border:1px solid var(--ink);background:#fff;padding:6px;
+  box-shadow:5px 6px 0 rgba(20,16,8,.2);
+}
+.fp-frame img{width:100%;height:auto;display:block;filter:saturate(.92) contrast(1.04);}
+.fp-photo figcaption{
+  margin-top:8px;font-size:11px;line-height:1.75;color:var(--ink2);
+  border-left:3px solid var(--red);padding-left:9px;
+}
+
+/* トップ記事 */
+.fp-lead{animation:fpLead .6s .06s cubic-bezier(.2,.9,.3,1) both;}
+@keyframes fpLead{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:none;}}
+.fp-kicker{
+  display:inline-block;font-size:11px;letter-spacing:.2em;color:#fff;background:var(--red);
+  padding:3px 12px;margin-bottom:14px;
+}
+/* 題字は一面の主役。思い切って大きく取り、朱印を重ねる */
+.fp-title{
+  position:relative;margin:0;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-weight:900;line-height:.98;letter-spacing:.06em;
+  border:0;padding:0;background:none;
+}
+.fp-title::after{display:none;}
+.fp-t1,.fp-t2{display:block;}
+.fp-t1{font-size:clamp(40px,7.4vw,74px);}
+.fp-t2{font-size:clamp(46px,8.6vw,86px);margin-top:-.06em;}
+.fp-t1,.fp-t2{animation:fpStamp .42s cubic-bezier(.2,1.6,.4,1) both;}
+.fp-t1{animation-delay:.2s;}
+.fp-t2{animation-delay:.32s;}
+@keyframes fpStamp{
+  from{opacity:0;transform:scale(1.16) translateY(-6px);letter-spacing:.24em;}
+  to{opacity:1;transform:none;letter-spacing:.06em;}
+}
+.fp-seal{
+  position:absolute;right:2%;top:-6px;width:74px;height:74px;border-radius:50%;
+  background:var(--red);color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:15px;font-weight:900;line-height:1.25;letter-spacing:.1em;text-align:center;
+  box-shadow:2px 3px 0 rgba(20,16,8,.32);
+  animation:fpSeal .5s .5s cubic-bezier(.2,1.7,.4,1) both;
+}
+@keyframes fpSeal{from{opacity:0;transform:rotate(-28deg) scale(.5);}to{opacity:1;transform:rotate(-9deg) scale(1);}}
+.fp-sub{
+  margin-top:12px;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:clamp(13px,1.7vw,16px);letter-spacing:.36em;color:var(--ink2);
+  border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);
+  padding:7px 0;display:inline-block;
+  animation:fpLead .6s .42s cubic-bezier(.2,.9,.3,1) both;
+}
+/* 前文は罫で囲むのが新聞の作法 */
+.fp-body{
+  margin:16px 0 0;font-family:"Zen Old Mincho","Yu Mincho",serif;
+  font-size:14.5px;line-height:2.05;color:var(--ink);
+  border:1px solid var(--rule);background:rgba(255,255,255,.45);padding:13px 16px;
+  animation:fpLead .6s .5s cubic-bezier(.2,.9,.3,1) both;
+}
+.fp-acts{
+  display:flex;gap:12px;flex-wrap:wrap;margin-top:20px;
+  animation:fpLead .6s .58s cubic-bezier(.2,.9,.3,1) both;
+}
+
+/* 下段の帯。415件から1件を毎回引いて、その日の紙面らしさを出す */
+.fp-strip{
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  margin-top:26px;padding-top:12px;border-top:2px solid var(--ink);
+  animation:fpLead .6s .66s cubic-bezier(.2,.9,.3,1) both;
+}
+.fp-strip-h{
+  flex:none;font-size:10px;letter-spacing:.2em;color:var(--paper);background:var(--ink);
+  padding:3px 10px;
+}
+.fp-strip-t{
+  flex:1;min-width:0;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;
+  line-height:1.8;color:var(--ink2);
+}
+@media (max-width:820px){
+  .fp-grid{grid-template-columns:1fr;gap:20px 0;padding-top:16px;}
+  .fp-photo{order:2;}
+  .fp-lead{order:1;}
+  .fp-seal{width:58px;height:58px;font-size:12.5px;top:-4px;}
+  .fp-body{font-size:13.5px;line-height:1.95;padding:11px 13px;}
+  .fp-acts{gap:9px;}
+  .fp-acts .btn{flex:1 1 100%;min-width:0;white-space:nowrap;}
+}
+@media (prefers-reduced-motion:reduce){
+  .fp-flag,.fp-photo,.fp-lead,.fp-t1,.fp-t2,.fp-seal,.fp-sub,.fp-body,.fp-acts,.fp-strip{animation:none;}
+}
 </style>
 </head>
 <body>
@@ -2537,18 +2658,45 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 
 <!-- ================= TITLE ================= -->
 <div id="scr-title" class="screen active">
-  <div class="dateline"><span>球史特別号</span><span>プロ野球九十年・完全保存版</span><span>定価：無料</span></div>
-  <div class="masthead">
-    <div class="title-seal">球史<br>特報</div>
-    <div class="title-logo">レジェンド<br>ドラフト<small>― 歴代最強ペナント ―</small></div>
+  <!-- 題字帯 -->
+  <div class="fp-flag">
+    <div class="fp-flag-l"><span id="fp-issue">第一号</span><span id="fp-date"></span></div>
+    <div class="fp-name">球史新聞</div>
+    <div class="fp-flag-r"><span>プロ野球九十年</span><span>定価 無料</span></div>
   </div>
-  <div class="title-lede">
-    戦前の豪傑から現代の怪物まで、日本プロ野球の歴代名選手をドラフトで奪い合い、
-    監督を据え、一年間のペナントレースを戦い抜く。栄冠を手にするのは、どの球団か。
+
+  <div class="fp-grid">
+    <!-- 一面写真 -->
+    <figure class="fp-photo">
+      <div class="fp-frame"><img id="fp-img" alt=""></div>
+      <figcaption id="fp-cap"></figcaption>
+    </figure>
+
+    <!-- トップ記事 -->
+    <div class="fp-lead">
+      <div class="fp-kicker">歴代最強の球団を、この卓で決める</div>
+      <h1 class="fp-title">
+        <span class="fp-t1">レジェンド</span>
+        <span class="fp-t2">ドラフト</span>
+        <span class="fp-seal">球史<br>特報</span>
+      </h1>
+      <div class="fp-sub">― 歴代最強ペナント ―</div>
+      <p class="fp-body">
+        戦前の豪傑から現代の怪物まで。日本プロ野球の名選手をドラフトで奪い合い、
+        監督を据え、本拠地を選び、一四四試合を戦い抜く。
+        栄冠を手にするのは、どの球団か。
+      </p>
+      <div class="fp-acts">
+        <button class="btn lg" onclick="goSetup()">開幕準備をはじめる</button>
+        <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
+      </div>
+    </div>
   </div>
-  <div class="t-acts">
-    <button class="btn" onclick="goSetup()">開幕準備をはじめる</button>
-    <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
+
+  <!-- 下段の帯 -->
+  <div class="fp-strip">
+    <span class="fp-strip-h">本日の紙面より</span>
+    <span class="fp-strip-t" id="fp-teaser"></span>
   </div>
 </div>
 
@@ -3015,9 +3163,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608311214"></script>
-<script src="players.js?v=202608311214"></script>
-<script src="party.js?v=202608311214"></script>
-<script src="game.js?v=202608311214"></script>
+<script src="qrcode.js?v=202608311412"></script>
+<script src="players.js?v=202608311412"></script>
+<script src="party.js?v=202608311412"></script>
+<script src="game.js?v=202608311412"></script>
 </body>
 </html>

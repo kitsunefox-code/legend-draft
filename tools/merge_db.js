@@ -264,6 +264,24 @@ console.log("intl patch:");
 console.log("  npb:", applyIntl("intl.json", db), "matched");
 console.log("  mlb:", applyIntl("intl.json", mlb), "matched");
 
+// 通算成績(career.json)。tools/fetch_career.js が年度別成績の表から拾う。
+// キャリアハイの年だけでは物足りないので、名鑑と選手詳細に並べて出す
+function applyCareer(file, arr){
+  const p = path.join(dataDir, file);
+  if(!fs.existsSync(p)) return 0;
+  const j = JSON.parse(fs.readFileSync(p, "utf8"));
+  let hit = 0;
+  for(const q of arr){
+    const v = j[q.name + "|" + q.cat];
+    if(!v) continue;
+    q.car = v; hit++;
+  }
+  return hit;
+}
+console.log("career patch:");
+console.log("  npb:", applyCareer("career.json", db), "matched");
+console.log("  mlb:", applyCareer("career.json", mlb), "matched");
+
 console.log("numbers patches:");
 console.log("  bat:", applyNumbers("numbers_bat.json", db, ["B"]), "matched");
 console.log("  pit+mgr:", applyNumbers("numbers_pit.json", db, ["P","M"]), "matched");

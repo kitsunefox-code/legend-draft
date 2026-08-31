@@ -3008,6 +3008,55 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 .m-intl{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
 .mi-r{display:flex;align-items:center;gap:8px;}
 .mi-l{font-size:11.5px;color:var(--ink2);font-family:"Zen Old Mincho","Yu Mincho",serif;}
+
+/* 球場カードの写真。出典は帯にして写真の上に載せる */
+.lh-park{width:64px;height:48px;object-fit:cover;border:1px solid var(--rule2);display:block;}
+.pk-ph{position:relative;margin:-10px -10px 9px;line-height:0;overflow:hidden;}
+.pk-ph img{width:100%;height:104px;object-fit:cover;display:block;filter:saturate(.92) contrast(1.02);}
+.pk-cr{
+  position:absolute;left:0;right:0;bottom:0;padding:2px 6px;
+  font-size:8px;line-height:1.3;color:#e8e2d2;background:rgba(20,17,10,.62);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.pk-card.used .pk-ph img{filter:grayscale(.75) opacity(.5);}
+
+/* 通算成績。キャリアハイの下に一行で添える */
+.mk-car{
+  margin-top:4px;display:flex;flex-wrap:wrap;gap:0 10px;align-items:baseline;
+  font-family:"Oswald",sans-serif;font-size:11.5px;color:var(--ink2);
+  font-variant-numeric:tabular-nums;
+}
+.mk-car .cr-k{
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:9.5px;letter-spacing:.14em;
+  color:var(--paper);background:var(--ink2);padding:1px 5px;
+}
+.mk-car .cr-y{font-size:10px;color:var(--rule2);}
+.mk-car i{font-style:normal;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:9.5px;color:var(--rule2);margin-right:2px;}
+.m-yr2{margin-top:12px;}
+
+/* 名鑑の「詳細」ボタン。狭い画面でだけ出す */
+.mk-go{display:none;}
+
+/* ============================================================
+   狭い画面の名鑑 ── 一件を一行に詰めて、スクロールを短くする。
+   紹介文と通算は「詳細」でひらく
+   ============================================================ */
+@media (max-width:700px){
+  .mk-e{grid-template-columns:auto minmax(0,1fr) auto;align-items:center;padding:9px 0;}
+  .mk-b{min-width:0;}
+  .mk-d,.mk-car,.mk-cr,.mk-rb{display:none;}
+  .mk-m{margin-top:2px;font-size:11px;}
+  .mk-s{margin-top:3px;font-size:12px;gap:0 9px;}
+  .mk-fw{width:38px;}
+  .mk-face{width:38px;height:48px;}
+  .mk-go{
+    display:flex;align-items:center;justify-content:center;flex:none;
+    width:30px;height:30px;border:1px solid var(--rule2);background:var(--paper2);
+    color:var(--ink2);font-size:15px;line-height:1;font-family:"Oswald",sans-serif;
+  }
+  .mk-e:active .mk-go{background:var(--ink);color:var(--paper);}
+  .pk-ph img{height:88px;}
+}
 </style>
 </head>
 <body>
@@ -3575,9 +3624,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609011420"></script>
-<script src="players.js?v=202609011420"></script>
-<script src="party.js?v=202609011420"></script>
-<script src="game.js?v=202609011420"></script>
+<script src="qrcode.js?v=202609011820"></script>
+<script src="players.js?v=202609011820"></script>
+<script src="party.js?v=202609011820"></script>
+<script src="game.js?v=202609011820"></script>
 </body>
 </html>

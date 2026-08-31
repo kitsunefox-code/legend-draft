@@ -381,20 +381,250 @@ function startDraft(){
 // ---- 本拠地ドラフト ----
 // 選手より先に球場を決める。狭い箱を取れば大砲を、広い外野を取れば投手と機動力を
 // 集めることになり、以後の指名の方針がここで決まる
+// 球場の写真の出典。CC BY / BY-SA は表示が要るのでカードに添える
+const PARK_PHOTO = {"escon": {"a": "掬茶", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:ES_CON_FIELD_HOKKAIDO_exterior_from_south_202607a.jpg"}, "jingu": {"a": "江戸村のとくぞう", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Meiji_Jingu_Stadium_2019c.jpg"}, "hama": {"a": "Haruakibay", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Yokohama_stadium_2020_wing.jpg"}, "zozo": {"a": "Archiroid21", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Chiba_Marine_Stadium_2024.jpg"}, "paypay": {"a": "Keeteria", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Mizuho_PayPay_dome_Fukuoka_2025.jpg"}, "mazda": {"a": "HKT3012", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:MAZDA_Zoom-Zoom_Stadium_Hiroshima%EF%BC%882019%EF%BC%89.jpg"}, "tokyodome": {"a": "User:DX Broadrec", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Tokyo_Dome_2007-12.jpg"}, "beluna": {"a": "Nesnad", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Seibu_Dome_feb_23_2021_various_16_59_23_418000.jpeg"}, "kyocera": {"a": "KENPEI", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Kyocera_Dome_Osaka1.jpg"}, "koshien": {"a": "ウィ貴公子", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:202309081549_IMG_3516.jpg"}, "rakuten": {"a": "Hotta Akahane", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Rakuten_Mobile_Park_Miyagi_Entrance.jpg"}, "vantelin": {"a": "KKPCW（Kyu3）", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Nagoya_Dome_-_3.jpg"}, "korakuen": {"a": "国土地理院", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Korakuen_stadium_aerial_photograph_1984.jpg"}, "osaka": {"a": "国土地理院", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Osaka_Stadium_aerial_photograph.jpg"}, "nishinomiya": {"a": "Own work", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:%E9%98%AA%E6%80%A5%E8%A5%BF%E5%AE%AE%E3%82%B9%E3%82%BF%E3%82%B8%E3%82%A2%E3%83%A0.JPG"}, "kawasaki": {"a": "Yasuoyamada", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Kawasaki_1989_02.jpg"}, "heiwadai": {"a": "国土地理院", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Heiwadai_Stadium_aerial_photograph_1993.jpg"}, "fujiidera": {"a": "Gomurafuji", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Fujiiderastadium.jpg"}, "coors": {"a": "Matt Kozlowski", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Coors_field_1.JPG"}, "fenway": {"a": "User Jared Vincent on Flickr", "l": "CC BY 2.0", "u": "https://commons.wikimedia.org/wiki/File:Fenway_from_Legend%27s_Box.jpg"}, "wrigley": {"a": "Dr. Blofeld", "l": "CC BY-SA 2.0", "u": "https://commons.wikimedia.org/wiki/File:Location_map_Chicago.png"}, "yankee": {"a": "Andrew nyr", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:YankeeStadium-9-21-22-1.jpg"}, "oracle": {"a": "Chris6d", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Oracle_Park_2021.jpg"}, "petco": {"a": "Mds08011", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Petco_Park_Padres_Game.jpg"}, "bocchan": {"a": "Sunport1216", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Botchan_Stadium(20160416)_01.jpg"}, "muscat": {"a": "Tatushin", "l": "Public domain", "u": "https://commons.wikimedia.org/wiki/File:Muscat_stadium_in_April,_2009.JPG"}, "alpen": {"a": "ネプチューン", "l": "Public domain", "u": "https://commons.wikimedia.org/wiki/File:Toyama_Alpen_Stadium_002.jpg"}, "cellular": {"a": "Kugel~commonswiki", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Okinawa_Cellular_Stadium_Naha_01.JPG"}, "nagoya": {"a": "Radicaltrain", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Entrance_of_the_Nagoya_Baseball_Stadium_was_renewed_in_2010.JPG"}, "nissei": {"a": "国土地理院", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Nippon_Seimei_Stadium_aerialphotograph.jpg"}, "dodger": {"a": "Spatms", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Dodger_Stadium_and_Chavez_Ravine_far_view,_Chicago_Cubs_at_Los_Angeles_Dodgers,_(April_12,_2025).jpg"}, "tropicana": {"a": "Vmartin12", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:PXL_20220528_205520913.jpg"}, "polo": {"a": "David Shapinsky from Washington, D.C., United States", "l": "CC BY-SA 2.0", "u": "https://commons.wikimedia.org/wiki/File:No_Known_Restrictions_Polo_Grounds_during_World_Series_Game,_1913_from_the_Bain_Collection_(LOC)_(434431507).jpg"}, "sunmarine": {"a": "ja:User:Sanjo", "l": "Public domain", "u": "https://commons.wikimedia.org/wiki/File:Sun_Marine_Stadium_2009_001.jpg"}, "kitakyushu": {"a": "Kugel", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Kitakyushu_Municipal_Baseball_Stadium.JPG"}, "ishikawa": {"a": "Kanko3131", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Ishikawa-Base01.jpg"}, "komachi": {"a": "掬茶", "l": "CC BY-SA 4.0", "u": "https://commons.wikimedia.org/wiki/File:Stadium_view_of_Akita_Prefectural_Baseball_Stadium.jpg"}, "hardoff": {"a": "Hitam1200", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Niigata_Prefectural_Baseball_Stadium_20090705.jpg"}, "kusanagi": {"a": "Scinsvche", "l": "CC0", "u": "https://commons.wikimedia.org/wiki/File:Kusanagi_Stadium_plaque.jpg"}, "obihiro": {"a": "Own work", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:The_woods_baseball_field_in_Obihiro06-8-27-2.jpg"}, "tokyostadium": {"a": "国土地理院", "l": "CC BY 4.0", "u": "https://commons.wikimedia.org/wiki/File:Tokyo_stadium_aerial_photograph_1974.jpg"}, "hiroshima-old": {"a": "Taisyo", "l": "CC BY-SA 3.0", "u": "https://commons.wikimedia.org/wiki/File:Hiroshima_Municipal_Baseball_Stadium_2008.JPG"}, "gabp": {"a": "redlegsfan21", "l": "CC BY-SA 2.0", "u": "https://commons.wikimedia.org/wiki/File:Great_American_Ball_Park_(15561187833).jpg"}};
+// ============================================================
+// 本拠地ドラフト ── 選手と同じく入札制。
+// 希望が重なったら封筒くじで決め、外れた球団は次の巡で選び直す
+// ============================================================
 function startParkDraft(){
-  state.parkCtx = {order: shuffle(state.parts.slice()), idx: 0};
-  renderParkDraft();
+  state.parkCtx = {
+    round: 1,
+    pending: state.parts.map(function(_, i){ return i; }),
+    bids: {}, ptr: 0, stage: "collect", lot: null, queue: null, qi: 0,
+  };
+  parkNext();
   $("park-bg").classList.add("show");
+}
+function parkFree(){
+  const taken = new Set(state.parts.map(x => x.park && x.park.id).filter(Boolean));
+  return PARKS.filter(function(pk){ return !taken.has(pk.id); });
+}
+// CPUの好み。打者が揃っていれば狭い箱、投手が良ければ広い箱を選びやすくする
+function cpuParkWant(t){
+  const free = parkFree();
+  if(!free.length) return null;
+  const w = free.map(function(pk){
+    let v = 1;
+    if(pk.cat === "NPB") v += 1.2;            // 現行球場は無難で選ばれやすい
+    if(pk.cat === "草野球") v -= 0.6;
+    v += (rnd() - 0.5) * 1.6;
+    return {pk: pk, v: v};
+  }).sort(function(x, y){ return y.v - x.v; });
+  return w[0].pk;
+}
+// 次の球団の入札へ。人間の番では幕を出して端末を渡す間を作る
+function parkNext(){
+  const c = state.parkCtx;
+  if(!c) return;
+  while(c.ptr < c.pending.length){
+    const t = state.parts[c.pending[c.ptr]];
+    if(t.cpu){
+      const pk = cpuParkWant(t);
+      if(pk) c.bids[c.pending[c.ptr]] = pk.id;
+      c.ptr++;
+      continue;
+    }
+    c.stage = "collect";
+    renderParkDraft();
+    curtain(t.name + " の本拠地入札",
+      "他の人に見えないように端末を受け取ってください。<br>希望が重なった場合は<b>抽選</b>になります。",
+      "本拠地を選ぶ",
+      function(){ renderParkDraft(); });
+    return;
+  }
+  parkReveal();
+}
+function parkChoose(id){
+  const c = state.parkCtx;
+  if(!c || c.stage !== "collect") return;
+  if(!PARKS.some(function(x){ return x.id === id; })) return;
+  if(state.parts.some(function(x){ return x.park && x.park.id === id; })) return;
+  c.bids[c.pending[c.ptr]] = id;
+  c.ptr++;
+  seTap();
+  const remainHuman = c.pending.slice(c.ptr).some(function(i){ return !state.parts[i].cpu; });
+  curtain("入札を受理しました",
+    remainHuman ? "端末を伏せて、次の方へお回しください。" : "全球団の希望が出揃いました。",
+    remainHuman ? "次の球団へ" : "希望を発表する",
+    function(){ parkNext(); });
+}
+// 出揃った希望を並べて見せる。重なったところが抽選になる
+function parkReveal(){
+  const c = state.parkCtx;
+  c.stage = "reveal";
+  const groups = {};
+  Object.keys(c.bids).forEach(function(k){
+    (groups[c.bids[k]] = groups[c.bids[k]] || []).push(Number(k));
+  });
+  c.groups = groups;
+  const rows = Object.keys(groups).map(function(pid){
+    const pk = PARKS.find(function(x){ return x.id === pid; });
+    const dup = groups[pid].length > 1;
+    return groups[pid].map(function(i){
+      const t = state.parts[i];
+      return '<tr><td style="width:34%;">' + teamEmblem(t, 18) + ' ' + esc(t.name) + '</td>' +
+        '<td class="bp">' + esc(pk.name) + ' <span class="sub">（' + esc(pk.type) + '）</span></td>' +
+        '<td style="width:16%;">' + (dup ? '<span class="dup">重複 ─ 抽選</span>' : '単独') + '</td></tr>';
+    }).join("");
+  }).join("");
+  const anyDup = Object.keys(groups).some(function(k){ return groups[k].length > 1; });
+  $("park-panel").innerHTML =
+    '<h2><span class="kicker">巻之一 下</span>本拠地の希望 発表</h2>' +
+    '<div class="sub">第' + c.round + '巡。重なった球場は抽選で決めます。</div>' +
+    '<table class="bid-table">' + rows + '</table>' +
+    '<div style="margin-top:16px;text-align:right;">' +
+      '<button class="btn" onclick="parkResolve()">' + (anyDup ? "抽選会場へ" : "本拠地確定") + '</button>' +
+    '</div>';
+}
+function parkResolve(){
+  const c = state.parkCtx;
+  c.queue = Object.keys(c.groups).map(function(pid){
+    return {pid: pid, idxs: c.groups[pid]};
+  });
+  c.qi = 0;
+  parkNextGroup();
+}
+function parkNextGroup(){
+  const c = state.parkCtx;
+  while(c.qi < c.queue.length){
+    const g = c.queue[c.qi];
+    const pk = PARKS.find(function(x){ return x.id === g.pid; });
+    if(g.idxs.length === 1){
+      state.parts[g.idxs[0]].park = pk;
+      c.qi++;
+      continue;
+    }
+    parkLottery(g, pk);
+    return;
+  }
+  parkRoundDone();
+}
+// 選手ドラフトと同じ封筒くじ。演出をそろえて盛り上がりを揃える
+function parkLottery(g, pk){
+  const c = state.parkCtx;
+  const order = shuffle(g.idxs.slice());
+  const winner = order[Math.floor(rnd() * order.length)];
+  c.lot = {g: g, pk: pk, order: order, winner: winner, drawn: 0, opened: false};
+  const heat = lotteryHeat(g.idxs.length);
+  const ph = PARK_PHOTO[pk.id];
+  c.stage = "lot";
+  $("park-panel").innerHTML =
+    '<h2><span class="kicker">' + heat.k + '</span>' + esc(pk.name) + ' ── 本拠地抽選</h2>' +
+    '<div class="lot-hero ' + heat.cls + '">' +
+      (ph ? '<div class="lh-av"><img class="lh-park" src="assets/park/' + pk.id + '.jpg" alt="" onerror="this.remove()"></div>' : '') +
+      '<div class="lh-main">' +
+        '<div class="lh-n">' + esc(pk.name) + '</div>' +
+        '<div class="lh-s">' + esc(pk.type) + '　' + esc(pk.note) + '</div>' +
+      '</div>' +
+      '<div class="lh-c">' + g.idxs.length + '<span>球団</span></div>' +
+    '</div>' +
+    '<div class="sub lot-msg">' + heat.msg + ' ―― 各球団、封筒から抽選券を引いてください（まだ開けないこと）</div>' +
+    '<div class="kuji-row">' +
+    order.map(function(idx, i){
+      const t = state.parts[idx];
+      return '<div class="kuji" id="pkuji-' + i + '" onclick="parkKujiDraw(' + i + ')">' +
+        '<div class="env">' +
+          '<div class="slip ' + (idx === winner ? "win" : "") + '"><span class="sl-t">' + (idx === winner ? "当" : "外") + '</span></div>' +
+          '<div class="env-front">本拠地希望</div>' +
+        '</div>' +
+        '<div class="t-name"><span style="color:' + t.color + '">●</span> ' + esc(t.name) + '</div>' +
+      '</div>';
+    }).join("") +
+    '</div>' +
+    '<div class="kuji-result" id="pkuji-result"></div>' +
+    '<div style="text-align:right;">' +
+      '<button class="btn" id="pkuji-open" style="display:none;" onclick="parkKujiOpen()">一斉に開封する</button>' +
+      '<button class="btn" id="pkuji-next" style="display:none;" onclick="parkLotteryDone()">本拠地確定</button>' +
+    '</div>';
+}
+function parkKujiDraw(i){
+  const lot = state.parkCtx && state.parkCtx.lot;
+  if(!lot || lot.opened) return;
+  const el = $("pkuji-" + i);
+  if(!el || el.classList.contains("drawn") || el.classList.contains("drawing")) return;
+  el.classList.add("drawing");
+  seTap();
+  lot.drawn++;
+  setTimeout(function(){
+    el.classList.remove("drawing");
+    el.classList.add("drawn");
+    if(lot.drawn >= lot.order.length){
+      const b = $("pkuji-open");
+      if(b) b.style.display = "";
+      const m = document.querySelector("#park-panel .lot-msg");
+      if(m) m.textContent = "全球団が引き終えました。息を合わせて、一斉に開封します";
+    }
+  }, 340);
+}
+function parkKujiOpen(){
+  const lot = state.parkCtx && state.parkCtx.lot;
+  if(!lot || lot.opened) return;
+  lot.opened = true;
+  const ob = $("pkuji-open"); if(ob) ob.style.display = "none";
+  const m = document.querySelector("#park-panel .lot-msg");
+  const n = lot.order.length;
+  if(m) m.textContent = "――― 運命の瞬間 ―――";
+  seRollStart();
+  setTimeout(function(){
+    seRollStop();
+    setTimeout(function(){
+      lot.order.forEach(function(idx, i){
+        const el = $("pkuji-" + i);
+        if(el) el.classList.add("opened");
+      });
+      const wt = state.parts[lot.winner];
+      seWin();
+      if(m) m.textContent = "";
+      $("pkuji-result").innerHTML =
+        '<span class="kr-win">本拠地獲得</span><span style="color:' + wt.color + '">●</span> ' + esc(wt.name) +
+        (n >= 3 ? '　<span class="kr-note">' + n + '球団競合を制した</span>' : '');
+      setTimeout(function(){ const b = $("pkuji-next"); if(b) b.style.display = ""; }, 700);
+    }, 700);
+  }, 900 + n * 220);
+}
+function parkLotteryDone(){
+  seRollStop();
+  const c = state.parkCtx;
+  const lot = c.lot;
+  state.parts[lot.winner].park = lot.pk;
+  c.lot = null;
+  c.qi++;
+  parkNextGroup();
+}
+// 巡が終わったところで、まだ本拠地の無い球団だけで次の巡へ
+function parkRoundDone(){
+  const c = state.parkCtx;
+  const rest = state.parts.map(function(t, i){ return t.park ? -1 : i; })
+    .filter(function(i){ return i >= 0; });
+  if(!rest.length || !parkFree().length){ finishParkDraft(); return; }
+  c.round++;
+  c.pending = rest;
+  c.bids = {};
+  c.ptr = 0;
+  c.groups = null;
+  c.queue = null;
+  c.qi = 0;
+  const names = rest.map(function(i){ return state.parts[i].name; }).join("、");
+  curtain("第" + c.round + "巡へ",
+    esc(names) + " が抽選に外れました。<br>残った球場から選び直してください。",
+    "選び直す",
+    function(){ parkNext(); });
 }
 function renderParkDraft(){
   const c = state.parkCtx;
   if(!c) return;
-  if(c.idx >= c.order.length){ finishParkDraft(); return; }
-  const t = c.order[c.idx];
+  if(c.stage !== "collect" || c.ptr >= c.pending.length) return;
+  const t = state.parts[c.pending[c.ptr]];
   const taken = new Set(state.parts.map(x=>x.park && x.park.id).filter(Boolean));
-  const bar = c.order.map(function(x, i){
-    return '<span class="pk-step' + (i === c.idx ? " now" : (x.park ? " done" : "")) + '">' +
-      teamEmblem(x, 15) + esc(x.name) + (x.park ? '<i>' + esc(x.park.name) + '</i>' : '') + '</span>';
+  // 入札はまだ伏せておく。誰が済んだかだけを出す
+  const bar = state.parts.map(function(x, i){
+    const done = x.park || c.bids[i] !== undefined;
+    const now = c.pending[c.ptr] === i;
+    return '<span class="pk-step' + (now ? " now" : (done ? " done" : "")) + '">' +
+      teamEmblem(x, 15) + esc(x.name) +
+      (x.park ? '<i>' + esc(x.park.name) + '</i>' : (c.bids[i] !== undefined ? '<i>入札済み</i>' : '')) +
+      '</span>';
   }).join("");
   const CATS = [["NPB","NPB 現行"],["歴史","記憶の中の球場"],["MLB","MLB"],["地方","地方球場"],["草野球","草野球"]];
   const card = function(pk){
@@ -404,8 +634,11 @@ function renderParkDraft(){
       const pct = clamp((v - lo) / (hi - lo), 0, 1) * 100;
       return '<span class="pk-bar"><i style="width:' + pct.toFixed(0) + '%"></i></span>';
     };
+    const ph = PARK_PHOTO[pk.id];
     return '<div class="pk-card' + (used ? " used" : "") + '"' +
       (used || t.cpu ? '' : ' onclick="parkChoose(&quot;' + pk.id + '&quot;)"') + '>' +
+      (ph ? '<div class="pk-ph"><img src="assets/park/' + pk.id + '.jpg" alt="" loading="lazy" onerror="this.remove()">' +
+            '<span class="pk-cr">' + esc([ph.a, ph.l].filter(Boolean).join(" / ")) + '</span></div>' : '') +
       '<div class="pk-h"><b>' + esc(pk.name) + '</b><span>' + esc(pk.type) + '</span></div>' +
       '<div class="pk-m"><span class="pk-lb">本塁打</span>' + meter(pk.hr, 0.78, 1.24) +
         '<span class="pk-v">' + (pk.hr >= 1.12 ? "出やすい" : pk.hr <= 0.90 ? "出にくい" : "標準") + '</span></div>' +
@@ -425,35 +658,16 @@ function renderParkDraft(){
   }).join("");
   $("park-panel").innerHTML =
     '<h2><span class="kicker">巻之一 下</span>本拠地ドラフト</h2>' +
-    '<div class="sub">選手より先に本拠地を決めます。球場の癖はこの一年、全試合につきまといます。' +
+    '<div class="sub">第' + c.round + '巡の入札。希望が重なったら<b>抽選</b>です。' +
+    '球場の癖はこの一年、全試合につきまといます。' +
     '狭い箱なら大砲を、広い外野なら投手と足を集めることになります。</div>' +
     '<div class="pk-bar-row">' + bar + '</div>' +
     '<div class="pk-turn">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b>' +
-      (t.cpu ? '<span class="pk-cpu">選択中…</span>' : '<span class="pk-you">本拠地を選んでください</span>') + '</div>' +
+      '<span class="pk-you">希望する本拠地を1つ選んでください</span></div>' +
     cards;
-  if(t.cpu) setTimeout(cpuParkPick, 700);
 }
 function cpuParkPick(){
-  const c = state.parkCtx;
-  if(!c) return;
-  const t = c.order[c.idx];
-  if(!t || !t.cpu) return;
-  const taken = new Set(state.parts.map(x=>x.park && x.park.id).filter(Boolean));
-  const free = PARKS.filter(pk=>!taken.has(pk.id));
-  if(!free.length){ finishParkDraft(); return; }
-  parkChoose(pick1(free).id);
-}
-function parkChoose(id){
-  const c = state.parkCtx;
-  if(!c) return;
-  const pk = PARKS.find(x=>x.id === id);
-  if(!pk) return;
-  if(state.parts.some(x=>x.park && x.park.id === id)) return;
-  const t = c.order[c.idx];
-  t.park = pk;
-  seWin();
-  c.idx++;
-  renderParkDraft();
+  // 入札制になったので、CPUの選択は parkNext の中で済ませている
 }
 function finishParkDraft(){
   state.parkCtx = null;
@@ -832,9 +1046,12 @@ function openModal(id){
       p.twoWay.era.toFixed(2) + '</b>　<b>' + p.twoWay.so + '</b>奪三振' +
       '<span>二刀流。指名打者と先発の2枠を同時に埋めます</span></div>';
   }
+  const cf = careerFigs(p);
   $("m-stats").innerHTML =
     '<div class="m-yr">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
-    figuresHtml(statFigures(p)) + extra;
+    figuresHtml(statFigures(p)) + extra +
+    (cf ? '<div class="m-yr m-yr2">通算' + (p.car.yr ? "　" + p.car.yr + "年" : "") + '</div>' +
+          figuresHtml(cf.map(function(x){ return {k:x[0], v:x[1]}; })) : "");
   // プロフィールと写真の出典。表示が要るライセンスがあるので必ず添える
   const life = [];
   if(p.y) life.push(p.y);
@@ -3578,11 +3795,14 @@ function mkEntry(p){
   const life = [];
   if(p.b) life.push(p.b + (p.d ? "–" + p.d : "–"));
   if(p.f) life.push(p.f);
+  // キャリアハイの年の成績。持っている数字は出し切る
   const figs = p.cat === "M"
     ? [["優勝", p.pennants + "回"], ["日本一", p.japan + "回"], ["通算", p.wins + "勝"]]
     : p.cat === "P"
       ? [["勝", p.w], ["防", p.era.toFixed(2)], ["奪三振", p.so]]
-      : [["率", avg3(p.avg)], ["本", p.hr], ["点", p.rbi]];
+        .concat(p.sv ? [["S", p.sv]] : [], p.hld ? [["H", p.hld]] : [])
+      : [["率", avg3(p.avg)], ["本", p.hr], ["点", p.rbi]]
+        .concat(p.sb ? [["盗", p.sb]] : []);
   return '<div class="mk-e" onclick="openModal(&quot;' + p.id + '&quot;)" title="ひらいて詳しく見る">' +
     '<div class="mk-av">' + facePic(p) + '</div>' +
     '<div class="mk-b">' +
@@ -3603,10 +3823,47 @@ function mkEntry(p){
     '<div class="mk-s">' + figs.map(function(x){
       return '<span><i>' + x[0] + '</i>' + x[1] + '</span>';
     }).join("") + '</div>' +
+    careerLine(p) +
     '<div class="mk-d">' + esc(p.desc || "") + '</div>' +
     faceCredit(p) +
     '</div>' +
+    '<span class="mk-go" aria-hidden="true">›</span>' +
   '</div>';
+}
+// ---- 通算成績 ----
+// キャリアハイの年だけだと、その選手がどれだけ積んだ人なのかが分からない。
+// wikipedia の年度別成績の表から拾った合計を並べて出す
+function careerFigs(p){
+  const c = p.car;
+  if(!c) return null;
+  const n = x => (x === undefined || x === null) ? null : x;
+  if(p.cat === "P"){
+    return [
+      c.g   != null ? ["登板", c.g] : null,
+      c.w   != null ? ["勝", c.w + (c.l != null ? "-" + c.l : "")] : null,
+      c.sv  ? ["S", c.sv] : null,
+      c.ip  != null ? ["回", Math.round(c.ip)] : null,
+      c.so  != null ? ["奪三振", c.so] : null,
+      c.era != null ? ["防", c.era.toFixed(2)] : null,
+    ].filter(Boolean);
+  }
+  return [
+    c.g   != null ? ["試合", c.g] : null,
+    c.h   != null ? ["安打", c.h] : null,
+    c.hr  != null ? ["本", c.hr] : null,
+    c.rbi != null ? ["点", c.rbi] : null,
+    c.sb  ? ["盗", c.sb] : null,
+    c.avg != null ? ["率", avg3(c.avg)] : null,
+  ].filter(Boolean);
+}
+function careerLine(p){
+  const f = careerFigs(p);
+  if(!f) return "";
+  const yr = p.car.yr ? '<span class="cr-y">' + p.car.yr + '年</span>' : "";
+  return '<div class="mk-car"><span class="cr-k">通算</span>' + yr +
+    f.map(function(x){
+      return '<span><i>' + x[0] + '</i>' + x[1] + '</span>';
+    }).join("") + '</div>';
 }
 // ---- 国際大会のリボン ----
 // 出場した大会だけを種類ごとにまとめて出す。WBC×3 のように回数で示し、

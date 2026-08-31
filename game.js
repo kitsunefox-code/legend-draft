@@ -854,7 +854,7 @@ function validPool(t, respectFr=true){
 function currentTeam(){ return state.parts[state.currentIdx]; }
 
 function nextTurn(first=false){
-  if(state.parts.every(rosterFull)){ startSeason(); return; }
+  if(state.parts.every(rosterFull)){ startCamp(); return; }
   const ph = currentPhase();
   // 各部の第1巡はNPB式の入札抽選
   if(ph && !state.partBidDone[ph]){
@@ -1274,7 +1274,7 @@ function autoAllInner(){
     if(!p){ nextTurn(); continue; }
     doPick(t,p);
   }
-  if(state.parts.every(rosterFull)) startSeason();
+  if(state.parts.every(rosterFull)) startCamp();
 }
 
 // ============================================================
@@ -2490,13 +2490,31 @@ function playPA(st, bat, pit, park, rec){
   return 0;
 }
 // 盗塁。一塁に走者がいて二塁が空いていれば、足のある選手だけが仕掛ける
-function trySteal(st, runner, pit, rec){
+// ---- 起用法 ----
+// 打順とローテだけでは監督の色が出ない。走塁と継投の方針を持たせ、
+// 実際の試合の中で効かせる
+const POL_STEAL = {
+  go:     {label:"積極的", note:"隙あらば走る。成功も失敗も増える", mul:1.7, ok:-0.04},
+  normal: {label:"標準",   note:"足のある選手が普通に走る",         mul:1.0, ok:0},
+  hold:   {label:"慎重",   note:"アウトを避け、走らせない",         mul:0.35, ok:0.05},
+};
+const POL_PITCH = {
+  early:  {label:"早め",   note:"6回で継投。中継ぎの負担は増える",   exit:6},
+  normal: {label:"標準",   note:"好投していれば7回も投げる",         exit:0},
+  long:   {label:"引っ張る", note:"7回まで投げきらせる",             exit:7},
+};
+function polOf(t){
+  if(!t.pol) t.pol = {steal:"normal", pitch:"normal"};
+  return t.pol;
+}
+function trySteal(st, runner, pit, rec, team){
   if(!st.on[0] || st.on[1] || !runner) return;
   const sb = runner.sb || 0;
-  if(sb < 8) return;                                  // 足の無い選手は走らない
-  const go = clamp(sb / 250, 0.02, 0.46);             // 仕掛ける頻度
+  const P = POL_STEAL[team ? polOf(team).steal : "normal"] || POL_STEAL.normal;
+  if(sb < (P.mul > 1.2 ? 4 : 8)) return;              // 足の無い選手は走らない
+  const go = clamp(sb / 250 * P.mul, 0.02, 0.62);     // 仕掛ける頻度
   if(rnd() > go) return;
-  const ok = rnd() < clamp(0.60 + sb / 420, 0.55, 0.85);   // 成功率
+  const ok = rnd() < clamp(0.60 + sb / 420 + P.ok, 0.50, 0.88);   // 成功率
   if(ok){
     st.on[0] = false; st.on[1] = true;
     if(rec) rec(runner, pit, "sb", 0);
@@ -2506,7 +2524,7 @@ function trySteal(st, runner, pit, rec){
   }
 }
 // 半イニング。3アウトまで打席を回す
-function playHalf(order, idx, pit, park, rec){
+function playHalf(order, idx, pit, park, rec, team){
   const st = {outs:0, on:[false,false,false]};
   let runs = 0;
   let guard = 0;
@@ -2514,7 +2532,7 @@ function playHalf(order, idx, pit, park, rec){
   while(st.outs < 3 && guard++ < 40){
     const bat = order[idx % order.length];
     idx++;
-    trySteal(st, prev, pit, rec);
+    trySteal(st, prev, pit, rec, team);
     if(st.outs >= 3) break;
     const before = st.on[0];
     runs += playPA(st, bat, pit, park, rec);
@@ -2537,21 +2555,21 @@ function rollGame(A, B, keep){
   const spA = starterOf(A), spB = starterOf(B);
   for(let inn = 1; inn <= 9; inn++){
     const pB = pitcherForInning(B, inn, spB, rB - rA).p;   // Aの攻撃を受けるのはBの投手
-    const ra = playHalf(oa, ia, pB, park, recA);
+    const ra = playHalf(oa, ia, pB, park, recA, A);
     rA += ra.runs; ia = ra.idx;
     if(inn === 9 && rB > rA) break;               // 裏の攻撃は不要
     const pA = pitcherForInning(A, inn, spA, rA - rB).p;
-    const rb = playHalf(ob, ib, pA, park, recB);
+    const rb = playHalf(ob, ib, pA, park, recB, B);
     rB += rb.runs; ib = rb.idx;
     if(inn === 9 && rB > rA) break;               // サヨナラ
   }
   // 延長は最大3イニング。決着しなければ引き分け
   for(let ex = 0; ex < 3 && rA === rB; ex++){
     const pB = pitcherForInning(B, 9, spB, rB - rA).p;
-    const ra = playHalf(oa, ia, pB, park, recA);
+    const ra = playHalf(oa, ia, pB, park, recA, A);
     rA += ra.runs; ia = ra.idx;
     const pA = pitcherForInning(A, 9, spA, rA - rB).p;
-    const rb = playHalf(ob, ib, pA, park, recB);
+    const rb = playHalf(ob, ib, pA, park, recB, B);
     rB += rb.runs; ib = rb.idx;
   }
   if(keep) creditGame(A, B, rA, rB, seen);
@@ -3148,6 +3166,71 @@ function showFilePic(id){
 // ============================================================
 // 打順・先発ローテーションの編成
 // ============================================================
+// ---- 開幕前のキャンプ ----
+// ドラフトが終わったらすぐ開幕、では味気ない。
+// 端末を回して、各球団が打順・ローテ・起用法を決めてから開幕する
+function startCamp(){
+  // CPUは自動で組む
+  state.parts.forEach(function(t){ if(t.cpu) autoOrderFor(t); });
+  const human = state.parts.map(function(t, i){ return t.cpu ? -1 : i; })
+    .filter(function(i){ return i >= 0; });
+  if(!human.length){ startSeason(); return; }
+  state.campCtx = {pending: human, ptr: 0};
+  campNext();
+}
+function campNext(){
+  const c = state.campCtx;
+  if(!c) return;
+  if(c.ptr >= c.pending.length){
+    state.campCtx = null;
+    curtain("開幕", "全球団の編成が決まりました。<br>一四四試合の長い戦いが始まります。", "開幕する",
+      function(){ startSeason(); });
+    return;
+  }
+  const idx = c.pending[c.ptr];
+  const t = state.parts[idx];
+  curtain(t.name + " の開幕編成",
+    "他の人に見えないように端末を受け取ってください。<br>打順・先発ローテ・起用法を決めます。",
+    "編成を組む",
+    function(){ openOrder(idx); });
+}
+// 打順とローテを定跡どおりに組む(CPUと「おまかせ」で共用)
+function autoOrderFor(t){
+  const keys = orderKeys(t).slice();
+  const ps = keys.map(function(k){ return {k:k, p:t.slots[k]}; }).filter(function(x){ return x.p; });
+  const onbase = ps.slice().sort(function(a,b){
+    return (b.p.avg + b.p.sb*0.0016) - (a.p.avg + a.p.sb*0.0016); });
+  const power = ps.slice().sort(function(a,b){
+    return (b.p.hr*2 + b.p.rbi) - (a.p.hr*2 + a.p.rbi); });
+  const out = [], used = new Set();
+  const take = function(list){
+    for(const x of list){ if(!used.has(x.k)){ used.add(x.k); return x.k; } }
+    return null;
+  };
+  out[0] = take(onbase); out[1] = take(onbase);
+  out[3] = take(power);  out[2] = take(power); out[4] = take(power);
+  for(let i = 0; i < 9; i++) if(!out[i]) out[i] = take(onbase);
+  t.order = out.filter(Boolean);
+  t.rot = rotKeys(t).slice().sort(function(a,b){
+    return ovrFor(t.slots[b], "SP") - ovrFor(t.slots[a], "SP"); });
+  t.rotIdx = 0;
+  // 起用法もチームの顔ぶれから決める。足が揃っていれば走らせる
+  const speed = lineupOf(t).reduce(function(a, p){ return a + (p.sb || 0); }, 0) / 9;
+  const pol = polOf(t);
+  pol.steal = speed >= 22 ? "go" : speed <= 8 ? "hold" : "normal";
+  const rp = RP_KEYS.map(function(k){ return t.slots[k]; }).filter(Boolean);
+  const rpAvg = rp.length ? rp.reduce(function(a,p){ return a + p.ovr; }, 0) / rp.length : 78;
+  const spAvg = rotKeys(t).map(function(k){ return t.slots[k]; }).filter(Boolean)
+    .reduce(function(a,p){ return a + p.ovr; }, 0) / Math.max(1, rotKeys(t).length);
+  pol.pitch = rpAvg > spAvg + 2 ? "early" : spAvg > rpAvg + 4 ? "long" : "normal";
+}
+function setPol(kind, val){
+  const c = state.orderCtx;
+  if(!c) return;
+  polOf(state.parts[c.idx])[kind] = val;
+  seTap();
+  renderOrder();
+}
 function openOrder(idx){
   const t = state.parts[idx];
   if(!t) return;
@@ -3186,7 +3269,23 @@ function renderOrder(){
        <div class="od-h">先発ローテーション</div>
        ${c.rot.map((k,i)=>row(c.rot,i,"rot")).join("")}
        <div class="od-note">上から順に登板します。中継ぎ・抑えは自動です。</div>
+       ${polHtml(t)}
      </div>`;
+}
+// 起用法の欄。監督の色が出るところなので、効きめも一緒に書いておく
+function polHtml(t){
+  const pol = polOf(t);
+  const grp = function(kind, defs, cur){
+    return '<div class="pl-g"><div class="pl-k">' + (kind === "steal" ? "走塁" : "継投") + '</div>' +
+      '<div class="pl-btns">' + Object.keys(defs).map(function(k){
+        return '<button class="pl-b' + (cur === k ? " on" : "") +
+          '" onclick="setPol(&quot;' + kind + '&quot;,&quot;' + k + '&quot;)">' +
+          defs[k].label + '</button>';
+      }).join("") + '</div>' +
+      '<div class="pl-n">' + esc(defs[cur].note) + '</div></div>';
+  };
+  return '<div class="od-h" style="margin-top:14px;">起用法</div>' +
+    '<div class="pl-wrap">' + grp("steal", POL_STEAL, pol.steal) + grp("pitch", POL_PITCH, pol.pitch) + '</div>';
 }
 function moveOrder(kind, i, d){
   const c = state.orderCtx;
@@ -3202,17 +3301,9 @@ function autoOrder(){
   const c = state.orderCtx;
   if(!c) return;
   const t = state.parts[c.idx];
-  // 打順は「出塁できる順に上位、長打を3〜5番」という定跡で自動編成
-  const ps = c.order.map(k=>({k, p:t.slots[k]})).filter(x=>x.p);
-  const onbase = ps.slice().sort((a,b)=>(b.p.avg + b.p.sb*0.0016) - (a.p.avg + a.p.sb*0.0016));
-  const power  = ps.slice().sort((a,b)=>(b.p.hr*2 + b.p.rbi) - (a.p.hr*2 + a.p.rbi));
-  const out = [], used = new Set();
-  const take = list => { for(const x of list){ if(!used.has(x.k)){ used.add(x.k); return x.k; } } return null; };
-  out[0] = take(onbase); out[1] = take(onbase);
-  out[3] = take(power);  out[2] = take(power); out[4] = take(power);
-  for(let i=0;i<9;i++) if(!out[i]) out[i] = take(onbase);
-  c.order = out.filter(Boolean);
-  c.rot = c.rot.slice().sort((a,b)=>ovrFor(t.slots[b],"SP") - ovrFor(t.slots[a],"SP"));
+  autoOrderFor(t);
+  c.order = t.order.slice();
+  c.rot = t.rot.slice();
   seWin();
   renderOrder();
 }
@@ -3226,6 +3317,7 @@ function saveOrder(){
   state.orderCtx = null;
   $("order-bg").classList.remove("show");
   seWin();
+  if(state.campCtx){ state.campCtx.ptr++; campNext(); return; }
   renderRosterLive();
 }
 function closeOrder(){ state.orderCtx = null; $("order-bg").classList.remove("show"); }
@@ -4475,10 +4567,15 @@ function reliefOf(t, n){
 // lead は「そのイニングを投げる側の点差」。1〜3点差の9回だけ抑えが出る
 function pitcherForInning(t, inn, sp, lead){
   const st = (sp && !isOut(sp)) ? sp : starterOf(t);
-  if(inn <= 6) return {p:st, key:"SP", label:"先発"};
+  const PP = POL_PITCH[polOf(t).pitch] || POL_PITCH.normal;
+  if(inn <= 5) return {p:st, key:"SP", label:"先発"};
+  if(inn === 6 && PP.exit !== 6) return {p:st, key:"SP", label:"先発"};
+  if(inn === 6) return {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"};
   // 好投した日は7回も投げる。采配の下見と本番で結果が変わらないよう、
   // 消化試合数と投手の力から決める(乱数は使わない)
-  if(inn === 7 && (((t.W||0)+(t.L||0)+(t.T||0) + (st.ovr||78)) % 5) < 2)
+  if(inn === 7 && PP.exit === 7) return {p:st, key:"SP", label:"先発"};
+  if(inn === 7 && PP.exit !== 6 &&
+     (((t.W||0)+(t.L||0)+(t.T||0) + (st.ovr||78)) % 5) < 2)
     return {p:st, key:"SP", label:"先発"};
   if(inn === 7) return {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"};
   if(inn === 8) return {p:reliefOf(t, 1), key:"RP", label:"セットアッパー"};

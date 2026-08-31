@@ -3267,6 +3267,23 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .fl-tile img,.fl-no{height:50px;}
   .fl-n{font-size:10px;height:2.6em;}
 }
+
+/* 起用法。走塁と継投の方針を選ぶ */
+.pl-wrap{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+.pl-g{border-left:3px solid var(--rule2);padding-left:10px;}
+.pl-k{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:12px;font-weight:900;letter-spacing:.2em;color:var(--ink2);margin-bottom:5px;}
+.pl-btns{display:flex;gap:0;flex-wrap:wrap;}
+.pl-b{
+  border:1px solid var(--rule2);border-right:0;background:var(--paper2);cursor:pointer;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:12.5px;font-weight:700;
+  color:var(--ink2);padding:5px 13px;letter-spacing:.06em;
+}
+.pl-b:last-child{border-right:1px solid var(--rule2);}
+.pl-b.on{background:var(--ink);border-color:var(--ink);color:var(--paper);}
+.pl-n{margin-top:5px;font-size:11px;line-height:1.6;color:var(--rule2);}
+@media (max-width:700px){
+  .pl-b{flex:1;padding:7px 8px;font-size:13px;}
+}
 </style>
 </head>
 <body>
@@ -3752,7 +3769,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
       <button class="btn ghost sm" onclick="autoOrder()">おまかせ編成</button>
       <div style="flex:1"></div>
       <button class="btn ghost sm" onclick="closeOrder()">やめる</button>
-      <button class="btn" onclick="saveOrder()">この編成で戦う</button>
+      <button class="btn" onclick="saveOrder()" id="order-go">この編成で戦う</button>
     </div>
   </div>
 </div>
@@ -3844,9 +3861,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609020015"></script>
-<script src="players.js?v=202609020015"></script>
-<script src="party.js?v=202609020015"></script>
-<script src="game.js?v=202609020015"></script>
+<script src="qrcode.js?v=202609020140"></script>
+<script src="players.js?v=202609020140"></script>
+<script src="party.js?v=202609020140"></script>
+<script src="game.js?v=202609020140"></script>
 </body>
 </html>

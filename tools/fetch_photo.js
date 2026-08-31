@@ -86,7 +86,7 @@ async function download(url, dest){
   return buf.length;
 }
 
-const MORE = process.argv.includes("--more");
+const MORE = process.argv.includes("--more") || process.argv.includes("--deep");
 (async function main(){
   if(MORE) return;
   if(!fs.existsSync(FACE)) fs.mkdirSync(FACE, {recursive:true});
@@ -322,3 +322,157 @@ async function moreMode(){
     Object.values(prev).filter(Boolean).length + "人");
 }
 if(process.argv.includes("--more")) moreMode();
+
+// ============================================================
+// --deep : まだ写真の無い人を、さらに別の口から探す。
+//   (4) 他言語版(英・韓・中・西)の代表画像
+//   (5) Wikidata の P373(Commonsのカテゴリ)を辿って中の画像
+//   いずれも自由ライセンスのものだけ。ここまでやって無ければ、
+//   その人の自由に使える写真は存在しないと考えてよい。
+// ============================================================
+const LANGS = ["en", "ko", "zh", "es"];
+async function langTitles(titles){
+  const j = await jaApi("action=query&prop=langlinks&lllang=&lllimit=max&redirects=1&titles=" +
+    encodeURIComponent(titles.join("|")));
+  const q = j.query || {};
+  const map = {};
+  (q.normalized || []).forEach(x => { map[x.from] = x.to; });
+  (q.redirects || []).forEach(x => { map[x.from] = x.to; });
+  const byTitle = {};
+  (q.pages || []).forEach(p => {
+    const o = {};
+    (p.langlinks || []).forEach(l => { if(LANGS.includes(l.lang)) o[l.lang] = l.title; });
+    byTitle[p.title] = o;
+  });
+  const out = {};
+  titles.forEach(n => {
+    let t = n, hop = 0;
+    while(map[t] && hop++ < 4) t = map[t];
+    out[n] = byTitle[t] || {};
+  });
+  return out;
+}
+async function leadOn(lang, titles){
+  const res = await fetch("https://" + lang + ".wikipedia.org/w/api.php?format=json&formatversion=2" +
+    "&action=query&prop=pageimages&piprop=name&pilicense=free&redirects=1&titles=" +
+    encodeURIComponent(titles.join("|")), {headers:{"User-Agent": UA}});
+  if(!res.ok) return {};
+  const j = await res.json();
+  const q = j.query || {};
+  const map = {};
+  (q.normalized || []).forEach(x => { map[x.from] = x.to; });
+  (q.redirects || []).forEach(x => { map[x.from] = x.to; });
+  const byTitle = {};
+  (q.pages || []).forEach(p => { byTitle[p.title] = p.pageimage || null; });
+  const out = {};
+  titles.forEach(n => {
+    let t = n, hop = 0;
+    while(map[t] && hop++ < 4) t = map[t];
+    out[n] = byTitle[t] || null;
+  });
+  return out;
+}
+// Wikidata の P373 から Commons のカテゴリ名を得る
+async function commonsCats(qids){
+  const res = await fetch("https://www.wikidata.org/w/api.php?format=json&formatversion=2" +
+    "&action=wbgetentities&props=claims&ids=" + encodeURIComponent(qids.join("|")),
+    {headers:{"User-Agent": UA}});
+  if(!res.ok) return {};
+  const j = await res.json();
+  const out = {};
+  Object.entries(j.entities || {}).forEach(([q, e]) => {
+    const c = e.claims && e.claims.P373 && e.claims.P373[0];
+    const v = c && c.mainsnak && c.mainsnak.datavalue && c.mainsnak.datavalue.value;
+    if(v) out[q] = String(v);
+  });
+  return out;
+}
+// カテゴリの中の画像。人物のカテゴリなら本人の写真が入っている
+async function catFiles(cat){
+  const res = await fetch("https://commons.wikimedia.org/w/api.php?format=json&formatversion=2" +
+    "&action=query&list=categorymembers&cmtype=file&cmlimit=12&cmtitle=" +
+    encodeURIComponent("Category:" + cat), {headers:{"User-Agent": UA}});
+  if(!res.ok) return [];
+  const j = await res.json();
+  return ((j.query || {}).categorymembers || [])
+    .map(x => x.title.replace(/^File:/, "").replace(/ /g, "_"))
+    .filter(f => /\.(jpe?g|png)$/i.test(f));
+}
+
+async function deepMode(){
+  if(!fs.existsSync(FACE)) fs.mkdirSync(FACE, {recursive:true});
+  const aliasFile = path.join(DATA, "wiki_alias.json");
+  const alias = fs.existsSync(aliasFile) ? JSON.parse(fs.readFileSync(aliasFile, "utf8")) : {};
+  const prev = fs.existsSync(OUT) ? JSON.parse(fs.readFileSync(OUT, "utf8")) : {};
+  const players = loadPlayers().filter(p => !prev[p.name]);
+  console.log("まだ写真の無い " + players.length + "人を、他言語版とCommonsのカテゴリから探す");
+
+  let next = Math.max(0, ...Object.values(prev).filter(Boolean).map(v => v.i)) + 1;
+  let got = 0, bytes = 0;
+
+  for(let i = 0; i < players.length; i += 20){
+    const batch = players.slice(i, i + 20);
+    const titles = batch.map(p => alias[p.name] || p.name.replace(/\([^)]*\)/g, "").trim());
+    let ll = {}, ids = {};
+    try{ ll = await langTitles(titles); }catch(e){}
+    await sleep(400);
+    try{ ids = await idsFor(titles); }catch(e){}
+    await sleep(400);
+
+    // (4) 他言語版の代表画像
+    const found = {};
+    for(const lang of LANGS){
+      const want = batch.map((p, k) => ll[titles[k]] && ll[titles[k]][lang]).filter(Boolean);
+      if(!want.length) continue;
+      let r = {};
+      try{ r = await leadOn(lang, want); }catch(e){}
+      await sleep(400);
+      batch.forEach((p, k) => {
+        if(found[p.name]) return;
+        const t = ll[titles[k]] && ll[titles[k]][lang];
+        if(t && r[t]) found[p.name] = r[t];
+      });
+    }
+    // (5) Commonsのカテゴリ
+    const need = batch.filter(p => !found[p.name]);
+    const qids = need.map((p, k) => ids[titles[batch.indexOf(p)]] && ids[titles[batch.indexOf(p)]].qid).filter(Boolean);
+    let cats = {};
+    if(qids.length){ try{ cats = await commonsCats(qids); }catch(e){} await sleep(400); }
+    for(const p of need){
+      const k = batch.indexOf(p);
+      const qid = ids[titles[k]] && ids[titles[k]].qid;
+      const cat = qid && cats[qid];
+      if(!cat) continue;
+      let files = [];
+      try{ files = await catFiles(cat); }catch(e){}
+      await sleep(400);
+      if(files.length) found[p.name] = files[0];
+    }
+
+    const wanted = Object.keys(found).map(n => ({p: batch.find(x => x.name === n), file: found[n]}))
+      .filter(w => w.p);
+    let meta = {};
+    for(let k = 0; k < wanted.length; k += 20){
+      try{ meta = Object.assign(meta, await fileInfo(wanted.slice(k, k+20).map(w => w.file))); }
+      catch(e){ await sleep(3000); }
+      await sleep(400);
+    }
+    for(const w of wanted){
+      const m = meta[w.file] || meta[w.file.replace(/ /g, "_")];
+      if(!m || !m.url || !FREE.test(m.lic || "")) continue;
+      const id = next++;
+      try{
+        bytes += await download(m.url, path.join(FACE, id + ".jpg"));
+        prev[w.p.name] = {i:id, a:m.author, l:m.lic, u:m.page};
+        got++;
+      }catch(e){ next--; }
+      await sleep(180);
+    }
+    fs.writeFileSync(OUT, JSON.stringify(prev), "utf8");
+    process.stdout.write("  " + Math.min(i+20, players.length) + "/" + players.length +
+      "  追加" + got + "件 " + Math.round(bytes/1024) + "KB\r");
+  }
+  fs.writeFileSync(OUT, JSON.stringify(prev), "utf8");
+  console.log("\n追加 " + got + "件 / 写真のある人 " + Object.values(prev).filter(Boolean).length + "人");
+}
+if(process.argv.includes("--deep")) deepMode();

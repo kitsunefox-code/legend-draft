@@ -3365,6 +3365,119 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .fv-shot img{max-height:150px;}
   .fv-name{font-size:14.5px;padding:5px 9px;}
 }
+
+/* ============================================================
+   狭い画面の扉とドラフト ── ここも一画面に収める
+   ============================================================ */
+@media (max-width:700px){
+  /* 扉。表紙を薄くし、凡例を二列に畳む */
+  .bk-cover{padding:16px 14px 20px;gap:12px;}
+  .bk-daisen{padding:12px 10px;gap:6px;}
+  .bk-title{font-size:clamp(32px,11vw,44px);}
+  .bk-naidai{font-size:clamp(22px,6.4vw,30px);}
+  .bk-sub{margin-top:8px;letter-spacing:.3em;}
+  .bk-kanki{margin-top:12px;}
+  .bk-seal{width:44px;height:44px;font-size:11px;}
+  .bk-inner{margin-top:12px;gap:12px 0;}
+  .bk-body{padding:12px 14px 2px;font-size:13.5px;line-height:1.95;}
+  .bk-acts{padding:4px 14px 12px;gap:8px;}
+  .bk-hanrei{padding:9px 14px 12px;font-size:11.5px;gap:4px 10px;}
+  .bk-hanrei dd b{font-size:14px;}
+  .bk-zu-frame{aspect-ratio:16/9;}
+  .bk-hashira{margin-top:12px;}
+  /* ドラフト。操作の帯と絞り込みを詰める */
+  .draft-banner{gap:6px;padding:8px 10px;}
+  .draft-banner .btn.sm{padding:5px 9px;font-size:11.5px;}
+  #d-announce{padding:6px 10px;font-size:11.5px;}
+  .f-row{gap:6px;}
+  .f-item label{font-size:10px;}
+  .f-item select,.f-item input{font-size:16px;padding:6px 8px;}
+  #scr-draft > h1{margin-bottom:6px;}
+}
+
+.f-toggle{display:none;}
+@media (max-width:700px){
+  /* 手番と操作を上に貼り付ける。候補を繰っても戻らずに済む */
+  .draft-banner{
+    position:sticky;top:0;z-index:40;
+    background:linear-gradient(180deg,#211d16,#191510);
+    margin:0 -14px;padding:8px 14px;border-radius:0;
+  }
+  .draft-banner .btn.sm{padding:5px 9px;font-size:11.5px;}
+  #d-announce{position:sticky;top:var(--dbh,54px);z-index:39;}
+  /* 絞り込みは畳んでおく */
+  .f-toggle{
+    display:block;width:100%;cursor:pointer;
+    font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;font-weight:700;
+    letter-spacing:.14em;color:var(--ink2);
+    border:1px solid var(--rule2);background:var(--paper2);padding:7px 12px;
+    margin-bottom:8px;
+  }
+  .f-toggle.on{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .f-row{display:none;}
+  .f-row.open{display:flex;flex-wrap:wrap;}
+  .f-item{flex:1 1 45%;min-width:0;}
+  .f-item select,.f-item input{font-size:16px;padding:6px 8px;}
+  .pcard{padding:8px 9px;}
+}
+
+/* ============================================================
+   シーズンの面切替 ── 順位・成績・記録を積むと3画面半になる。
+   面で分けて、上の操作帯とタブは動かさない
+   ============================================================ */
+.s-tabs{display:none;}
+.s-pane{display:block;}
+@media (max-width:700px){
+  .s-tabs{
+    display:flex;gap:0;position:sticky;top:0;z-index:38;
+    margin:0 -14px 10px;padding:0 14px;background:var(--paper);
+    box-shadow:0 6px 10px -9px rgba(20,16,8,.5);
+  }
+  .s-tab{
+    flex:1;border:0;border-bottom:3px solid var(--rule);background:transparent;cursor:pointer;
+    font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14px;font-weight:900;
+    letter-spacing:.2em;color:var(--ink2);padding:9px 0;
+  }
+  .s-tab.on{color:var(--ink);border-bottom-color:var(--red);}
+  .s-pane{display:none;}
+  .s-pane.on{display:block;}
+}
+
+@media (max-width:700px){
+  /* 扉を一画面に収める。口絵は帯にして高さを抑える */
+  .bk-cover{padding:12px 12px 14px;gap:9px;}
+  .bk-daisen{padding:9px 9px;gap:4px;}
+  .bk-title{font-size:clamp(28px,9.5vw,38px);letter-spacing:.1em;}
+  .bk-kan{font-size:9.5px;}
+  .bk-naidai{font-size:clamp(19px,5.6vw,26px);}
+  .bk-sub{margin-top:6px;padding-top:6px;font-size:11px;letter-spacing:.24em;}
+  .bk-kanki{margin-top:9px;gap:12px;font-size:9.5px;}
+  .bk-seal{width:38px;height:38px;font-size:10px;}
+  .bk-inner{margin-top:9px;gap:9px 0;}
+  .bk-jo{font-size:13px;padding:4px 0;margin:7px 7px 0;}
+  .bk-body{padding:9px 12px 2px;font-size:12.5px;line-height:1.8;}
+  .bk-acts{padding:4px 12px 9px;gap:7px;}
+  .bk-acts .btn{padding:9px 12px;font-size:14px;}
+  .bk-hanrei{padding:7px 12px 9px;font-size:10.5px;gap:3px 9px;}
+  .bk-hanrei dd b{font-size:13px;}
+  .bk-hanrei .hr-n{display:none;}
+  .bk-zu-frame{aspect-ratio:21/9;}
+  .bk-zu figcaption{margin-top:5px;font-size:9.5px;padding-top:4px;}
+  .bk-hashira{margin-top:9px;padding-top:6px;}
+  .bk-h-c{font-size:11px;}
+  /* 設定は「ドラフト会議へ」を下に貼り付ける。押しに行くために繰らない */
+  .setup-go{
+    position:sticky;bottom:0;z-index:35;margin-top:14px;padding:10px 0;
+    background:linear-gradient(180deg,rgba(240,236,224,0),var(--paper) 22%);
+    border-top:2px solid var(--ink);
+  }
+  .setup-go .sg-note{display:none;}
+  .setup-go .btn.lg{width:100%;padding:12px 0;font-size:16px;}
+  /* 編成の画面も詰める */
+  #order-card{max-height:92dvh;overflow-y:auto;}
+  .od-h{font-size:12px;padding:4px 8px;}
+  .od-note{font-size:10.5px;}
+}
 </style>
 </head>
 <body>
@@ -3636,11 +3749,15 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div class="ts-row" id="team-strip"></div>
   </div>
 
+  <div class="s-tabs" id="s-tabs"></div>
+  <div class="s-pane" data-pane="rank">
   <div class="board">
     <div class="p-head-b" data-col="一">順位表<span class="hb-r"><a href="javascript:snapPaper()">記念の一葉を残す</a>　<a href="javascript:openQr()">観戦用QR</a></span></div>
     <table id="standings"></table>
   </div>
 
+  </div>
+  <div class="s-pane" data-pane="stat">
   <div class="board">
     <div class="p-head-b" data-col="二">部門別トップ</div>
     <div id="leaders"></div>
@@ -3652,6 +3769,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div id="roster-live"></div>
   </div>
 
+  </div>
+  <div class="s-pane" data-pane="rec">
   <div class="np-grid">
   <div class="panel np-wide" id="chart-box">
     <b data-col="四">ペナントの軌跡</b>
@@ -3675,6 +3794,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div id="news"></div>
   </div>
   </div>
+  </div>
 </div>
 
 <!-- ================= RESULT ================= -->
@@ -3685,6 +3805,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div class="sub" id="r-record"></div>
   </div>
 
+  <div class="s-tabs" id="r-tabs"></div>
+  <div class="s-pane" data-pane="rrank">
   <div class="panel" style="text-align:left;">
     <b>最終順位</b>
     <table id="r-standings"></table>
@@ -3696,17 +3818,22 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div class="titles-grid" id="r-titles"></div>
   </div>
 
+  </div>
+  <div class="s-pane" data-pane="rchron">
   <div class="panel" style="text-align:left;">
     <b>シーズン年表</b>
     <div class="sub" style="margin:4px 0 14px;">開幕から日本一までを一本の時系列で。月末の順位と、その年を騒がせた出来事。</div>
     <div id="r-timeline"></div>
   </div>
 
+  </div>
+  <div class="s-pane" data-pane="rteam">
   <div class="panel" style="text-align:left;">
     <b>各チーム最終成績</b>
     <div id="r-teams"></div>
   </div>
 
+  </div>
   <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
     <button class="btn ghost" onclick="snapPaper()">記念の一葉を残す</button>
     <button class="btn ghost" onclick="openQr()">観戦用QRを表示</button>
@@ -3945,9 +4072,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609020620"></script>
-<script src="players.js?v=202609020620"></script>
-<script src="party.js?v=202609020620"></script>
-<script src="game.js?v=202609020620"></script>
+<script src="qrcode.js?v=202609021130"></script>
+<script src="players.js?v=202609021130"></script>
+<script src="party.js?v=202609021130"></script>
+<script src="game.js?v=202609021130"></script>
 </body>
 </html>

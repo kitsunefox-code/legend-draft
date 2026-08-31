@@ -339,6 +339,23 @@ function newTeam(name, fr, cpu, color, emblem){
           hist:[0], watch:new Set(), order:LINEUP_KEYS.slice(), rot:SP_KEYS.slice(), rotIdx:0,
           saihai: cpu ? 0 : SAIHAI_MAX};
 }
+// 狭い画面ではドラフトの絞り込みを畳んでおく。
+// 候補一覧は長いので、開閉の札を絞り込みの手前に差し込む
+function bindDraftFilter(){
+  const row = document.querySelector("#scr-draft .f-row");
+  if(!row || row.__bound) return;
+  row.__bound = true;
+  const b = document.createElement("button");
+  b.className = "f-toggle";
+  b.textContent = "絞り込み";
+  b.onclick = function(){
+    const on = row.classList.toggle("open");
+    b.textContent = on ? "絞り込みを閉じる" : "絞り込み";
+    b.classList.toggle("on", on);
+    seTap();
+  };
+  row.parentNode.insertBefore(b, row);
+}
 function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
@@ -396,6 +413,7 @@ function startDraft(){
     return;
   }
 
+  bindDraftFilter();
   state.taken = new Set(); state.round=1; state.turnPtr=0;
   state.partBidDone = {M:false, P:false, B:false};
   state.bid = null;
@@ -1732,6 +1750,28 @@ function dateLabel(d){
   return (dt.getMonth()+1) + "月" + dt.getDate() + "日";
 }
 
+// ---- シーズン画面の面切替 ----
+// 順位・成績・記録を縦に積むと3画面半になる。面で分けて一画面に収める
+const S_PANES = [["rank","順位"], ["stat","成績"], ["rec","記録"]];
+function renderSeasonTabs(){
+  const box = $("s-tabs");
+  if(!box) return;
+  if(!state.sPane) state.sPane = "rank";
+  box.innerHTML = S_PANES.map(function(x){
+    return '<button class="s-tab' + (state.sPane === x[0] ? " on" : "") +
+      '" onclick="seasonPane(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
+  }).join("");
+  document.querySelectorAll("#scr-season .s-pane").forEach(function(p){
+    p.classList.toggle("on", p.dataset.pane === state.sPane);
+  });
+}
+function seasonPane(k){
+  state.sPane = k;
+  renderSeasonTabs();
+  seTap();
+  const w = document.querySelector("#scr-season .s-pane.on");
+  if(w && w.scrollIntoView) w.scrollIntoView({block:"nearest"});
+}
 function startSeason(){
   const n = state.parts.length;
   state.pairGames = clamp(Math.round(143/(n-1)), 8, 143); // NPBと同じ143試合基準
@@ -1754,6 +1794,7 @@ function startSeason(){
   rollForms();
   state.rosterTab = 0;
   show("scr-season");
+  renderSeasonTabs();
   renderTeamStrip();
   renderStandings("standings");
   renderLeaders();
@@ -4013,10 +4054,32 @@ function renderTimeline(){
       '<div class="tl-tx">' + esc(it.text) + '</div></div></div>';
   }).join("");
 }
+// 結果画面も面で分ける。積むと11画面ぶんになる
+const R_PANES = [["rrank","順位と表彰"], ["rchron","年表"], ["rteam","各球団"]];
+function renderResultTabs(){
+  const box = $("r-tabs");
+  if(!box) return;
+  if(!state.rPane) state.rPane = "rrank";
+  box.innerHTML = R_PANES.map(function(x){
+    return '<button class="s-tab' + (state.rPane === x[0] ? " on" : "") +
+      '" onclick="resultPane(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
+  }).join("");
+  document.querySelectorAll("#scr-result .s-pane").forEach(function(p){
+    p.classList.toggle("on", p.dataset.pane === state.rPane);
+  });
+}
+function resultPane(k){
+  state.rPane = k;
+  renderResultTabs();
+  seTap();
+  const w = document.querySelector("#scr-result .s-pane.on");
+  if(w && w.scrollIntoView) w.scrollIntoView({block:"nearest"});
+}
 function showResult(){
   const s = standingsSorted();
   const champ = state.seriesWinner || s[0];
   show("scr-result");
+  renderResultTabs();
   $("r-champ").textContent = champ.name;
   const pct=(champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
   if(state.seriesWinner){

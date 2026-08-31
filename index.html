@@ -2347,6 +2347,70 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .tl-tx{font-size:13px;}
   .tl-table{min-width:100%;}
 }
+
+/* ============================================================
+   球団結成の画面。同じ体裁のパネルが6枚続き、
+   「必ず入れるもの」と「任意の設定」の区別がつかなかった
+   ============================================================ */
+.setup-main{border-top-width:5px;border-top-color:var(--red);}
+.panel > b .pn-cnt{
+  font-family:"Yu Gothic",sans-serif;font-size:10.5px;font-weight:400;letter-spacing:.1em;
+  color:var(--ink2);border:1px solid var(--rule);padding:1px 8px;margin-left:11px;
+  vertical-align:3px;
+}
+/* 縛りの3項目。見出しと入力を左右に分けて並べる */
+.st-row{
+  display:flex;gap:18px;align-items:flex-start;
+  padding:11px 0;border-bottom:1px dashed var(--rule);
+}
+.st-row:last-child{border-bottom:none;padding-bottom:0;}
+.st-lb{flex:none;width:216px;}
+.st-lb b{
+  display:block;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14.5px;
+  font-weight:900;letter-spacing:.1em;
+}
+.st-lb span{display:block;font-size:11px;color:var(--ink2);line-height:1.65;margin-top:2px;}
+.st-in{flex:1;min-width:0;}
+.st-in select{min-width:min(320px,100%);}
+/* 20枠の見取り図 */
+.roster-map{display:flex;flex-direction:column;gap:7px;margin-top:8px;}
+.rm-g{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.rm-h{
+  flex:none;width:56px;font-size:10px;letter-spacing:.16em;color:var(--paper);
+  background:var(--ink2);text-align:center;padding:2px 0;margin-right:5px;
+}
+.rm-g i{
+  font-style:normal;font-size:11.5px;min-width:34px;text-align:center;
+  border:1px solid var(--rule2);background:var(--paper2);padding:3px 6px;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;
+}
+/* 開始 */
+.setup-go{
+  display:flex;align-items:center;gap:16px;justify-content:center;flex-wrap:wrap;
+  margin-top:22px;padding-top:18px;border-top:2px solid var(--ink);
+}
+.sg-note{font-size:12px;color:var(--ink2);}
+.btn.lg{font-size:17px;padding:13px 34px;letter-spacing:.18em;}
+/* 参加者の行 */
+#p-list .p-row{
+  display:flex;gap:8px;align-items:center;padding:7px 0;
+  border-bottom:1px dashed var(--rule);
+}
+#p-list .p-row:first-child{padding-top:0;}
+#p-list .p-row input[type="text"]{flex:1;min-width:110px;}
+#p-list .p-row select{flex:none;width:150px;}
+@media (max-width:680px){
+  .st-row{flex-direction:column;gap:7px;}
+  .st-lb{width:auto;}
+  .st-in select{width:100%;}
+  /* 狭い画面では「番号・紋章・名前・削除」を1行目、球団縛りを2行目に置く。
+     そのままだと削除ボタンだけが単独行に落ちて間延びしていた */
+  #p-list .p-row{flex-wrap:wrap;gap:7px;}
+  #p-list .p-row input[type="text"]{order:3;flex:1 1 auto;min-width:80px;}
+  #p-list .p-row > .btn{order:4;flex:none;}
+  #p-list .p-row select{order:5;flex:1 1 100%;width:auto;}
+  .rm-h{width:48px;}
+}
 </style>
 </head>
 <body>
@@ -2373,38 +2437,44 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <div id="scr-setup" class="screen">
   <h1><span class="kicker">第一面</span>球団結成<span class="en">FRANCHISE</span></h1>
 
-  <div class="panel">
-    <b>参加者（2〜6人）</b>
-    <div class="sub" style="margin:4px 0 8px;">「球団縛り」を選ぶと、その人はその球団（前身球団を含む）の選手しか指名できません。</div>
+  <div class="panel setup-main">
+    <b>参加者<span class="pn-cnt">2〜6人</span></b>
+    <div class="sub" style="margin:4px 0 10px;">名前を入れて、球団のエンブレムを選びます。「球団縛り」を付けると、その人はその球団（前身球団を含む）の選手しか指名できません。</div>
     <div id="p-list"></div>
     <button class="btn ghost sm" onclick="addPlayer()">＋ 参加者を追加</button>
   </div>
 
   <div class="panel">
-    <b>年代縛り（全員共通）</b>
-    <div class="sub" style="margin:4px 0 8px;">選んだ年代の選手だけがドラフト対象になります。何も選ばなければ全年代。</div>
-    <div id="era-chips"></div>
-  </div>
+    <b>縛り<span class="pn-cnt">なくても遊べます</span></b>
+    <div class="sub" style="margin:4px 0 12px;">きつくするほど渋い戦いになります。迷ったらそのままで。</div>
 
-  <div class="panel">
-    <b>能力縛り</b>
-    <div class="sub" style="margin:4px 0 8px;">スター抜きの「いぶし銀ペナント」が楽しめます。監督・MLB補強にも適用（開幕時の覚醒による上振れはロマンとして許容）。</div>
-    <select id="opt-rank">
-      <option value="" selected>縛りなし（SS級もあり）</option>
-      <option value="93">SS級禁止（能力S以下で編成）</option>
-      <option value="88">A以下のみ（いぶし銀の戦い）</option>
-      <option value="83">B以下のみ（玄人志向）</option>
-    </select>
-  </div>
+    <div class="st-row">
+      <div class="st-lb"><b>年代</b><span>選んだ年代だけが対象。無選択なら全年代</span></div>
+      <div class="st-in"><div id="era-chips"></div></div>
+    </div>
 
-  <div class="panel">
-    <b>チームコスト上限</b>
-    <div class="sub" style="margin:4px 0 8px;">このコスト内で監督+選手18人を指名します。能力が高い選手ほどコストが跳ね上がります。</div>
-    <select id="opt-budget">
-      <option value="160">ゆったり コスト160（スターを集めやすい）</option>
-      <option value="140" selected>標準 コスト140</option>
-      <option value="120">シビア コスト120（やりくり勝負）</option>
-    </select>
+    <div class="st-row">
+      <div class="st-lb"><b>能力</b><span>スター抜きの渋い戦いができます</span></div>
+      <div class="st-in">
+        <select id="opt-rank">
+          <option value="" selected>縛りなし（SS級もあり）</option>
+          <option value="93">SS級禁止（能力S以下で編成）</option>
+          <option value="88">A以下のみ（いぶし銀の戦い）</option>
+          <option value="83">B以下のみ（玄人志向）</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="st-row">
+      <div class="st-lb"><b>コスト上限</b><span>強い選手ほどコストが跳ね上がります</span></div>
+      <div class="st-in">
+        <select id="opt-budget">
+          <option value="160">ゆったり　コスト160（スターを集めやすい）</option>
+          <option value="140" selected>標準　コスト140</option>
+          <option value="120">シビア　コスト120（やりくり勝負）</option>
+        </select>
+      </div>
+    </div>
   </div>
 
   <div class="panel">
@@ -2441,7 +2511,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
         <span class="ot-d">1点差で負けている試合が、確定する前に止まる。シーズン4回だけ、代打・継投・敬遠を自分で選んで結果をひっくり返せる</span></span>
       </label>
       <label class="opt-tile party">
-        <input type="checkbox" id="opt-party">
+        <input type="checkbox" id="opt-party" checked>
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">パーティーモード<span class="ot-tag">波乱</span></span>
         <span class="ot-d">監督休養・スキャンダル謹慎→緊急補強・助っ人帰国・乱闘・食中毒・珍事件など30種の事件が発生。あなたの決断を迫る選択イベントも</span></span>
@@ -2456,16 +2526,22 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 
   <div class="panel">
-    <b>ロースター（監督1人＋選手18人）</b>
-    <div class="sub" style="margin-top:6px;line-height:2;">
-      監督1 ＋ スタメン野手9（捕・一・二・三・遊・外×3・指名打者）＋ 控え野手3<br>
-      先発投手3 ＋ 中継ぎ2 ＋ 抑え1　※二刀流選手は「指名打者＋先発」の2枠を同時に埋めます<br>
-      名将は采配に優れ、<b>安い監督は育成力が高い</b>（開幕時に無名級の選手が「覚醒」しやすくなる）
+    <b>これから組む20枠</b>
+    <div class="roster-map">
+      <div class="rm-g"><span class="rm-h">首脳陣</span><i>監督</i></div>
+      <div class="rm-g"><span class="rm-h">スタメン</span><i>捕</i><i>一</i><i>二</i><i>三</i><i>遊</i><i>左</i><i>中</i><i>右</i><i>指</i></div>
+      <div class="rm-g"><span class="rm-h">控え</span><i>控</i><i>控</i><i>控</i></div>
+      <div class="rm-g"><span class="rm-h">投手</span><i>先発</i><i>先発</i><i>先発</i><i>先発</i><i>中継</i><i>中継</i><i>抑え</i></div>
+    </div>
+    <div class="sub" style="margin-top:10px;line-height:1.95;">
+      二刀流の選手は「指名打者」と「先発」の2枠を同時に埋めます。<br>
+      名将は采配に優れ、<b>安い監督ほど育成力が高い</b>（開幕時に無名級の選手が「覚醒」しやすくなります）。
     </div>
   </div>
 
-  <div style="text-align:center;margin-top:18px;">
-    <button class="btn" onclick="startDraft()">ドラフト会議へ</button>
+  <div class="setup-go">
+    <div class="sg-note">準備ができたら、監督から順に指名していきます</div>
+    <button class="btn lg" onclick="startDraft()">ドラフト会議へ</button>
   </div>
 </div>
 
@@ -2814,9 +2890,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202608311056"></script>
-<script src="players.js?v=202608311056"></script>
-<script src="party.js?v=202608311056"></script>
-<script src="game.js?v=202608311056"></script>
+<script src="qrcode.js?v=202608311100"></script>
+<script src="players.js?v=202608311100"></script>
+<script src="party.js?v=202608311100"></script>
+<script src="game.js?v=202608311100"></script>
 </body>
 </html>

@@ -35,7 +35,7 @@ body{
     var(--paper);
   color:var(--ink);
   font-family:"Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;
-  min-height:100vh; padding-bottom:70px;
+  min-height:100vh; min-height:100dvh; padding-bottom:70px;
   font-feature-settings:"palt";
 }
 .wrap{max-width:1120px;margin:0 auto;padding:18px 16px;}
@@ -227,7 +227,7 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
 #event-panel>.sub{font-size:13.5px;line-height:1.95;}
 #event-panel{
   background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);
-  max-width:880px;width:100%;padding:24px;animation:fadein .18s;max-height:92vh;overflow-y:auto;
+  max-width:880px;width:100%;padding:24px;animation:fadein .18s;max-height:92vh;max-height:92dvh;overflow-y:auto;
   box-shadow:4px 4px 0 rgba(20,16,8,.3);
 }
 #event-panel h2{
@@ -521,7 +521,7 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
 #team-bg.show{display:flex;}
 #paper-bg{position:fixed;inset:0;background:rgba(30,25,15,.7);display:none;align-items:center;justify-content:center;z-index:96;padding:14px;overflow-y:auto;}
 #paper-bg.show{display:flex;}
-#team-box{background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:18px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;}
+#team-box{background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:18px;max-width:560px;width:100%;max-height:90vh;max-height:90dvh;overflow-y:auto;}
 #team-box h3{font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:1px;font-size:16px;margin-bottom:8px;}
 #team-box td{font-size:12px;padding:4px 6px;}
 .rel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:7px;margin-top:8px;}
@@ -628,7 +628,7 @@ footer{text-align:center;color:var(--rule2);font-size:11px;margin-top:44px;lette
   .draft-banner{padding:10px 12px;gap:8px;}
   .draft-banner .who{font-size:17px;}
   .draft-banner .sub{font-size:11.5px;}
-  .pool{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));max-height:50vh;}
+  .pool{grid-template-columns:repeat(auto-fill,minmax(160px,1fr));}
   .pcard .nm{font-size:13px;}
   .rec-row{grid-template-columns:repeat(auto-fill,minmax(148px,1fr));}
   .roster-box{min-width:100%;}
@@ -1449,7 +1449,7 @@ body{
 #pic-bg{position:fixed;inset:0;background:rgba(24,20,12,.72);display:none;align-items:center;justify-content:center;z-index:120;padding:14px;overflow-y:auto;}
 #pic-bg.show{display:flex;}
 #pic-card{
-  max-height:92vh;overflow-y:auto;
+  max-height:92vh;max-height:92dvh;overflow-y:auto;
   background-image:linear-gradient(180deg, rgba(253,250,243,.96), rgba(247,241,226,.96)), url("assets/tex/tex1.jpg");
   background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
   border:1px solid var(--rule2);border-top:6px solid var(--red);
@@ -1875,7 +1875,7 @@ body{
   background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
   background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
   border:1px solid var(--rule2);border-top:6px solid var(--goldseal);
-  max-width:560px;width:100%;padding:20px 22px 18px;max-height:94vh;overflow-y:auto;
+  max-width:560px;width:100%;padding:20px 22px 18px;max-height:94vh;max-height:94dvh;overflow-y:auto;
   box-shadow:6px 6px 0 rgba(20,16,8,.34);animation:shIn .3s cubic-bezier(.2,1.1,.4,1);
 }
 @keyframes shIn{from{opacity:0;transform:translateY(14px) scale(.97);}to{opacity:1;transform:none;}}
@@ -2069,7 +2069,7 @@ body{
 }
 #park-bg.show{display:flex;}
 #park-panel{
-  max-height:94vh;overflow-y:auto;
+  max-height:94vh;max-height:94dvh;overflow-y:auto;
   background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
   background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
   border:1px solid var(--rule2);border-top:6px solid var(--ink);
@@ -2486,7 +2486,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   background-image:linear-gradient(180deg, rgba(253,250,243,.97), rgba(247,241,226,.97)), url("assets/tex/tex1.jpg");
   background-size:auto, 400px 400px;background-repeat:no-repeat, repeat;
   border:1px solid var(--rule2);border-top:6px solid var(--red);
-  max-width:620px;width:100%;padding:20px 22px 18px;max-height:94vh;overflow-y:auto;
+  max-width:620px;width:100%;padding:20px 22px 18px;max-height:94vh;max-height:94dvh;overflow-y:auto;
   box-shadow:6px 6px 0 rgba(20,16,8,.34);
 }
 #series-panel h2{
@@ -3592,6 +3592,28 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 @media (max-width:700px){
   .pl-tile-f .rk-ic{width:16px !important;height:16px !important;}
 }
+
+/* ============================================================
+   画面下に貼り付けたボタンが、スマホのブラウザ下部バーに
+   隠れないようにする。iOSでは vh がバーを含む高さを指すので、
+   器は dvh で測り、貼り付けた帯には安全域ぶんの余白を足す
+   ============================================================ */
+#file-card, #mk-card{height:100dvh;}
+.pk-foot, .pl-foot, .setup-go{
+  padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px));
+}
+@supports (height: 100dvh){
+  /* top と bottom を両方効かせると iOS では大きい方の高さになる。
+     bottom を外し、dvh で測った高さを与える */
+  #park-bg, #order-bg, #event-bg, #modal-bg, #curtain-bg, #series-bg,
+  #team-bg, #paper-bg, #file-bg, #mk-bg, #live-bg, #opening-bg, #gogai-bg, #pic-bg{
+    bottom:auto;height:100dvh;
+  }
+  /* 中の器は、器そのものの余白ぶんを引いた高さに収める */
+  #park-panel, #order-card, #event-panel, #series-panel{
+    max-height:calc(100dvh - 32px);
+  }
+}
 </style>
 </head>
 <body>
@@ -4112,7 +4134,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 
 <!-- 記念の一葉 -->
 <div id="paper-bg" onclick="if(event.target===this)this.classList.remove('show')">
-  <div style="background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:16px;max-width:640px;width:100%;max-height:92vh;overflow-y:auto;text-align:center;">
+  <div style="background:var(--paper2);border:1px solid var(--rule2);border-top:5px solid var(--ink);padding:16px;max-width:640px;width:100%;max-height:92vh;max-height:92dvh;overflow-y:auto;text-align:center;">
     <div id="paper-img"></div>
     <div class="sub" style="margin:8px 0;">スマホは画像を長押しで保存できます</div>
     <a id="paper-dl" class="btn sm" style="text-decoration:none;" href="#">画像をダウンロード</a>
@@ -4186,9 +4208,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609011520"></script>
-<script src="players.js?v=202609011520"></script>
-<script src="party.js?v=202609011520"></script>
-<script src="game.js?v=202609011520"></script>
+<script src="qrcode.js?v=202609011640"></script>
+<script src="players.js?v=202609011640"></script>
+<script src="party.js?v=202609011640"></script>
+<script src="game.js?v=202609011640"></script>
 </body>
 </html>

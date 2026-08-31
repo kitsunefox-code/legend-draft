@@ -3442,6 +3442,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:14px;font-weight:900;
     letter-spacing:.2em;color:var(--ink2);padding:9px 0;
   }
+  .s-tab{min-height:44px;}
   .s-tab.on{color:var(--ink);border-bottom-color:var(--red);}
   .s-pane{display:none;}
   .s-pane.on{display:block;}
@@ -3662,10 +3663,17 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .pv{margin:0 12px;}
   .pv-body{padding:8px 10px 0;gap:9px;}
   .pv-shot img{max-height:104px;}
+  .pv-noimg{height:104px;min-height:0;}
   .pv-note{display:none;}
   .pv-r{padding:2px 0;}
-  .pk-cats{margin:8px 12px 0;font-size:12px;}
-  .pk-cat{padding:5px 9px;}
+  /* 区分は指で押す。潰すと外すので高さは確保し、
+     入りきらないぶんは横に繰る */
+  .pk-cats{
+    margin:6px 12px 0;flex-wrap:nowrap;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  .pk-cats::-webkit-scrollbar{display:none;}
+  .pk-cat{flex:none;min-height:44px;padding:0 11px;font-size:13px;}
   /* #park-panel > * の flex:none に負けないよう、id から指す */
   #park-panel > .pk-grid{
     flex:1 1 auto;min-height:0;overflow-y:auto;
@@ -4287,9 +4295,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609020940"></script>
-<script src="players.js?v=202609020940"></script>
-<script src="party.js?v=202609020940"></script>
-<script src="game.js?v=202609020940"></script>
+<script src="qrcode.js?v=202609021150"></script>
+<script src="players.js?v=202609021150"></script>
+<script src="party.js?v=202609021150"></script>
+<script src="game.js?v=202609021150"></script>
 </body>
 </html>

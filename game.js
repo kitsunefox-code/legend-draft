@@ -695,6 +695,13 @@ function parkCat(k){
   const c = state.parkCtx;
   if(!c) return;
   c.cat = k;
+  // 区分を変えたら、下見の面もその区分の先頭へ移す。
+  // 上の面と決めるボタンが前の区分の球場のままだと、
+  // 区分を押しても何も起きていないように見える
+  const taken = new Set(state.parts.map(function(x){ return x.park && x.park.id; }).filter(Boolean));
+  const inCat = PARKS.filter(function(pk){ return pk.cat === k; });
+  const free = inCat.find(function(pk){ return !taken.has(pk.id); }) || inCat[0];
+  if(free) c.pv = free.id;
   renderParkDraft();
 }
 function renderParkDraft(){
@@ -740,7 +747,7 @@ function renderParkDraft(){
       '<div class="pv-name">' + esc(pv.name) + '</div>' +
       '<div class="pv-body">' +
         '<div class="pv-shot">' +
-          (ph ? '<img src="assets/park/' + pv.id + '.jpg" alt="" onerror="this.remove()">' +
+          (ph ? '<img src="assets/park/' + pv.id + '.jpg" alt="" decoding="async" onerror="this.remove()">' +
                 '<span class="pv-cr">' + esc([ph.a, ph.l].filter(Boolean).join(" / ")) + '</span>'
               : '<div class="pv-noimg">写真なし</div>') +
         '</div>' +
@@ -778,7 +785,8 @@ function renderParkDraft(){
     const p2 = PARK_PHOTO[pk.id];
     return '<button class="pk-tile' + (used ? " used" : "") + (now ? " now" : "") +
       '" onclick="parkPreview(&quot;' + pk.id + '&quot;)">' +
-      (p2 ? '<img src="assets/park/' + pk.id + '.jpg" alt="" loading="lazy" onerror="this.remove()">'
+      (p2 ? '<img src="assets/park/thumb/' + pk.id + '.jpg" alt="" width="240" height="160" ' +
+              'loading="lazy" decoding="async" onerror="this.remove()">'
           : '<span class="pk-tile-no"></span>') +
       '<span class="pk-tile-n">' + esc(parkShort(pk)) + '</span>' +
       (used ? '<span class="pk-tile-x">済</span>' : '') +
@@ -1043,7 +1051,7 @@ function renderPool(){
       '<div class="pv-body pl-body">' +
         '<div class="pv-shot pl-shot">' +
           (pv.ph !== undefined
-            ? '<img src="assets/face/' + pv.ph + '.jpg" alt="" onerror="this.remove()">'
+            ? '<img src="assets/face/' + pv.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
             : '<div class="pl-av">' + avatarBox(pv, 64) + '</div>') +
         '</div>' +
         '<div class="pv-data">' +
@@ -1077,7 +1085,7 @@ function renderPool(){
     const now = p.id === state.poolPv;
     return '<button class="pl-tile' + (now ? " now" : "") + '" onclick="poolPick(&quot;' + p.id + '&quot;)">' +
       (p.ph !== undefined
-        ? '<img src="assets/face/' + p.ph + '.jpg" alt="" loading="lazy" onerror="this.remove()">'
+        ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" loading="lazy" onerror="this.remove()">'
         : '<span class="pl-tile-av">' + avatarSvg(p, 34) + '</span>') +
       '<span class="pl-tile-n">' + esc(p.name) + '</span>' +
       '<span class="pl-tile-f">' + rankIcon(p.ovr, 16) + '<i>' + p.cost + '</i></span>' +
@@ -1127,7 +1135,7 @@ function handMark(p){
 // タイトルホルダーの印: 「三冠」印=三冠王 / ★n=主要タイトル獲得数
 // 選手詳細でも写真を出す。出典は名鑑と同じ扱いで下に添える
 function modalFace(p){
-  const img = '<img class="m-face" src="assets/face/' + p.ph + '.jpg" alt="" ' +
+  const img = '<img class="m-face" src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" ' +
     'width="56" height="72" loading="lazy" onerror="this.remove()">';
   return p.pu
     ? '<a class="mk-facelink" onclick="event.stopPropagation()" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
@@ -1216,7 +1224,7 @@ function mateChips(p){
   return '<div class="m-sec"><div class="m-sec-h">' + esc(p.team) + ' の収録選手</div>' +
     '<div class="m-mates">' + mates.map(function(x){
       return '<button class="m-mate" onclick="openModal(&quot;' + x.id + '&quot;)">' +
-        (x.ph !== undefined ? '<img src="assets/face/' + x.ph + '.jpg" alt="" loading="lazy" onerror="this.remove()">' : '') +
+        (x.ph !== undefined ? '<img src="assets/face/' + x.ph + '.jpg" alt="" decoding="async" loading="lazy" onerror="this.remove()">' : '') +
         '<span>' + esc(x.name) + '</span><i>' + x.year + '</i></button>';
     }).join("") + '</div></div>';
 }
@@ -4211,7 +4219,7 @@ function confetti(){
 const MK_TABS = [
   ["all", "すべて"], ["B", "野手"], ["P", "投手"], ["M", "監督"], ["mlb", "助っ人"]
 ];
-const MK_PAGE = 240;   // 1392人を一度に描くと重いので、少しずつ足す
+const MK_PAGE = 120;   // 1392人を一度に描くと重いので、少しずつ足す
 
 function meikanPool(){
   return PLAYERS.concat(MLB_STARS || []);
@@ -4255,7 +4263,7 @@ function mkSorted(){
 // CC BY / BY-SA は作者とライセンスの表示が条件なので、写真の下に必ず添える
 function facePic(p){
   if(p.ph === undefined) return avatarBox(p, 40);
-  const img = '<img class="mk-face" src="assets/face/' + p.ph + '.jpg" alt="" ' +
+  const img = '<img class="mk-face" src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" ' +
     'width="44" height="56" loading="lazy" onerror="this.remove()">';
   const wrap = p.pu
     ? '<a class="mk-facelink" onclick="event.stopPropagation()" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + img + '</a>'
@@ -4458,7 +4466,7 @@ function mkRow(p){
   return '<div class="tl-r" onclick="openModal(&quot;' + p.id + '&quot;)" title="ひらいて詳しく見る">' +
     '<span class="tl-y">' + p.year + '</span>' +
     (p.ph !== undefined
-      ? '<img class="tl-f" src="assets/face/' + p.ph + '.jpg" alt="" width="24" height="30" loading="lazy" onerror="this.remove()">'
+      ? '<img class="tl-f" src="assets/face/' + p.ph + '.jpg" alt="" width="24" height="30" loading="lazy" decoding="async" onerror="this.remove()">'
       : '<span class="tl-f tl-nf"></span>') +
     '<span class="tl-n">' + esc(p.name) + '</span>' + titleBadge(p) +
     '<span class="tl-t">' + esc(p.team) + '</span>' + intlRibbon(p, true) +

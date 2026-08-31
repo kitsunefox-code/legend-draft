@@ -1301,6 +1301,7 @@ function checkClinch(){
   const gb = ((s[0].W - s[1].W) + (s[1].L - s[0].L)) / 2;
   if(gb > rem){
     state.clinchedTeam = s[0];
+    state.clinchDay = state.day;
     const txt = `【優勝決定】${s[0].name}がリーグ制覇を確定！`;
     state.news.unshift({mo: dateLabel(state.day-1), txt});
     telop(txt);
@@ -2332,6 +2333,12 @@ function toggleLogSrc(el){
 
 function makeMonthlyNews(mi){
   const mo = MONTHS[mi];
+  // 年表のために、その月を終えた時点の順位を控えておく
+  state.monthSnaps = state.monthSnaps || [];
+  state.monthSnaps.push({
+    mi, mo, day: state.day,
+    rows: standingsSorted().map(t=>({name:t.name, color:t.color, em:t.emblem, W:t.W, L:t.L, T:t.T})),
+  });
   const push = txt => state.news.unshift({mo: mo+"総括", txt});
   const teams = state.parts;
   const sorted = standingsSorted();
@@ -3202,6 +3209,81 @@ function teamLogHtml(ti){
   '</div>';
 }
 
+// ============================================================
+// シーズン年表 ── 一年を1本の時系列にまとめて振り返る
+// ============================================================
+function buildTimeline(){
+  const items = [];
+  const total = state.schedule ? state.schedule.length : 1;
+
+  items.push({day:0, kind:"open", label:"開幕",
+    text:`${state.parts.length}球団が同じ位置から走り出した`});
+
+  // 月末の順位
+  (state.monthSnaps || []).forEach(function(sn){
+    items.push({day:sn.day, kind:"month", label:sn.mo + "を終えて", snap:sn});
+  });
+
+  // その年に起きた事件。数が多いので絞るが、凶事ばかりが並ぶと
+  // 一年の振り返りにならないので、吉凶を順ぐりに拾って偏りを避ける
+  const log = (state.partyLog || []).slice().reverse();
+  const byCls = {good:[], bad:[], warn:[], fun:[]};
+  log.forEach(function(x){ (byCls[x.cls] || byCls.fun).push(x); });
+  // 挿絵のある事件はその年の顔なので先に拾う
+  Object.keys(byCls).forEach(function(k){
+    byCls[k].sort(function(a,b){ return (EVENT_PIC.has(b.id)?1:0) - (EVENT_PIC.has(a.id)?1:0); });
+  });
+  const keep = new Set();
+  const order = ["bad","good","warn","fun"];
+  for(let round = 0; round < 6 && keep.size < 14; round++){
+    for(const k of order){
+      const x = byCls[k][round];
+      if(x && keep.size < 14) keep.add(x);
+    }
+  }
+  log.forEach(function(x){
+    if(!keep.has(x)) return;
+    items.push({day: x.day || 0, kind:"event", label:x.d, icon:x.icon, cls:x.cls, text:x.txt, id:x.id});
+  });
+
+  // 優勝決定と日本シリーズ
+  if(state.clinchedTeam){
+    items.push({day: state.clinchDay !== undefined ? state.clinchDay : total-1, kind:"clinch",
+      label:"優勝決定", text:`${state.clinchedTeam.name}がリーグ優勝を決めた`});
+  }
+  const s = standingsSorted();
+  items.push({day: total, kind:"end", label:"全日程終了",
+    text:`${s[0].name}が${s[0].W}勝${s[0].L}敗で首位。2位は${s[1] ? s[1].name : "―"}`});
+  if(state.seriesWinner){
+    items.push({day: total + 1, kind:"champ", label:"日本シリーズ",
+      text:`${state.seriesWinner.name}が${state.seriesScore}で日本一`});
+  }
+  items.sort((a,b)=>a.day-b.day);
+  return items;
+}
+function renderTimeline(){
+  const el = $("r-timeline");
+  if(!el) return;
+  const items = buildTimeline();
+  el.innerHTML = items.map(function(it){
+    if(it.kind === "month"){
+      const rows = it.snap.rows.map(function(r,i){
+        return '<div class="tl-rank' + (i===0?" top":"") + '">' +
+          '<span class="tl-no">' + (i+1) + '</span>' +
+          '<span class="tl-tm">' + esc(r.name) + '</span>' +
+          '<span class="tl-wl">' + r.W + '勝' + r.L + '敗' + (r.T ? r.T + '分' : '') + '</span></div>';
+      }).join("");
+      return '<div class="tl-i month"><div class="tl-dot"></div>' +
+        '<div class="tl-body"><div class="tl-lb">' + esc(it.label) + '</div>' +
+        '<div class="tl-table">' + rows + '</div></div></div>';
+    }
+    const cls = it.kind === "event" ? (it.cls || "") : it.kind;
+    return '<div class="tl-i ' + cls + '"><div class="tl-dot">' +
+      (it.icon ? esc(it.icon) : "") + '</div>' +
+      '<div class="tl-body"><div class="tl-lb">' + esc(it.label) + '</div>' +
+      '<div class="tl-tx">' + esc(it.text) + '</div></div></div>';
+  }).join("");
+}
 function showResult(){
   const s = standingsSorted();
   const champ = state.seriesWinner || s[0];
@@ -3235,6 +3317,7 @@ function showResult(){
       ${state.opts.party ? teamLogHtml(state.parts.indexOf(t)) : ""}
     </div>`;
   }).join("");
+  renderTimeline();
   confetti();
   seFanfare();
   showGogai(champ);

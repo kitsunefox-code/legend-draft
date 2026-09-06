@@ -232,7 +232,7 @@ function foldSummary(){
   if(ev){
     const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-cpu","opt-mlbonly"];
     const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
-    ev.textContent = n + "件 入り";
+    ev.textContent = n + "件";
   }
 }
 function goSetup(){
@@ -942,6 +942,18 @@ function renderDraft(){
   const open = openSlots(t).filter(d=>!ph || PHASE_GRPS[ph].includes(d.grp));
   const bidding = state.bid && state.bid.stage === "collect";
   $("d-who").innerHTML = `${teamEmblem(t,26)} ${esc(t.name)} の${bidding?"入札":"指名"}`;
+  // 誰が済んで誰の番か。実際のドラフト会場の指名順の掲示に当たる
+  const steps = $("d-steps");
+  if(steps){
+    steps.innerHTML = state.parts.map((x, i)=>{
+      const now = x === t;
+      const done = bidding ? state.bid.bids[i] !== undefined : false;
+      return '<span class="pk-step' + (now ? " now" : (done ? " done" : "")) + '">' +
+        teamEmblem(x, 15) + esc(x.name) +
+        (done ? '<i>済</i>' : (now ? '<i>' + (bidding ? "入札中" : "指名中") + '</i>' : '')) +
+        '</span>';
+    }).join("");
+  }
   const openLabels = [...new Set(open.map(d=>d.label))].join("・");
   if(bidding){
     const miss = state.bidMiss;
@@ -1205,6 +1217,16 @@ function titleBadge(p){
   if(p.titles) return ` <span class="tbadge">★${p.titles}</span>`;
   return "";
 }
+// 編成表の一行に収める短い成績。打点や登板数まで出すと▲▼を押し出す
+function orderStat(p){
+  if(p.cat==="M") return "";
+  if(p.cat==="P"){
+    if(p.role==="CL" || (p.role==="RP" && !p.hld)) return `${p.sv}S ${p.era.toFixed(2)}`;
+    if(p.role==="RP") return `${p.hld}H ${p.era.toFixed(2)}`;
+    return `${p.w}勝 ${p.era.toFixed(2)}`;
+  }
+  return `${avg3(p.avg)} ${p.hr}本`;
+}
 function statShort(p){
   if(p.cat==="M") return `優勝${p.pennants}回・日本一${p.japan}回`;
   if(p.cat==="P"){
@@ -1215,8 +1237,19 @@ function statShort(p){
   return `${avg3(p.avg)} ${p.hr}本 ${p.rbi}打点`;
 }
 
+// 狭い画面で見る球団。既定は手番の球団
+function rosterView(i){
+  state.rosterView = i;
+  renderRosters();
+  seTap();
+}
 function renderRosters(){
-  $("d-rosters").innerHTML = state.parts.map((t,i)=>{
+  const view = (state.rosterView !== undefined && state.rosterView < state.parts.length)
+    ? state.rosterView : state.currentIdx;
+  const tabs = '<div class="rs-tabs">' + state.parts.map((t,i)=>
+    `<button class="rs-tab${i===view?" on":""}${i===state.currentIdx?" turn":""}" onclick="rosterView(${i})">` +
+      teamEmblem(t,16) + esc(t.name) + `<i>残${budgetLeft(t)}</i></button>`).join("") + '</div>';
+  $("d-rosters").innerHTML = tabs + state.parts.map((t,i)=>{
     const secs = [["首脳陣",["MGR"]],["スタメン",LINEUP_KEYS],["控え",BENCH_KEYS],["投手",[...SP_KEYS, ...RP_KEYS, "CL"]]];
     let html = "";
     for(const [sec,keys] of secs){
@@ -1229,7 +1262,7 @@ function renderRosters(){
             : `<span class="sl-empty">空き</span>`}</div>`;
       }
     }
-    return `<div class="roster-box ${i===state.currentIdx?"turn":""}">
+    return `<div class="roster-box ${i===state.currentIdx?"turn":""}${i===view?" view":""}">
       <h4>${teamEmblem(t,20)} ${esc(t.name)} <span class="tag" style="color:var(--gold)">残${budgetLeft(t)}pt</span>${t.fr?` <span class="tag">${t.fr}縛り</span>`:""}</h4>${html}</div>`;
   }).join("");
 }
@@ -3480,15 +3513,16 @@ function renderOrder(){
     const k = arr[i], p = t.slots[k];
     const d = SLOT_DEFS.find(x=>x.key===k);
     const st = p && state.seasonStats ? statOf(t, p, d.grp) : null;
+    // シーズン中は今季の数字、開幕前は名鑑の成績。数字が無いと打順を組めない
     const line = st ? (kind==="rot"
         ? `${Math.round((st.w||0)*(seasonProg()||1))}勝 防${(st.era||0).toFixed(2)}`
         : `${avg3(st.avg)} ${Math.round((st.hr||0)*(seasonProg()||1))}本`)
-      : (p ? "―" : "");
+      : (p ? orderStat(p) : "");
     const isNew = p && (p.joined !== undefined && p.joined !== false || p.traded);
     return `<div class="od-row${odDrag && odDrag.kind===kind && odDrag.i===i ? " dragging" : ""}${isNew ? " fresh" : ""}"
       onpointerdown="odGrab(event,'${kind}',${i})">
       <span class="od-grip" aria-hidden="true">⠿</span>
-      <span class="od-n">${kind==="rot" ? "第"+(i+1)+"先発" : (i+1)}</span>
+      <span class="od-n">${kind==="rot" ? "第"+(i+1) : (i+1)}</span>
       <span class="od-pos">${d ? d.label : ""}</span>
       <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${line}</span>

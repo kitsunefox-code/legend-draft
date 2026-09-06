@@ -1014,10 +1014,11 @@ footer{margin-top:56px;}
   .pl-d{display:none;}
 }
 @media (max-width:680px){
-  #gogai{padding:30px 72px 26px 24px;}
-  #gogai .gg-go{font-size:38px;right:12px;letter-spacing:8px;}
-  #gogai .gg-team{font-size:29px;}
-  #gogai .gg-v{font-size:22px;letter-spacing:6px;}
+  /* 開幕前の長い説明は2行で止める */
+  #s-note{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  /* 速報は見出しに乗る浮き札ではなく、上端いっぱいの帯にする */
+  .telop{left:0;right:0;top:0;max-width:none;transform:translateY(-120%);border-left:0;border-bottom:3px solid var(--amber);padding:12px 14px;font-size:15px;}
+  .telop.in{transform:translateY(0);}
 }
 
 /* ============================================================
@@ -2088,6 +2089,10 @@ body{
   padding:3px 11px;margin-right:11px;vertical-align:4px;
 }
 .pk-bar-row{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0;}
+/* ドラフト会議の歩み。会場の指名順掲示に当たる */
+.d-steps{margin:0 0 10px;}
+/* 各球団の一覧のタブ。狭い画面でだけ使う */
+.rs-tabs{display:none;}
 .pk-step{
   display:inline-flex;align-items:center;gap:5px;font-size:11.5px;padding:3px 9px;
   border:1px solid var(--rule);color:var(--ink2);background:var(--paper2);
@@ -3349,8 +3354,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 @media (max-width:700px){
   .panel.fold > b{
     display:flex;align-items:center;gap:8px;cursor:pointer;
-    margin:0;padding:2px 0;
+    margin:0;padding:2px 0;white-space:nowrap;
   }
+  .panel.fold > b .pn-cnt{min-width:0;overflow:hidden;text-overflow:ellipsis;}
   .panel.fold > b .fd-a{
     display:inline-flex;margin-left:auto;font-style:normal;
     font-family:"Oswald",sans-serif;font-size:13px;color:var(--red);
@@ -3684,6 +3690,35 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     padding:12px 12px calc(90px + env(safe-area-inset-bottom, 0px));
   }
   #scr-draft.show-rosters > .rosters .roster-box{min-width:0;margin-bottom:10px;}
+  /* 4球団を縦に積むと長い。タブで一球団ずつ */
+  /* 元の .rosters は横並び+折返し。縦に積んで折り返さないと、
+     背の高い箱が二列目(画面の外)へ逃げて白紙に見える */
+  #scr-draft.show-rosters > .rosters{display:flex;flex-direction:column;flex-wrap:nowrap;padding-top:0;}
+  #scr-draft.show-rosters > .rosters .roster-box{display:none;}
+  #scr-draft.show-rosters > .rosters .roster-box.view{display:block;flex:none;}
+  .rs-tabs{
+    /* 横に繰る箱は縦に潰れうる(最小高さ0)。縮ませない */
+    flex:none;
+    display:flex;gap:0;position:sticky;top:0;z-index:2;margin:0 -12px 10px;padding:0 12px;
+    background:var(--paper);border-bottom:2px solid var(--ink);
+    overflow-x:auto;scrollbar-width:none;
+  }
+  .rs-tabs::-webkit-scrollbar{display:none;}
+  .rs-tab{
+    flex:none;min-height:44px;border:0;border-right:1px solid var(--rule);background:transparent;cursor:pointer;
+    font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;font-weight:900;letter-spacing:.06em;
+    color:var(--ink2);padding:0 11px;display:flex;align-items:center;gap:5px;white-space:nowrap;
+  }
+  .rs-tab i{font-style:normal;font-family:"Oswald",sans-serif;font-size:10px;color:var(--gold);}
+  .rs-tab.turn{color:var(--red);}
+  .rs-tab.on{background:var(--ink);color:var(--paper);}
+  /* 歩みの帯は一行で横に繰る */
+  #scr-draft > .d-steps{
+    flex:none;margin:0;padding:6px 12px;gap:4px;flex-wrap:nowrap;overflow-x:auto;
+    scrollbar-width:none;background:var(--paper2);border-bottom:1px solid var(--rule);
+  }
+  #scr-draft > .d-steps::-webkit-scrollbar{display:none;}
+  #scr-draft > .d-steps .pk-step{flex:none;padding:3px 8px;font-size:11px;}
   #scr-draft > .panel > .pool{
     flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
     overflow:hidden;padding:0;
@@ -3711,6 +3746,28 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .pl-tile img{height:54px;}
 }
 
+@media (max-width:700px){
+  /* 傾けた号外は角が画面の外へ出る。傾きを浅くし、幅を画面に収める。
+     #gogai は後ろでもう一度定義されているので、ここ(末尾)で上書きする */
+  #gogai-bg{overflow:hidden;padding:10px;}
+  #gogai{
+    box-sizing:border-box;width:100%;max-width:calc(100vw - 20px);
+    padding:22px 54px 20px 16px;transform:rotate(-1.2deg);
+  }
+  @keyframes gogaiIn{0%{transform:scale(1.5) rotate(-9deg);opacity:0;}62%{transform:scale(.97) rotate(-1deg);opacity:1;}100%{transform:scale(1) rotate(-1.2deg);}}
+  #gogai .gg-go{font-size:28px;right:8px;letter-spacing:5px;padding-left:7px;}
+  #gogai .gg-team{font-size:25px;}
+  #gogai .gg-v{font-size:19px;letter-spacing:5px;}
+  /* 編成の一行を画面幅に収める。名前と成績は詰め、▲▼を押し出さない */
+  .od-row{gap:5px;}
+  .od-name{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  .od-st{flex:none;min-width:0;max-width:84px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* 指で押すもの。26〜34pxだと外す。元の定義より後ろに置く */
+  .od-b{width:38px;height:38px;font-size:13px;}
+  .ft{min-height:40px;}
+  .em-btn{width:40px;height:40px;}
+  .em-btn img{width:30px;height:30px;}
+}
 @media (max-width:700px){
   /* 画面の出入りに transform を使うと、その要素が fixed の基準になってしまい、
      画面下に固定したい帯が中に閉じ込められる。狭い画面では透過だけで出す */
@@ -3983,6 +4040,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <button class="btn sm ghost" onclick="autoPick()">おまかせ</button>
     <button class="btn sm ghost" onclick="autoAll()">全員おまかせで最後まで</button>
   </div>
+  <div id="d-steps" class="pk-bar-row d-steps"></div>
   <div id="d-announce"><span class="an-k">実況</span>ドラフト会議、開会。</div>
 
   <div class="panel" style="padding:12px;">
@@ -4375,9 +4433,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609031610"></script>
-<script src="players.js?v=202609031610"></script>
-<script src="party.js?v=202609031610"></script>
-<script src="game.js?v=202609031610"></script>
+<script src="qrcode.js?v=202609031905"></script>
+<script src="players.js?v=202609031905"></script>
+<script src="party.js?v=202609031905"></script>
+<script src="game.js?v=202609031905"></script>
 </body>
 </html>

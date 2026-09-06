@@ -3400,16 +3400,24 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 }
 
 .f-toggle{display:none;}
+.d-only{display:none;}
 @media (max-width:700px){
   /* 手番と操作を上に貼り付ける。候補を繰っても戻らずに済む */
   .draft-banner{
     position:sticky;top:0;z-index:40;
     background:linear-gradient(180deg,#211d16,#191510);
     margin:0 -14px;padding:8px 14px;border-radius:0;
+    flex-wrap:nowrap;overflow-x:auto;gap:8px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
   }
+  .draft-banner::-webkit-scrollbar{display:none;}
+  .draft-banner .btn.sm{flex:none;min-height:38px;}
+  .draft-banner .who{flex:none;}
+  .draft-banner .sub{display:none;}
   .draft-banner .btn.sm{padding:5px 9px;font-size:11.5px;}
   #d-announce{position:sticky;top:var(--dbh,54px);z-index:39;}
   /* 絞り込みは畳んでおく */
+  .d-only{display:inline-block;}
   .f-toggle{
     display:block;width:100%;cursor:pointer;
     font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;font-weight:700;
@@ -3534,6 +3542,17 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   color:var(--paper);background:var(--red);padding:1px 6px;margin-left:8px;
 }
 /* 候補の札 */
+.pl-cats{display:flex;gap:0;border-bottom:2px solid var(--ink);margin:10px 0;}
+.pl-cat{
+  border:0;border-right:1px solid var(--rule);background:transparent;cursor:pointer;
+  font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:13px;font-weight:900;letter-spacing:.1em;
+  color:var(--ink2);padding:7px 12px;display:flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.pl-cat i{font-style:normal;font-family:"Oswald",sans-serif;font-size:10px;color:var(--red);}
+.pl-cat.full{color:var(--rule2);}
+.pl-cat.full i{color:var(--rule2);}
+.pl-cat.on{background:var(--ink);color:var(--paper);}
+.pl-cat.on i{color:var(--amber);}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:7px;}
 .pl-tile{
   position:relative;border:1px solid var(--rule2);background:var(--paper2);
@@ -3628,8 +3647,63 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     background:var(--paper);
     box-shadow:0 -8px 14px -10px rgba(20,16,8,.6);
   }
-  /* 帯の裏に中身が隠れないよう、画面の下に余白を足す */
-  #scr-draft{padding-bottom:104px;}
+  /* ============================================================
+     ドラフト会議を一画面に収める。
+     頁ごと繰ると手番・区分・決定ボタンが流れて行ってしまうので、
+     上(手番・実況・下見・区分)と下(決定)は貼り付け、
+     選手の札だけを繰る
+     ============================================================ */
+  /* 一画面で組む面では、頁そのものを繰らせない */
+  body[data-scr="scr-draft"]{padding-bottom:0;overflow:hidden;}
+  body[data-scr="scr-draft"] .wrap{padding:0;}
+  body[data-scr="scr-draft"] .wrap > footer{display:none;}
+  #scr-draft.active{
+    display:flex;flex-direction:column;
+    height:100dvh;padding:0;overflow:hidden;
+  }
+  #scr-draft > h1{display:none;}
+  #scr-draft > .draft-banner{flex:none;position:static;margin:0;}
+  #scr-draft > #d-announce{flex:none;position:static;}
+  #scr-draft > .panel{
+    flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+    margin:0;padding:0 12px;border:0;background:transparent;overflow:hidden;
+  }
+  #scr-draft .f-toggle{flex:none;margin:8px 0 0;}
+  #scr-draft .f-row{flex:none;}
+  /* おすすめ・注目・各球団の一覧は畳む。帯の「編成」から見る */
+  #scr-draft .f-note, #scr-draft #recs-wrap,
+  #scr-draft #watch-row, #scr-draft > .rosters{display:none;}
+  #scr-draft.show-rosters > .rosters{
+    display:block;position:fixed;inset:0;z-index:60;
+    background:var(--paper);overflow-y:auto;margin:0;
+    padding:12px 12px calc(90px + env(safe-area-inset-bottom, 0px));
+  }
+  #scr-draft.show-rosters > .rosters .roster-box{min-width:0;margin-bottom:10px;}
+  #scr-draft > .panel > .pool{
+    flex:1 1 auto;min-height:0;display:flex;flex-direction:column;
+    overflow:hidden;padding:0;
+  }
+  #pool{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
+  #pool > #pool-pv{flex:none;}
+  #pool > .pl-cats{
+    flex:none;margin:6px 0 0;flex-wrap:nowrap;overflow-x:auto;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none;
+  }
+  #pool > .pl-cats::-webkit-scrollbar{display:none;}
+  .pl-cat{flex:none;min-height:44px;padding:0 11px;}
+  #pool > .pl-grid{
+    flex:1 1 auto;min-height:0;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    margin-top:7px;padding-bottom:calc(76px + env(safe-area-inset-bottom, 0px));
+    grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;
+    align-content:start;grid-auto-rows:min-content;
+  }
+  /* 下見の面はここでは要点だけ。写真は低く、寸評は畳む */
+  .pl-shot img{max-height:96px;}
+  .pl-body{padding:8px 10px 0;gap:9px;}
+  #pool-pv .pv-note{display:none;}
+  .pl-more{padding:6px 10px 8px;}
+  .pl-tile img{height:54px;}
 }
 
 @media (max-width:700px){
@@ -3900,6 +3974,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     <div style="flex:1"></div>
     <button class="btn sm ghost snd-btn" onclick="toggleSnd()">音:ON</button>
     <button class="btn sm ghost" onclick="openMeikan()">選手名鑑</button>
+    <button class="btn sm ghost d-only" id="d-roster-btn" onclick="toggleRosters()">各球団</button>
     <button class="btn sm ghost" onclick="autoPick()">おまかせ</button>
     <button class="btn sm ghost" onclick="autoAll()">全員おまかせで最後まで</button>
   </div>
@@ -4295,9 +4370,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609021150"></script>
-<script src="players.js?v=202609021150"></script>
-<script src="party.js?v=202609021150"></script>
-<script src="game.js?v=202609021150"></script>
+<script src="qrcode.js?v=202609031530"></script>
+<script src="players.js?v=202609031530"></script>
+<script src="party.js?v=202609031530"></script>
+<script src="game.js?v=202609031530"></script>
 </body>
 </html>

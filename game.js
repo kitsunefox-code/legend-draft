@@ -163,7 +163,14 @@ const state = {
 };
 function budgetLeft(t){ return state.budget - t.spent; }
 
-function show(id){ document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active")); $(id).classList.add("active"); }
+// 画面を出す。どの面にいるかを body にも書いておく。
+// 一画面で組む面(ドラフトなど)では、頁の余白と奥付を消して
+// 頁ごと繰らずに済ませるため
+function show(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  $(id).classList.add("active");
+  document.body.setAttribute("data-scr", id);
+}
 
 // ---- 開始画面の一面を組む ----
 // 挿絵と事件を毎回引き直すので、開くたびに違う紙面になる
@@ -1002,9 +1009,45 @@ function renderRecs(){
 function filterMatchesSlot(p, f){
   if(!f) return true;
   if(f==="B") return p.cat==="B";
+  if(f==="IF") return p.cat==="B" && /[一二三遊]/.test(p.pos);
   if(f==="SP"||f==="RP"||f==="CL") return eligibleGrp(p,f);
   if(f==="MGR") return p.cat==="M";
   return p.cat==="B" && p.pos.includes(f);
+}
+// 狭い画面では各球団の指名一覧を畳んである。帯から出し入れする
+function toggleRosters(){
+  const el = $("scr-draft");
+  if(!el) return;
+  const on = el.classList.toggle("show-rosters");
+  const b = $("d-roster-btn");
+  if(b) b.textContent = on ? "閉じる" : "各球団";
+  seTap();
+}
+// 選手を選ぶときの区分。球場と同じ組みにそろえる。
+// 数字は「まだ空いている枠」。何が足りないかを見ながら選べる
+const POOL_CATS = [
+  ["",    "全",   null],
+  ["SP",  "先発", ["SP"]],
+  ["RP",  "中継", ["RP"]],
+  ["CL",  "抑え", ["CL"]],
+  ["捕",  "捕",   ["捕"]],
+  ["IF",  "内野", ["一","二","三","遊"]],
+  ["外",  "外野", ["外"]],
+  ["B",   "控え", ["DH","BN"]],
+  ["MGR", "監督", ["MGR"]],
+];
+// まだ埋まっていない枠の数
+function poolOpen(t, grps){
+  if(!grps) return SLOT_DEFS.filter(function(d){ return !t.slots[d.key]; }).length;
+  return SLOT_DEFS.filter(function(d){
+    return grps.indexOf(d.grp) >= 0 && !t.slots[d.key];
+  }).length;
+}
+function poolCat(v){
+  const el = $("f-slot");
+  if(el) el.value = v;
+  state.poolPv = null;      // 区分を変えたら上の面もその区分の先頭へ
+  renderPool();
 }
 // 見ている候補。札を押すと上の面が入れ替わる
 function poolPick(id){
@@ -1093,7 +1136,22 @@ function renderPool(){
       '</button>';
   }).join("");
 
-  $("pool").innerHTML = preview + '<div class="pl-grid">' + tiles + '</div>';
+  const cur = $("f-slot").value;
+  // 数字は「いま選べる人数」。巡によっては監督しか選べないので、
+  // 0の区分は沈めて、押しても空振りしないと分かるようにする
+  const {pool: avail} = validPool(t);
+  const cats = POOL_CATS.map(function(x){
+    const n = avail.filter(function(p){ return filterMatchesSlot(p, x[0]); }).length;
+    const open = poolOpen(t, x[2]);
+    return '<button class="pl-cat' + (cur === x[0] ? " on" : "") + (n ? "" : " full") +
+      '" onclick="poolCat(&quot;' + x[0] + '&quot;)"' +
+      ' title="' + x[1] + '　選べる' + n + '人／空き枠' + open + '">' + x[1] +
+      '<i>' + n + '</i></button>';
+  }).join("");
+
+  $("pool").innerHTML = preview +
+    '<div class="pl-cats">' + cats + '</div>' +
+    '<div class="pl-grid">' + tiles + '</div>';
 }
 // ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----
 function toggleWatch(pid){

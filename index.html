@@ -3411,6 +3411,11 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
   }
   .draft-banner::-webkit-scrollbar{display:none;}
+  /* 右にまだ操作が続いていることを示す */
+  #scr-draft > .draft-banner{
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+    mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);
+  }
   .draft-banner .btn.sm{flex:none;min-height:38px;}
   .draft-banner .who{flex:none;}
   .draft-banner .sub{display:none;}
@@ -4370,9 +4375,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609031530"></script>
-<script src="players.js?v=202609031530"></script>
-<script src="party.js?v=202609031530"></script>
-<script src="game.js?v=202609031530"></script>
+<script src="qrcode.js?v=202609031610"></script>
+<script src="players.js?v=202609031610"></script>
+<script src="party.js?v=202609031610"></script>
+<script src="game.js?v=202609031610"></script>
 </body>
 </html>

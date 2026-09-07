@@ -178,7 +178,7 @@ function buildFrontPage(){
   const d = new Date();
   const dt = $("bk-date"), iss = $("fp-issue");
   if(dt) dt.textContent = d.getFullYear() + "年 編";
-  if(iss) iss.textContent = "巻頭　一丁";
+  if(iss) iss.textContent = "開幕前";
 
   const withPic = PARTY_LORE.filter(e => EVENT_PIC.has(e.id));
   if(withPic.length){
@@ -527,7 +527,7 @@ function parkReveal(){
   }).join("");
   const anyDup = Object.keys(groups).some(function(k){ return groups[k].length > 1; });
   $("park-panel").innerHTML =
-    '<h2><span class="kicker">巻之一 下</span>本拠地の希望 発表</h2>' +
+    '<h2><span class="kicker">STEP 2</span>本拠地の希望 発表</h2>' +
     '<div class="sub">第' + c.round + '巡。重なった球場は抽選で決めます。</div>' +
     '<table class="bid-table">' + rows + '</table>' +
     '<div style="margin-top:16px;text-align:right;">' +
@@ -801,7 +801,7 @@ function renderParkDraft(){
   }).join("");
 
   $("park-panel").innerHTML =
-    '<h2><span class="kicker">巻之一 下</span>本拠地ドラフト</h2>' +
+    '<h2><span class="kicker">STEP 2</span>本拠地ドラフト</h2>' +
     '<div class="sub">第' + c.round + '巡の入札。希望が重なったら<b>抽選</b>です。' +
     '球場の癖はこの一年、全試合につきまといます。</div>' +
     '<div class="pk-bar-row">' + bar + '</div>' +

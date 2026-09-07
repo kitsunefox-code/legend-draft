@@ -6539,3 +6539,5 @@ function showSuper(e){
 
 // 一面の写真と紙面よりは、すべての定義がそろってから組む
 buildFrontPage();
+// 扉は show() を通らず最初から出ているので、どの面かを body に書いておく
+document.body.setAttribute("data-scr", (document.querySelector(".screen.active") || {}).id || "scr-title");

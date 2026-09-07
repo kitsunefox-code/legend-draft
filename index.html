@@ -276,6 +276,7 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
 
 /* ---- 結果 ---- */
 #scr-result{text-align:center;}
+.r-acts{margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;}
 .champ-box{
   display:inline-block;margin-top:26px;padding:26px 60px;position:relative;
   border:3px double var(--ink);background:var(--paper2);
@@ -3764,6 +3765,49 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 
 @media (max-width:700px){
   /* ============================================================
+     結果を一画面に。日本一の紙と面のタブは貼り付け、
+     順位と表彰・年表・各球団の面だけを繰る。操作は下に固定
+     ============================================================ */
+  body[data-scr="scr-result"]{padding-bottom:0;overflow:hidden;}
+  body[data-scr="scr-result"] .wrap{padding:0;}
+  body[data-scr="scr-result"] .wrap > footer{display:none;}
+  #scr-result.active{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:0;}
+  #scr-result > .champ-box{flex:none;margin:8px 10px 0;padding:10px 16px 12px;}
+  #scr-result .champ-label{font-size:11px;letter-spacing:.5em;}
+  #scr-result .champ-name{font-size:26px;margin:2px 0;}
+  #scr-result .champ-box .sub{font-size:11px;line-height:1.5;}
+  #scr-result > .s-tabs{flex:none;position:static;margin:6px 0 0;padding:0 10px;box-shadow:none;}
+  #scr-result > .s-pane{display:none;}
+  #scr-result > .s-pane.on{
+    display:block;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:8px 10px 12px;
+  }
+  #scr-result > .r-acts{
+    flex:none;margin:0;padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    gap:6px;flex-wrap:nowrap;border-top:2px solid var(--ink);background:var(--paper);
+  }
+  #scr-result > .r-acts .btn{flex:1 1 0;min-width:0;padding:10px 4px;font-size:12px;white-space:nowrap;}
+
+  /* ============================================================
+     扉を一画面に。表紙は貼り付け、序と口絵は必要なら繰る
+     ============================================================ */
+  body[data-scr="scr-title"]{padding-bottom:0;overflow:hidden;}
+  body[data-scr="scr-title"] .wrap{padding:0;}
+  body[data-scr="scr-title"] .wrap > footer{display:none;}
+  #scr-title.active{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:0;}
+  #scr-title > .bk-cover{flex:none;margin:0;padding:12px 14px 12px;gap:8px;}
+  #scr-title .bk-title{font-size:clamp(26px,8.5vw,34px);}
+  #scr-title .bk-naidai{font-size:clamp(17px,5vw,22px);}
+  #scr-title .bk-kanki{margin-top:6px;}
+  #scr-title > .bk-inner{
+    flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    margin:0;padding:10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  #scr-title .bk-body{font-size:12.5px;line-height:1.8;padding:8px 10px 0;}
+  #scr-title .bk-acts{margin-top:8px;}
+  #scr-title > .bk-hashira{display:none;}
+
+  /* ============================================================
      ペナントレースを一画面に。盤(日付・操作・球団)と面のタブは
      貼り付け、順位表などの面だけを繰る
      ============================================================ */
@@ -4241,7 +4285,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 
   </div>
-  <div style="margin-top:20px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+  <div class="r-acts">
     <button class="btn ghost" onclick="snapPaper()">記念の一葉を残す</button>
     <button class="btn ghost" onclick="openQr()">観戦用QRを表示</button>
     <button class="btn" onclick="location.reload()">もう一度あそぶ</button>
@@ -4479,9 +4523,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609032010"></script>
-<script src="players.js?v=202609032010"></script>
-<script src="party.js?v=202609032010"></script>
-<script src="game.js?v=202609032010"></script>
+<script src="qrcode.js?v=202609032110"></script>
+<script src="players.js?v=202609032110"></script>
+<script src="party.js?v=202609032110"></script>
+<script src="game.js?v=202609032110"></script>
 </body>
 </html>

@@ -4259,6 +4259,81 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     background:var(--paper);box-shadow:0 -8px 14px -10px rgba(20,16,8,.6);
   }
 }
+/* ============================================================
+   意匠: 明るい盤面(パワプロ寄り)。
+   紙の意匠の上に、トークンの差し替えと末尾の上書きで効かせる。
+   地は薄い青灰、紙は白、文字は濃紺、差し色は赤と黄、角は丸く、見出しは太いゴシック
+   ============================================================ */
+:root{
+  --paper:#eaf0f7; --paper2:#ffffff; --paper3:#dfe7f0;
+  --ink:#1b2a45; --ink2:#4f5d75; --rule:#cdd7e3; --rule2:#98a6ba;
+  --red:#e4432c; --red2:#c33320;
+  --board:#1d6b45; --board2:#155334; --amber:#ffc63a; --boardtxt:#f2f7f1;
+  --navy:#2457b8; --green:#2a9a5b; --gray:#6d7a8f; --goldseal:#e0a600;
+  --gold:#e0a600; --sub:#4f5d75; --blue:#2457b8; --line:#cdd7e3;
+  --display:"Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo","Noto Sans JP",sans-serif;
+}
+html{background:#d9e2ee;}
+body{background:linear-gradient(180deg,#f2f6fb 0%,#e6edf5 100%);}
+.panel,
+#gogai,
+#modal,#event-panel,#team-box,#qr-box,
+#pic-card,
+#order-card,
+#saihai-panel,
+#park-panel,
+#series-panel{background-image:none;}
+h1,h2,h3,.btn,.f-toggle,.od-tab,.pl-cat,.pk-cat,.s-tab,.rs-tab,.ft,
+.pv-name,.pl-tile-n,.pk-tile-n,.od-name,.od-pk-h b,.gc-who,.gc-nm,.fd-nm,
+.champ-name,.month-big,.ts-name,.pw-type,.pw-line b,.gg-team,.roster-box h4,.roster-box .slot b,
+.draft-banner .who,.pk-turn b,.pk-step,.c-title,#curtain .c-title,.mk-e .nm,#modal .nm,
+.title-card .tn,.team-report h3,.rl-big,.sc-ttl,.od-h,.ot-t,.panel > b,.bk-naidai,.bk-jo{
+  font-family:var(--display) !important;font-weight:800;
+}
+h1{letter-spacing:.06em;border-bottom-color:var(--navy);}
+h1::after{display:none;}
+h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
+.btn{border-radius:10px;letter-spacing:.08em;border:0;box-shadow:0 3px 0 var(--red2),0 6px 14px -6px rgba(228,67,44,.6);}
+.btn:active{box-shadow:0 1px 0 var(--red2);transform:translateY(2px);}
+.btn.ghost{background:#fff;color:var(--ink);border:1.5px solid var(--rule2);box-shadow:0 2px 0 var(--rule2);}
+.btn.ghost:active{box-shadow:none;}
+.panel{border-radius:12px;border:1px solid var(--rule);border-top:4px solid var(--navy);box-shadow:0 8px 20px -14px rgba(27,42,69,.35);}
+.pl-tile,.pk-tile,.gc-card,.mlb-card,.roster-box,.champ-box,.title-card,.pcard,.opt-tile,.pw-card,.ts-card,.rl-card{border-radius:10px;overflow:hidden;}
+.pl-tile.now,.pk-tile.now{box-shadow:0 0 0 3px var(--amber);border-color:var(--amber);}
+.pl-tile.now .pl-tile-n,.pk-tile.now .pk-tile-n{background:var(--navy);}
+#order-card,#event-panel,#modal,#team-box,#qr-box,#park-panel,.pv,.od-pick,.pk-foot,.pl-foot{border-radius:12px;}
+.pv-name,.od-h,.pk-cat.on,.pl-cat.on,.rs-tab.on{background:var(--navy);color:#fff;}
+.pk-cats,.pl-cats,.od-tabs,.s-tabs,.rs-tabs{border-bottom-color:var(--navy);}
+.pk-cat i,.pl-cat i{color:var(--red);}
+.pk-cat.on i,.pl-cat.on i{color:var(--amber);}
+.draft-banner,.gc-head,.month-head,.board{border-radius:0;}
+.draft-banner{background:linear-gradient(180deg,#2457b8,#1b3f8a) !important;border-bottom-color:var(--amber);}
+.gc-head{background:linear-gradient(180deg,#2457b8,#1b3f8a);border-bottom-color:var(--amber);}
+#d-announce{background:#fff;border-left:5px solid var(--red);border-radius:8px;font-family:var(--display);}
+#d-announce .an-k{border-radius:4px;background:var(--red);}
+.pv-h{background:var(--ink);color:#fff;border-radius:6px;font-family:var(--display);}
+#curtain-bg{background:linear-gradient(180deg,#1b2a45,#122040);}
+.curtain .c-title,#curtain .c-title{letter-spacing:.08em;}
+.telop{background:var(--navy);border-left-color:var(--amber);border-radius:8px;}
+.gogai-mini{border-radius:4px;}
+#gogai{border-radius:10px;}
+.kicker,h2 .kicker{background:var(--navy);border-radius:4px;}
+.od-row{border-bottom:1px solid var(--rule);}
+.od-n{background:var(--navy);border-radius:6px;}
+.od-b{border-radius:8px;}
+.f-th,.fd-p .f-th,.gc-face{border-radius:6px;}
+.fd{border-color:#fff;box-shadow:0 8px 20px -12px rgba(0,0,0,.5);}
+.fd-pos{background:var(--navy);}
+.gc-cap-top{border-radius:52px 52px 0 0;}
+.gc-foot,.pl-foot,.pk-foot,.od-foot,.r-acts{background:#fff;}
+.pl-foot,.pk-foot{border-top:1px solid var(--rule);box-shadow:0 -8px 20px -14px rgba(27,42,69,.5);}
+.s-tab.on,.od-tab.on{border-bottom-color:var(--red);color:var(--navy);}
+.sc-env{border-radius:10px;}
+.rl-chip,.tag,.seal{border-radius:4px;}
+.opt-tile{border:1.5px solid var(--rule);}
+.opt-tile input:checked ~ .ot-box{background:var(--navy);border-color:var(--navy);}
+.setup-go .btn.lg,.gc-foot .btn.lg,.pl-foot .btn.lg,.pk-foot .btn.lg{border-radius:14px;}
+
 </style>
 </head>
 <body>
@@ -4872,9 +4947,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609051215"></script>
-<script src="players.js?v=202609051215"></script>
-<script src="party.js?v=202609051215"></script>
-<script src="game.js?v=202609051215"></script>
+<script src="qrcode.js?v=202609051310"></script>
+<script src="players.js?v=202609051310"></script>
+<script src="party.js?v=202609051310"></script>
+<script src="game.js?v=202609051310"></script>
 </body>
 </html>

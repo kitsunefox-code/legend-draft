@@ -3803,6 +3803,7 @@ function renderOrder(){
       onpointerdown="odGrab(event,'${kind}',${i})">
       <span class="od-grip" aria-hidden="true">⠿</span>
       <span class="od-n">${kind==="rot" ? "第"+(i+1) : (i+1)}</span>
+      ${faceThumb(p)}
       <span class="od-pos">${d ? d.label : ""}</span>
       <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${line}</span>
@@ -3833,6 +3834,7 @@ function benchHtml(t){
     const p = t.slots[k];
     if(!p) return "";
     return `<div class="od-row od-fix">
+      ${faceThumb(p)}
       <span class="od-pos">${label}</span>
       <span class="od-name">${esc(p.name)}${rankIcon(p.ovr, 15)}${p.reinf || p.traded ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${orderStat(p)}</span>
@@ -3873,6 +3875,7 @@ function odPickOpen(key){
     if(!rows.length) return "";
     return '<div class="od-pk-s">' + title + '</div>' + rows.map(x =>
       '<button class="od-pk-r" onclick="odSwap(&quot;' + key + '&quot;,&quot;' + x.key + '&quot;)">' +
+        (x.p ? faceThumb(x.p) : '') +
         '<span class="od-pos">' + x.label + '</span>' +
         (x.p ? '<span class="od-name">' + esc(x.p.name) + rankIcon(x.p.ovr, 15) + '</span><span class="od-st">' + orderStat(x.p) + '</span>'
              : '<span class="od-name od-empty">空き枠へ移す</span>') +
@@ -4718,6 +4721,13 @@ function mkSorted(){
 }
 // 顔写真。Wikimedia Commons の自由ライセンスのものだけを置いてある。
 // CC BY / BY-SA は作者とライセンスの表示が条件なので、写真の下に必ず添える
+// 小さな顔札。編成表や中継で、名前の横に置く
+function faceThumb(p, w, hgt){
+  const W = w || 28, Hh = hgt || 36;
+  if(!p) return '';
+  if(p.ph === undefined) return '<span class="f-th f-av">' + avatarSvg(p, W) + '</span>';
+  return '<span class="f-th"><img src="assets/face/' + p.ph + '.jpg" alt="" width="' + W + '" height="' + Hh + '" loading="lazy" decoding="async" onerror="this.parentNode.hidden=true"></span>';
+}
 function facePic(p){
   if(p.ph === undefined) return avatarBox(p, 40);
   const img = '<img class="mk-face" src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" ' +
@@ -5495,12 +5505,12 @@ function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
     const onBefore = [!!prevBases[0], !!prevBases[1], !!prevBases[2]];
     for(const q of genPitchSeq(key, b, pitInfo.p)){
       ev.push({t:"pitch", inn:inn, top:top, outs:outsBefore, on:onBefore,
-        bat:b.name, batNo:b.no, pit:pitInfo.p.name, pitRole:pitInfo.label,
+        bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
         b:q.b, s:q.s, type:q.type, kmh:q.kmh, zone:q.zone, res:q.res});
     }
     ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
       inn, top, outs, on:[!!bases[0], !!bases[1], !!bases[2]],
-      bat:b.name, batNo:b.no, pit:pitInfo.p.name, pitRole:pitInfo.label,
+      bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
       sit:`${inn}回${top?"表":"裏"}　${outs}死　${basesLabel(bases)}`});
     if(walkoff && runs >= target && target > 0){
       ev.push({t:"pa", text:`サヨナラ！ ${bat.name}が試合を決めた！`, cls:"hr", runs:0, sit:"試合終了"});
@@ -5628,6 +5638,7 @@ function pbpHeadline(e){
   el.className = "lv-now show " + (e.cls || "");
   el.innerHTML =
     '<span class="ln-k">' + (e.inn ? e.inn + "回" + (e.top ? "表" : "裏") : "") + '</span>' +
+    faceThumb(e.batP, 30, 38) +
     '<b>' + esc(e.bat || "") + '</b>' +
     '<span class="ln-r">' + esc(trimLead(e.text, e.bat)) + '</span>' +
     (e.runs ? '<span class="ln-p">' + e.runs + '点</span>' : "");
@@ -5656,8 +5667,8 @@ function renderDiamond(e){
           <span class="dm-cl">S</span>${[0,1].map(i=>`<span class="dm-c s ${i<(e.scnt||0)?"on":""}"></span>`).join("")}
           <span class="dm-cl">O</span>${[0,1].map(i=>`<span class="dm-c o ${i<outs?"on":""}"></span>`).join("")}
         </div>
-        <div class="dm-mt"><span class="dm-k">打</span>${esc(e.bat||"")}${e.batNo!==undefined?`<span class="dm-no">#${e.batNo}</span>`:""}</div>
-        <div class="dm-mt"><span class="dm-k p">投</span>${esc(e.pit||"")}<span class="dm-role">${esc(e.pitRole||"")}</span></div>
+        <div class="dm-mt">${faceThumb(e.batP, 26, 34)}<span class="dm-k">打</span>${esc(e.bat||"")}${e.batNo!==undefined?`<span class="dm-no">#${e.batNo}</span>`:""}</div>
+        <div class="dm-mt">${faceThumb(e.pitP, 26, 34)}<span class="dm-k p">投</span>${esc(e.pit||"")}<span class="dm-role">${esc(e.pitRole||"")}</span></div>
         ${e.pitchTxt ? `<div class="dm-pitch">${esc(e.pitchTxt)}</div>` : ""}
       </div>
     </div>`;
@@ -5667,7 +5678,7 @@ function liveApply(e, silent){
   if(e.t === "pitch"){
     if(!silent){
       if(e.b === 0 && e.s === 0) showSuper(e);
-      renderDiamond({inn:e.inn, top:e.top, outs:e.outs, on:e.on, bat:e.bat, batNo:e.batNo,
+      renderDiamond({inn:e.inn, top:e.top, outs:e.outs, on:e.on, bat:e.bat, batNo:e.batNo, batP:e.batP, pitP:e.pitP,
         pit:e.pit, pitRole:e.pitRole, bcnt:e.b, scnt:e.s,
         pitchTxt:`${e.kmh}km/h ${e.type}・${e.zone} → ${e.res}`});
       if(sndOn){ const x = ac(); if(x) tone(x.currentTime, e.res.indexOf("空振")>=0?520:430, 0.05, 0.05, "square"); }
@@ -6355,6 +6366,15 @@ function startEmergency(t, slotKey, reason){
   return;
 }
 // スカウト部からの連絡 → 封を開けて候補リストを見る、の2段構え
+// 封筒をタップ。封が切れる間だけ待ってから中身を出す
+function scoutTap(el){
+  const c = state.eventCtx;
+  if(!c || c.type !== "emergency" || c.opening) return;
+  c.opening = true;
+  el.classList.add("open");
+  seTap();
+  setTimeout(function(){ c.opening = false; scoutOpen(); }, 620);
+}
 function scoutOpen(){
   const c = state.eventCtx;
   if(!c || c.type !== "emergency") return;
@@ -6371,14 +6391,12 @@ function renderEmergency(){
     $("event-panel").innerHTML = `
       <h2><span class="kicker">緊急速報</span>${esc(t.name)} ── 緊急補強</h2>
       <div class="sub"><b>${esc(victim.name)}</b>（${d.label}）が${reason}。編成部がスカウトに調査を依頼しました。</div>
-      <div class="sc-env">
+      <div class="sc-env" id="sc-env" onclick="scoutTap(this)" role="button">
+        <div class="sc-flap"></div>
         <div class="sc-seal">親展</div>
         <div class="sc-from">${esc(t.name)} 編成部 スカウト班</div>
         <div class="sc-ttl">${d.label}　補強候補リスト</div>
-        <div class="sc-note">封筒はまだ開けられていない</div>
-      </div>
-      <div style="text-align:center;margin-top:14px;">
-        <button class="btn" onclick="scoutOpen()">封を開けてリストを見る</button>
+        <div class="sc-note">── 封筒をタップして開ける ──</div>
       </div>`;
     seRollStart();
     return;

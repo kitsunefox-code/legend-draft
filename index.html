@@ -2424,9 +2424,11 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   /* 狭い画面では「番号・紋章・名前・削除」を1行目、球団縛りを2行目に置く。
      そのままだと削除ボタンだけが単独行に落ちて間延びしていた */
   #p-list .p-row{flex-wrap:wrap;gap:7px;}
-  #p-list .p-row input[type="text"]{order:3;flex:1 1 auto;min-width:80px;}
-  #p-list .p-row > .btn{order:4;flex:none;}
-  #p-list .p-row select{order:5;flex:1 1 100%;width:auto;}
+  /* 参加者は一人一行(番号・紋章・名前・縛り・削除)。縛りを次の行に落とすと
+     一人130pxになり、三人で設定が一画面に収まらない */
+  #p-list .p-row{flex-wrap:nowrap;gap:6px;margin:6px 0;}
+  #p-list .p-row input[type="text"]{order:0;flex:1 1 52%;min-width:0;}
+  #p-list .p-row select{order:0;flex:1 1 40%;min-width:0;width:auto;padding-left:6px;padding-right:20px;}
   .rm-h{width:48px;}
 }
 
@@ -3489,6 +3491,20 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   .bk-zu figcaption{margin-top:5px;font-size:9.5px;padding-top:4px;}
   .bk-hashira{margin-top:9px;padding-top:6px;}
   .bk-h-c{font-size:11px;}
+  /* 設定を一画面に。見出しと長い説明は畳み、中身だけ繰る */
+  body[data-scr="scr-setup"]{padding-bottom:0;overflow:hidden;}
+  body[data-scr="scr-setup"] .wrap{padding:0;}
+  body[data-scr="scr-setup"] .wrap > footer{display:none;}
+  #scr-setup.active{
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:0;
+  }
+  #scr-setup > h1{display:none;}
+  #scr-setup > .panel{flex:none;margin:8px 10px 0;}
+  #scr-setup > .setup-main > .sub{display:none;}
+  #scr-setup > .setup-main{padding:10px 12px;}
+  /* 畳んだ設定群は、はみ出したぶんだけ繰る */
+  #scr-setup > .panel.fold{margin-top:6px;}
+  #scr-setup > .setup-go{flex:none;margin:auto 0 0;}
   /* 設定は「ドラフト会議へ」を下に貼り付ける。押しに行くために繰らない */
   .setup-go{
     position:sticky;bottom:0;z-index:35;margin-top:14px;padding:10px 0;
@@ -3747,6 +3763,36 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 }
 
 @media (max-width:700px){
+  /* ============================================================
+     ペナントレースを一画面に。盤(日付・操作・球団)と面のタブは
+     貼り付け、順位表などの面だけを繰る
+     ============================================================ */
+  body[data-scr="scr-season"]{padding-bottom:0;overflow:hidden;}
+  body[data-scr="scr-season"] .wrap{padding:0;}
+  body[data-scr="scr-season"] .wrap > footer{display:none;}
+  #scr-season.active{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:0;}
+  #scr-season > h1{display:none;}
+  #scr-season > .board{flex:none;margin:0;border-radius:0;padding:8px 10px 6px;}
+  #scr-season .month-head{gap:5px;}
+  #scr-season .month-head > div{min-width:0 !important;}
+  #scr-season .month-big{font-size:20px;}
+  #scr-season #s-note{font-size:11px;line-height:1.5;-webkit-line-clamp:1;}
+  #scr-season .month-head select,#scr-season .month-head .btn{min-height:40px;padding:5px 8px;font-size:12px;}
+  #scr-season #s-play{flex:1 1 auto;font-size:13px;}
+  #scr-season #s-skip{flex:1 1 auto;}
+  #scr-season .season-prog{margin-top:6px;}
+  #scr-season .ts-row{grid-template-columns:1fr 1fr;gap:5px;margin-top:6px;}
+  #scr-season .ts-card{padding:5px 8px;gap:6px;align-items:center;}
+  #scr-season .ts-rec{font-size:14px;}
+  #scr-season .ts-badges{display:none;}
+  #scr-season > .s-tabs{flex:none;position:static;margin:0;padding:0 10px;box-shadow:none;}
+  #scr-season > .s-pane{display:none;}
+  #scr-season > .s-pane.on{
+    display:block;flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:8px 10px calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  #scr-season > .s-pane.on > .board{margin:0 0 8px;}
+
   /* 傾けた号外は角が画面の外へ出る。傾きを浅くし、幅を画面に収める。
      #gogai は後ろでもう一度定義されているので、ここ(末尾)で上書きする */
   #gogai-bg{overflow:hidden;padding:10px;}
@@ -4433,9 +4479,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609031905"></script>
-<script src="players.js?v=202609031905"></script>
-<script src="party.js?v=202609031905"></script>
-<script src="game.js?v=202609031905"></script>
+<script src="qrcode.js?v=202609032010"></script>
+<script src="players.js?v=202609032010"></script>
+<script src="party.js?v=202609032010"></script>
+<script src="game.js?v=202609032010"></script>
 </body>
 </html>

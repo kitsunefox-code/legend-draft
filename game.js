@@ -373,7 +373,7 @@ function startDraft(){
   // メジャー限定。指名の対象を丸ごと差し替える
   state.opts.mlbOnly = $("opt-mlbonly") ? $("opt-mlbonly").checked : false;
   state.opts.gacha = $("opt-gacha") ? $("opt-gacha").checked : false;
-  POOL = state.opts.mlbOnly ? MLB_STARS : PLAYERS;
+  POOL = state.opts.mlbOnly ? MLB_STARS : (gachaOn ? PLAYERS.concat(MLB_STARS) : PLAYERS);   // ガチャは日米ごちゃ混ぜ
   emblemPool = null;
   emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i))
     .filter(i => !rows.some(r => Number(r.dataset.em) === i));   // 選ばれた分はCPUに回さない
@@ -925,10 +925,10 @@ function finishParkDraft(){
 // ============================================================
 const GACHA_TIERS = [["SS", 3], ["S", 10], ["A", 27], ["B", 35], ["C", 25]];
 const GACHA_ROUNDS = [
+  {k:"K", label:"球場ガチャ", note:"まず本拠地。狭い箱なら打線が、広い外野なら投手が生きる", grps:null},
   {k:"M", label:"監督ガチャ", note:"球団の頭脳。優勝回数の多い名将が出るか", grps:["MGR"]},
-  {k:"B", label:"野手ガチャ", note:"打線と控え、15人ぶんのカプセルが一気に落ちる", grps:["捕","一","二","三","遊","外","DH","BN"]},
+  {k:"B", label:"野手ガチャ", note:"打線と控え、15人ぶんのカプセルが一気に落ちる。日米の名選手が混ざる", grps:["捕","一","二","三","遊","外","DH","BN"]},
   {k:"P", label:"投手ガチャ", note:"先発・中継ぎ・抑え、11人ぶん", grps:["SP","RP","CL"]},
-  {k:"K", label:"球場ガチャ", note:"本拠地が決まる。狭い箱なら打線が、広い外野なら投手が生きる", grps:null},
 ];
 const RANK_ORDER = ["SS", "S", "A", "B", "C"];
 function startGacha(){
@@ -1033,12 +1033,117 @@ function gachaReveal(i){
   if(navigator.vibrate) try{ navigator.vibrate(x.rank === "SS" ? [30,40,60] : 12); }catch(e){}
   setTimeout(function(){
     if(state.gacha !== G) return;
+    if(x.rank === "SS" && x.p){
+      // SSは特別。割れた瞬間に画面が金に染まり、経歴→受賞歴→カードの見せ場へ
+      gachaFlash("SS"); gachaShake(); seWhoosh();
+      ssShow(x, function(){
+        if(state.gacha !== G) return;
+        x.opening = false; x.open = true; G.revealed++;
+        confetti();
+        renderGacha();
+      });
+      return;
+    }
     x.opening = false; x.open = true; G.revealed++;
     if(x.rank === "SS"){ seFanfare(); gachaFlash("SS"); confetti(); gachaShake(); }
     else if(x.rank === "S"){ seWin(); gachaFlash("S"); }
     else seTap();
     renderGacha();
   }, 460);
+}
+// ============================================================
+// SSの見せ場 ── 名前は伏せたまま、経歴と受賞歴をめくっていき、最後にカード。
+// 経歴・受賞歴は ss.js(Wikipediaから収集)にあればそれを、なければ手元の数字で
+// ============================================================
+let ssCtx = null;
+const ssQueue = [];
+function ssShow(x, done){
+  if(ssCtx){ ssQueue.push([x, done]); return; }
+  ssCtx = {x, done, page: 0, t0: Date.now()};
+  $("ss-bg").classList.add("show");
+  ssRender();
+  // 最初の「SS」は勝手に次へ進む
+  setTimeout(function(){ if(ssCtx && ssCtx.x === x && ssCtx.page === 0) ssNext(); }, 1700);
+}
+function ssTap(){
+  if(!ssCtx) return;
+  if(Date.now() - ssCtx.t0 < 250) return;   // 連打で飛ばさない
+  ssNext();
+}
+function ssNext(){
+  const c = ssCtx;
+  if(!c) return;
+  c.page++; c.t0 = Date.now();
+  if(c.page >= 4){
+    $("ss-bg").classList.remove("show");
+    ssCtx = null;
+    const done = c.done;
+    if(done) done();
+    const nx = ssQueue.shift();
+    if(nx) setTimeout(function(){ ssShow(nx[0], nx[1]); }, 400);
+    return;
+  }
+  if(c.page === 3){ seFanfare(); gachaFlash("SS"); } else seTap();
+  ssRender();
+}
+function ssLore(p){
+  const L = (typeof SS_LORE !== "undefined") ? SS_LORE[p.name] : null;
+  return L || {chron: [], awards: [], src: ""};
+}
+function ssRender(){
+  const c = ssCtx;
+  if(!c) return;
+  const p = c.x.p, lore = ssLore(p), grp = c.x.d.grp;
+  const face = p.ph !== undefined
+    ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
+    : avatarBox(p, 120);
+  let body = "";
+  if(c.page === 0){
+    body = '<div class="ss-hit"><span class="ss-big">SS</span><span class="ss-sub">伝説級の逸材が出現……！</span></div>';
+  }else if(c.page === 1){
+    const life = [];
+    if(p.b) life.push(p.b + "年生まれ" + (p.d ? "（" + p.d + "年没）" : ""));
+    if(p.f) life.push(esc(p.f) + "出身");
+    const chron = lore.chron.length ? lore.chron : [esc(p.team) + "（" + p.year + "年ごろ）", esc(p.decade) + "を代表する" + (p.cat === "P" ? "投手" : "打者")];
+    body = '<div class="ss-pg"><div class="ss-k">経歴</div>' +
+      '<div class="ss-face blur">' + face + '</div>' +
+      '<div class="ss-name">？？？？</div>' +
+      (life.length ? '<div class="ss-life">' + life.join("　") + '</div>' : '') +
+      '<ul class="ss-list">' + chron.map(function(s, i){ return '<li style="--i:' + i + '">' + esc(s) + '</li>'; }).join("") + '</ul>' +
+      '<div class="ss-tap">タップで次へ</div></div>';
+  }else if(c.page === 2){
+    let aw = lore.awards.slice(0, 8);
+    if(!aw.length){
+      if(p.cat === "M"){ aw = ["リーグ優勝 " + (p.pennants||0) + "回", "日本一 " + (p.japan||0) + "回", "通算 " + (p.wins||0) + "勝"]; }
+      else {
+        if(p.tc) aw.push("三冠王");
+        if(p.titles) aw.push("主要タイトル " + p.titles + "回");
+        intlGroups(p).forEach(function(gg){ aw.push(gg.kind + "　" + gg.labels.join("・")); });
+        if(!aw.length) aw.push("記録は名鑑を参照");
+      }
+    }
+    const car = careerBrief(p);
+    body = '<div class="ss-pg"><div class="ss-k">受賞歴</div>' +
+      '<div class="ss-face blur">' + face + '</div>' +
+      '<div class="ss-name">？？？？</div>' +
+      '<ul class="ss-list aw">' + aw.map(function(s, i){ return '<li style="--i:' + i + '">' + esc(s) + '</li>'; }).join("") + '</ul>' +
+      (car ? '<div class="ss-car">' + car.map(function(f){ return '<span><i>' + f[0] + '</i>' + f[1] + '</span>'; }).join("") + '</div>' : '') +
+      '<div class="ss-tap">タップで次へ</div></div>';
+  }else{
+    body = '<div class="ss-pg card">' +
+      '<div class="ss-rk">' + rankIcon(ovrFor(p, grp), 56) + '</div>' +
+      '<div class="ss-face">' + face + '</div>' +
+      (p.mlb ? '<span class="gc-mlbtag">MLB</span>' : '') +
+      '<div class="ss-name real">' + esc(p.name) + titleBadge(p) + '</div>' +
+      '<div class="ss-meta">' + esc(c.x.d.label) + '　' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' +
+      '<div class="ss-stat">' + esc(statShort(p)) + '</div>' +
+      (p.desc ? '<div class="ss-desc">' + esc(p.desc) + '</div>' : '') +
+      '<button class="btn lg ss-get" onclick="event.stopPropagation();ssNext()">獲得！</button>' +
+      (lore.src ? '<div class="ss-src">経歴・受賞歴の出典: Wikipedia</div>' : '') +
+    '</div>';
+  }
+  $("ss-panel").innerHTML = body;
+  $("ss-bg").className = "show p" + c.page;
 }
 function gachaShake(){
   document.body.classList.add("gc-shake");
@@ -1077,7 +1182,8 @@ function gachaProgress(t){
   return {got, total};
 }
 function gachaCapHtml(x, i, big){
-  return '<button class="gc-cap r-' + x.rank + (x.sure ? " sure" : "") + (big ? " big" : "") + (x.opening ? " opening" : "") + '" style="--n:' + i + '" onclick="gachaReveal(' + i + ')">' +
+  return '<button class="gc-cap r-' + x.rank + (x.sure ? " sure" : "") + (big ? " big" : "") + (x.opening ? " opening" : "") + (x.p && x.p.mlb ? " mlb" : "") + '" style="--n:' + i + '" onclick="gachaReveal(' + i + ')">' +
+    (x.p && x.p.mlb ? '<span class="gc-cap-mlb">MLB</span>' : '') +
     '<span class="gc-cap-glow"></span><span class="gc-cap-top"></span><span class="gc-cap-bot"></span><span class="gc-cap-shine"></span>' +
     '<span class="gc-cap-l">' + esc(x.d.label) + '</span></button>';
 }
@@ -1100,6 +1206,7 @@ function gachaCardHtml(x, big){
     '<div class="gc-face">' + (p.ph !== undefined
       ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
       : avatarBox(p, big ? 72 : 48)) + '</div>' +
+    (p.mlb ? '<span class="gc-mlbtag">MLB</span>' : '') +
     '<div class="gc-nm">' + esc(p.name) + titleBadge(p) + '</div>' +
     '<div class="gc-meta">' + esc(x.d.label) + '　' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' +
     '<div class="gc-st">' + esc(statShort(p)) + '</div>' +

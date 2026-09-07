@@ -3806,6 +3806,7 @@ function renderOrder(){
       <span class="od-pos">${d ? d.label : ""}</span>
       <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${line}</span>
+      <button class="od-b od-sw" onpointerdown="event.stopPropagation()" onclick="odPickOpen('${k}')" title="この枠の選手を入れ替える">替</button>
       <button class="od-b" onpointerdown="event.stopPropagation()" onclick="moveOrder('${kind}',${i},-1)" ${i===0?"disabled":""}>▲</button>
       <button class="od-b" onpointerdown="event.stopPropagation()" onclick="moveOrder('${kind}',${i},1)" ${i===arr.length-1?"disabled":""}>▼</button>
     </div>`;
@@ -3821,8 +3822,90 @@ function renderOrder(){
        <div class="od-h">先発ローテーション<span class="od-hint">つまんで動かせます</span></div>
        ${c.rot.map((k,i)=>row(c.rot,i,"rot")).join("")}
        <div class="od-note">上から順に登板します。中継ぎ・抑えは自動です。</div>
+       ${benchHtml(t)}
        ${polHtml(t)}
-     </div>`;
+     </div>` +
+    '<div id="od-pick" class="od-pick" hidden></div>';
+}
+// 控えと救援。試合に出ない側の顔ぶれが見えないと、誰を上げるか決められない
+function benchHtml(t){
+  const line = (k, label) => {
+    const p = t.slots[k];
+    if(!p) return "";
+    return `<div class="od-row od-fix">
+      <span class="od-pos">${label}</span>
+      <span class="od-name">${esc(p.name)}${rankIcon(p.ovr, 15)}${p.reinf || p.traded ? '<span class="od-new">新</span>' : ""}</span>
+      <span class="od-st">${orderStat(p)}</span>
+      <button class="od-b od-sw" onclick="odPickOpen('${k}')" title="この選手をどこかの枠へ">替</button>
+    </div>`;
+  };
+  const bn = BENCH_KEYS.map(k => line(k, "控")).join("");
+  const rp = RP_KEYS.map(k => line(k, "中継")).join("") + line("CL", "抑え");
+  return '<div class="od-h" style="margin-top:14px;">控え<span class="od-hint">「替」で打線へ</span></div>' + (bn || '<div class="od-note">控えはいません</div>') +
+         '<div class="od-h" style="margin-top:14px;">救援<span class="od-hint">「替」で抑えや先発と入替</span></div>' + (rp || '<div class="od-note">救援はいません</div>');
+}
+// ---- 枠の入れ替え ----
+// 二つの枠が互いに適格なら入れ替えられる。打線↔控え、先発↔先発、
+// 抑え↔中継、といった組み合わせが一つの仕組みで済む
+function slotGrp(k){ const d = SLOT_DEFS.find(x => x.key === k); return d ? d.grp : null; }
+function slotLabel(k){ const d = SLOT_DEFS.find(x => x.key === k); return d ? d.label : k; }
+function swapTargets(t, key){
+  const p = t.slots[key];
+  if(!p) return [];
+  return SLOT_DEFS.filter(d => d.key !== key && d.key !== "MGR").filter(d => {
+    const q = t.slots[d.key];
+    if(!eligibleGrp(p, d.grp)) return false;               // 自分が向こうの枠に入れるか
+    if(q && q.twoWay) return false;                          // 二刀流は二枠を占めるので動かさない
+    return !q || eligibleGrp(q, slotGrp(key));               // 向こうがこちらの枠に入れるか
+  }).map(d => ({key: d.key, grp: d.grp, label: d.label, p: t.slots[d.key] || null}));
+}
+function odPickOpen(key){
+  const c = state.orderCtx;
+  if(!c) return;
+  const t = state.parts[c.idx];
+  const p = t.slots[key];
+  const box = $("od-pick");
+  if(!p || !box) return;
+  if(p.twoWay){ box.hidden = true; announceOd("二刀流は指名打者と先発の二枠を占めるので入れ替えられません"); return; }
+  const tg = swapTargets(t, key);
+  const sec = (title, keys) => {
+    const rows = tg.filter(x => keys.includes(x.key));
+    if(!rows.length) return "";
+    return '<div class="od-pk-s">' + title + '</div>' + rows.map(x =>
+      '<button class="od-pk-r" onclick="odSwap(&quot;' + key + '&quot;,&quot;' + x.key + '&quot;)">' +
+        '<span class="od-pos">' + x.label + '</span>' +
+        (x.p ? '<span class="od-name">' + esc(x.p.name) + rankIcon(x.p.ovr, 15) + '</span><span class="od-st">' + orderStat(x.p) + '</span>'
+             : '<span class="od-name od-empty">空き枠へ移す</span>') +
+      '</button>').join("");
+  };
+  box.innerHTML =
+    '<div class="od-pk-h"><span class="od-pos">' + slotLabel(key) + '</span><b>' + esc(p.name) + '</b>' +
+      '<span class="od-pk-t">と入れ替える相手を選ぶ</span>' +
+      '<button class="btn ghost sm" onclick="odPickClose()">閉じる</button></div>' +
+    (tg.length
+      ? sec("打線", LINEUP_KEYS) + sec("控え", BENCH_KEYS) + sec("先発", SP_KEYS) + sec("救援", RP_KEYS.concat(["CL"]))
+      : '<div class="od-note">この選手と入れ替えられる枠がありません（守れる位置・役割が合う相手がいない）</div>');
+  box.hidden = false;
+  seTap();
+}
+function odPickClose(){ const b = $("od-pick"); if(b) b.hidden = true; }
+function odSwap(a, b){
+  const c = state.orderCtx;
+  if(!c) return;
+  const t = state.parts[c.idx];
+  const pa = t.slots[a], pb = t.slots[b];
+  if(!pa) return;
+  t.slots[b] = pa;
+  if(pb) t.slots[a] = pb; else delete t.slots[a];
+  odPickClose();
+  seWin();
+  renderOrder();
+}
+function announceOd(msg){
+  const box = $("od-pick");
+  if(!box) return;
+  box.innerHTML = '<div class="od-pk-h"><span class="od-pk-t">' + esc(msg) + '</span><button class="btn ghost sm" onclick="odPickClose()">閉じる</button></div>';
+  box.hidden = false;
 }
 // 起用法の欄。監督の色が出るところなので、効きめも一緒に書いておく
 function polHtml(t){

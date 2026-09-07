@@ -247,6 +247,28 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
 .gg-mo{flex:none;font-size:10px;color:var(--ink2);}
 .pl-foot .pl-skip{flex:none;}
 
+
+/* ---- 編成の入れ替え ---- */
+.od-b.od-sw{width:auto;padding:0 6px;font-size:11px;letter-spacing:.05em;}
+.od-row.od-fix{cursor:default;}
+.od-pick{
+  position:fixed;left:0;right:0;bottom:0;z-index:160;
+  background:var(--paper);border-top:4px solid var(--navy);
+  box-shadow:0 -10px 24px -12px rgba(20,16,8,.7);
+  max-height:62dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:10px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+}
+.od-pk-h{display:flex;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--rule2);margin-bottom:6px;flex-wrap:wrap;}
+.od-pk-h b{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:15px;}
+.od-pk-t{font-size:11.5px;color:var(--ink2);flex:1;min-width:0;}
+.od-pk-s{font-size:10px;letter-spacing:.3em;color:var(--ink2);margin:8px 0 2px;}
+.od-pk-r{
+  display:flex;align-items:center;gap:6px;width:100%;min-height:44px;padding:4px 6px;
+  border:0;border-bottom:1px dashed var(--rule);background:transparent;cursor:pointer;text-align:left;font-size:13px;
+}
+.od-pk-r:hover{background:rgba(150,120,60,.08);}
+.od-pk-r .od-empty{color:var(--ink2);font-weight:normal;}
+
 /* ---- モーダル ---- */
 #modal-bg,#event-bg{position:fixed;inset:0;background:rgba(30,25,15,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;overflow-y:auto;}
 #modal-bg.show,#event-bg.show{display:flex;}
@@ -4574,9 +4596,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609041510"></script>
-<script src="players.js?v=202609041510"></script>
-<script src="party.js?v=202609041510"></script>
-<script src="game.js?v=202609041510"></script>
+<script src="qrcode.js?v=202609041600"></script>
+<script src="players.js?v=202609041600"></script>
+<script src="party.js?v=202609041600"></script>
+<script src="game.js?v=202609041600"></script>
 </body>
 </html>

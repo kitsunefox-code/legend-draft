@@ -3581,6 +3581,14 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 .pl-cat.full i{color:var(--rule2);}
 .pl-cat.on{background:var(--ink);color:var(--paper);}
 .pl-cat.on i{color:var(--amber);}
+/* 自分の枠が空いている区分。赤い点で「ここを埋める」と分かる */
+.pl-cat.need{position:relative;}
+.pl-cat.need::after{
+  content:"";position:absolute;top:6px;right:5px;width:6px;height:6px;border-radius:50%;
+  background:var(--red);
+}
+.pl-cat.on.need::after{background:var(--amber);}
+.pl-foot .pl-auto{display:none;}
 .pl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:7px;}
 .pl-tile{
   position:relative;border:1px solid var(--rule2);background:var(--paper2);
@@ -3748,6 +3756,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   }
   #pool > .pl-cats::-webkit-scrollbar{display:none;}
   .pl-cat{flex:none;min-height:44px;padding:0 11px;}
+  .pl-foot .pl-auto{display:inline-block;flex:none;min-height:40px;padding:0 10px;font-size:12px;}
   #pool > .pl-grid{
     flex:1 1 auto;min-height:0;overflow-y:auto;
     -webkit-overflow-scrolling:touch;
@@ -4149,6 +4158,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
         <option value="SP">先発投手</option>
         <option value="RP">中継ぎ</option>
         <option value="CL">抑え</option>
+        <option value="WATCH">★ 注目リスト</option>
       </select></div>
       <div class="f-item"><label>出身球団</label>
       <select id="f-fr" onchange="renderPool()"><option value="">全球団</option></select></div>
@@ -4523,9 +4533,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609041030"></script>
-<script src="players.js?v=202609041030"></script>
-<script src="party.js?v=202609041030"></script>
-<script src="game.js?v=202609041030"></script>
+<script src="qrcode.js?v=202609041120"></script>
+<script src="players.js?v=202609041120"></script>
+<script src="party.js?v=202609041120"></script>
+<script src="game.js?v=202609041120"></script>
 </body>
 </html>

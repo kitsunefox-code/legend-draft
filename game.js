@@ -354,10 +354,10 @@ function bindDraftFilter(){
   row.__bound = true;
   const b = document.createElement("button");
   b.className = "f-toggle";
-  b.textContent = "絞り込み";
+  b.textContent = "絞り込み・名前で検索";
   b.onclick = function(){
     const on = row.classList.toggle("open");
-    b.textContent = on ? "絞り込みを閉じる" : "絞り込み";
+    b.textContent = on ? "絞り込みを閉じる" : "絞り込み・名前で検索";
     b.classList.toggle("on", on);
     seTap();
   };
@@ -1039,6 +1039,7 @@ function toggleRosters(){
 // 数字は「まだ空いている枠」。何が足りないかを見ながら選べる
 const POOL_CATS = [
   ["",    "全",   null],
+  ["WATCH", "★注目", null],   // 手番が来たら真っ先に開く札なので前に置く
   ["SP",  "先発", ["SP"]],
   ["RP",  "中継", ["RP"]],
   ["CL",  "抑え", ["CL"]],
@@ -1075,7 +1076,8 @@ function poolList(){
   const q = ($("f-name").value || "").trim();
   const {pool} = validPool(t);
   let list = pool.filter(function(p){
-    return filterMatchesSlot(p, fSlot) && (!fFr || p.fr === fFr) &&
+    const slotOk = fSlot === "WATCH" ? t.watch.has(p.id) : filterMatchesSlot(p, fSlot);
+    return slotOk && (!fFr || p.fr === fFr) &&
            (!fEra || p.decade === fEra) && (!q || p.name.includes(q));
   });
   if(sort === "ovr") list.sort(function(a,b){ return b.ovr - a.ovr; });
@@ -1129,6 +1131,7 @@ function renderPool(){
     '</div>' +
     '<div class="pl-foot">' +
       '<span class="pl-foot-n">' + esc(pv.name) + '<i>' + pv.cost + 'pt</i></span>' +
+      (t.cpu ? "" : '<button class="btn ghost sm d-only pl-auto" onclick="autoPick()">おまかせ</button>') +
       (can
         ? '<button class="btn lg" onclick="poolPickGo(&quot;' + pv.id + '&quot;)">' +
           (bid ? "この選手に入札する" : "この選手を指名する") + '</button>'
@@ -1152,10 +1155,14 @@ function renderPool(){
   // 数字は「いま選べる人数」。巡によっては監督しか選べないので、
   // 0の区分は沈めて、押しても空振りしないと分かるようにする
   const {pool: avail} = validPool(t);
-  const cats = POOL_CATS.map(function(x){
-    const n = avail.filter(function(p){ return filterMatchesSlot(p, x[0]); }).length;
-    const open = poolOpen(t, x[2]);
+  const cats = POOL_CATS.filter(function(x){ return x[0] !== "WATCH" || !t.cpu; }).map(function(x){
+    const n = x[0] === "WATCH"
+      ? avail.filter(function(p){ return t.watch.has(p.id); }).length
+      : avail.filter(function(p){ return filterMatchesSlot(p, x[0]); }).length;
+    // 自分の枠がまだ空いている区分には印。何を埋めるべきかが見える
+    const open = x[2] ? poolOpen(t, x[2]) : 0;
     return '<button class="pl-cat' + (cur === x[0] ? " on" : "") + (n ? "" : " full") +
+      (open && n ? " need" : "") +
       '" onclick="poolCat(&quot;' + x[0] + '&quot;)"' +
       ' title="' + x[1] + '　選べる' + n + '人／空き枠' + open + '">' + x[1] +
       '<i>' + n + '</i></button>';

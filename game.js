@@ -1030,9 +1030,9 @@ function gachaReveal(i){
   if(!G || !G.pulls || !G.pulls[i] || G.pulls[i].open || G.pulls[i].opening) return;
   const x = G.pulls[i];
   x.opening = true;
-  renderGacha();
+  gachaPatch(i);
   seCrack();
-  if(navigator.vibrate) try{ navigator.vibrate(x.rank === "SS" ? [30,40,60] : 12); }catch(e){}
+  if(navigator.vibrate) try{ navigator.vibrate(x.rank === "SS" ? [30,40,60] : x.rank === "S" ? [20,30,30] : 12); }catch(e){}
   setTimeout(function(){
     if(state.gacha !== G) return;
     if(x.rank === "SS" && x.p){
@@ -1042,16 +1042,81 @@ function gachaReveal(i){
         if(state.gacha !== G) return;
         x.opening = false; x.open = true; G.revealed++;
         confetti();
-        renderGacha();
+        gachaPatch(i); gachaAfterReveal();
       });
+      return;
+    }
+    if(x.rank === "S"){
+      // Sは銀の閃光と「S」の一撃。短く、でも他とは違うと分かるように
+      seWin(); gachaFlash("S"); gachaSplash("S", x);
+      setTimeout(function(){
+        if(state.gacha !== G) return;
+        x.opening = false; x.open = true; G.revealed++;
+        gachaPatch(i); gachaAfterReveal();
+      }, 900);
       return;
     }
     x.opening = false; x.open = true; G.revealed++;
     if(x.rank === "SS"){ seFanfare(); gachaFlash("SS"); confetti(); gachaShake(); }
-    else if(x.rank === "S"){ seWin(); gachaFlash("S"); }
     else seTap();
-    renderGacha();
+    gachaPatch(i); gachaAfterReveal();
   }, 460);
+}
+// 一枚ぶんの札(カプセル/カード)だけを差し替える
+function gachaSpotHtml(x, i, big){
+  if(x.open){
+    const R = gachaRound();
+    if(R && (R.k === "B" || R.k === "P")) return cardHtml(x.p, x.rank, {size:"s", pos:x.d.label, grp:x.d.grp, onclick:"cardPop(" + i + ")"});
+    return gachaCardHtml(x, big);
+  }
+  return gachaCapHtml(x, i, big);
+}
+function gachaPatch(i){
+  const G = state.gacha;
+  if(!G || !G.pulls) return;
+  const x = G.pulls[i];
+  const el = document.querySelector('#gc-stage [data-i="' + i + '"]');
+  if(!el){ renderGacha(); return; }
+  el.innerHTML = gachaSpotHtml(x, i, G.pulls.length === 1);
+  el.classList.toggle("open", !!x.open);
+}
+// 開封が進んだら、案内と下のボタンだけ更新。全部開いたらまとめを添える
+function gachaAfterReveal(){
+  const G = state.gacha;
+  if(!G || !G.pulls) return;
+  const t = gachaTeam();
+  const allOpen = G.revealed >= G.pulls.length;
+  const hint = $("gc-stage").querySelector(".gc-hint");
+  if(allOpen){
+    const stage = $("gc-stage");
+    stage.classList.remove("dark", "rainbow");
+    const rays = stage.querySelector(".gc-rays"); if(rays) rays.remove();
+    const wrap = stage.querySelector(".gc-fieldwrap, .gc-caps"); if(wrap) wrap.classList.remove("gold");
+    if(hint) hint.outerHTML = gachaSummaryHtml(G);
+    else stage.insertAdjacentHTML("beforeend", gachaSummaryHtml(G));
+    $("gc-foot").innerHTML = t.cpu ? '' : '<button class="btn lg gc-go" onclick="gachaAdvance()">次へ</button>';
+  }else if(hint){
+    hint.textContent = (G.pulls.length - G.revealed) + "個 残り。タップで開封、開けたカードはタップで拡大";
+  }
+}
+function gachaSummaryHtml(G){
+  if(G.pulls.length <= 1) return "";
+  const cnt = {};
+  G.pulls.forEach(x => { cnt[x.rank] = (cnt[x.rank] || 0) + 1; });
+  const best = G.pulls.slice().sort((a, b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank))[0];
+  return '<div class="gc-sum">' +
+    RANK_ORDER.filter(r => cnt[r]).map(r => '<span class="gc-sum-r r-' + r + '">' + r + '<i>' + cnt[r] + '</i></span>').join("") +
+    '<b>目玉 ' + esc(best.p ? best.p.name : parkShort(best.park)) + '</b></div>';
+}
+// Sの一撃。銀の光輪と大きな「S」が一瞬出て消える
+function gachaSplash(rank, x){
+  const el = document.createElement("div");
+  el.className = "gc-splash r-" + rank;
+  el.innerHTML = '<div class="gc-sp-ring"></div><div class="gc-sp-ring r2"></div><span class="gc-sp-big">' + rank + '</span>' +
+    '<span class="gc-sp-sub">' + (x && x.p ? esc(x.d.label) + 'に好素材' : '') + '</span>';
+  document.body.appendChild(el);
+  setTimeout(function(){ el.classList.add("out"); }, 650);
+  setTimeout(function(){ el.remove(); }, 950);
 }
 // ============================================================
 // SSの見せ場 ── 名前は伏せたまま、経歴と受賞歴をめくっていき、最後にカード。
@@ -1167,7 +1232,7 @@ function gachaRevealAll(){
     gachaReveal(G.pulls.indexOf(x));
     if(k < order.length){
       const last = k === order.length - 1;
-      setTimeout(step, (x.rank === "SS" || x.rank === "S") ? 1300 : (last ? 900 : 520));
+      setTimeout(step, x.rank === "SS" ? 1400 : x.rank === "S" ? 1500 : (last ? 800 : 420));
     }
   };
   step();
@@ -1267,7 +1332,10 @@ function renderGacha(){
     $("gc-stage").innerHTML =
       '<div class="gc-machine' + (dropping ? " crank" : "") + '">' +
         '<div class="gc-dome">' + Array.from({length: 16}, (_, i) => '<i style="--i:' + i + '"></i>').join("") + '</div>' +
-        '<div class="gc-body"><div class="gc-handle"><i></i></div><div class="gc-out"></div></div>' +
+        '<div class="gc-glass"></div><div class="gc-ring"></div>' +
+        '<div class="gc-body"><div class="gc-leds">' + Array.from({length: 10}, (_, i) => '<i style="--i:' + i + '"></i>').join("") + '</div>' +
+          '<div class="gc-handle"><i></i><b>PUSH</b></div><div class="gc-coin"></div>' +
+          '<div class="gc-out">' + (dropping ? '<span class="gc-outcap"></span>' : '') + '</div></div>' +
       '</div>' +
       '<div class="gc-hint">' + (t.cpu ? 'CPUが回しています……' : dropping ? 'ガラガラ……' :
         (R.k === "K" ? '本拠地が一つ出ます' : nOpen + '連ガチャ' + (nOpen >= 5 ? '。A以上を一枚保証' : ''))) + '</div>';
@@ -1283,17 +1351,9 @@ function renderGacha(){
     items = gachaFieldHtml(G, R);
   }else{
     items = '<div class="gc-caps n' + G.pulls.length + (hasSS && !allOpen ? " gold" : "") + '">' +
-      G.pulls.map((x, i) => x.open ? gachaCardHtml(x, big) : gachaCapHtml(x, i, big)).join("") + '</div>';
+      G.pulls.map((x, i) => '<div class="gc-spot one' + (x.open ? " open" : "") + '" data-i="' + i + '">' + (x.open ? gachaCardHtml(x, big) : gachaCapHtml(x, i, big)) + '</div>').join("") + '</div>';
   }
-  let summary = "";
-  if(allOpen && G.pulls.length > 1){
-    const cnt = {};
-    G.pulls.forEach(x => { cnt[x.rank] = (cnt[x.rank] || 0) + 1; });
-    const best = G.pulls.slice().sort((a, b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank))[0];
-    summary = '<div class="gc-sum">' +
-      RANK_ORDER.filter(r => cnt[r]).map(r => '<span class="gc-sum-r r-' + r + '">' + r + '<i>' + cnt[r] + '</i></span>').join("") +
-      '<b>目玉 ' + esc(best.p ? best.p.name : parkShort(best.park)) + '</b></div>';
-  }
+  const summary = allOpen ? gachaSummaryHtml(G) : "";
   $("gc-stage").classList.toggle("dark", !allOpen);
   $("gc-stage").classList.toggle("rainbow", hasSS && !allOpen);
   $("gc-stage").innerHTML =
@@ -1316,7 +1376,7 @@ function gachaRevealNext(){
 const GC_FIELD = {
   OF1:[17,22], OF2:[50,14], OF3:[83,22],
   SS:[33,46], B2:[67,46], B3:[13,62], B1:[87,62],
-  C:[50,82], DH:[87,84],
+  C:[50,80], DH:[88,86],
 };
 function gachaFieldHtml(G, R){
   const hasSS = G.pulls.some(x => x.rank === "SS");
@@ -1325,7 +1385,7 @@ function gachaFieldHtml(G, R){
     const inner = x.open
       ? cardHtml(x.p, x.rank, {size:"s", pos:x.d.label, grp:x.d.grp, onclick:"cardPop(" + i + ")"})
       : gachaCapHtml(x, i, false);
-    return '<div class="gc-spot' + (extraCls ? " " + extraCls : "") + (x.open ? " open" : "") + '">' + inner + '</div>';
+    return '<div class="gc-spot' + (extraCls ? " " + extraCls : "") + (x.open ? " open" : "") + '" data-i="' + i + '">' + inner + '</div>';
   };
   if(R.k === "B"){
     const onField = [], bench = [];
@@ -1335,7 +1395,7 @@ function gachaFieldHtml(G, R){
         '<div class="fd-grass"></div><div class="fd-dirt"></div><div class="fd-mound"></div><div class="fd-home"></div>' +
         onField.map(([x, i]) => '<div class="gc-at" style="left:' + GC_FIELD[x.d.key][0] + '%;top:' + GC_FIELD[x.d.key][1] + '%">' + spot(x, i) + '</div>').join("") +
       '</div>' +
-      (bench.length ? '<div class="gc-row"><span class="gc-rowk">控え</span>' + bench.map(([x, i]) => spot(x, i)).join("") + '</div>' : '') +
+      (bench.length ? '<div class="gc-bench"><div class="gc-bench-roof">BENCH</div><div class="gc-row"><span class="gc-rowk">控え</span>' + bench.map(([x, i]) => spot(x, i)).join("") + '</div></div>' : '') +
     '</div>';
   }
   const sp = [], rp = [], cl = [];

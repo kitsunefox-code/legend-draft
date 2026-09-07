@@ -719,6 +719,45 @@ h1,h2,.btn,.gc-who,.pv-name,.champ-name,.od-tab,.pl-cat,.pk-cat,.s-tab{font-fami
   #scr-gacha .gc-foot .gc-next{flex:1;padding:11px 6px;font-size:13px;}
 }
 
+
+/* ---- 筐体の質感 ---- */
+#scr-gacha .gc-glass{position:absolute;left:8px;right:8px;top:0;height:196px;border-radius:110px 110px 20px 20px;pointer-events:none;
+  background:linear-gradient(115deg,rgba(255,255,255,.55) 0,rgba(255,255,255,.08) 28%,rgba(255,255,255,0) 45%,rgba(255,255,255,.18) 70%,rgba(255,255,255,0) 80%);}
+#scr-gacha .gc-ring{position:absolute;left:0;right:0;top:186px;height:16px;border-radius:8px;
+  background:linear-gradient(180deg,#f4f6fa,#9aa6bb 50%,#e2e7ef);box-shadow:0 3px 6px rgba(0,0,0,.35);}
+#scr-gacha .gc-body{background:linear-gradient(180deg,#f0553f 0,#c7341f 55%,#9e2616 100%);
+  box-shadow:inset 0 6px 0 rgba(255,255,255,.22), inset 0 -8px 12px rgba(0,0,0,.25), 0 14px 26px -12px rgba(0,0,0,.7);}
+#scr-gacha .gc-leds{position:absolute;left:10px;right:10px;top:4px;display:flex;justify-content:space-between;}
+#scr-gacha .gc-leds i{width:7px;height:7px;border-radius:50%;background:#ffe9a8;box-shadow:0 0 6px #ffc63a;animation:gcLed 1.2s linear infinite;animation-delay:calc(var(--i) * -.12s);}
+@keyframes gcLed{0%,100%{opacity:.25;}50%{opacity:1;}}
+#scr-gacha .gc-handle{top:18px;width:60px;height:60px;margin-left:-30px;background:radial-gradient(circle at 35% 30%,#3a4b6e,#111a2e 70%);border:4px solid #fff;
+  box-shadow:0 4px 0 rgba(0,0,0,.45), inset 0 0 0 3px rgba(255,255,255,.15);}
+#scr-gacha .gc-handle i{top:5px;height:24px;background:linear-gradient(180deg,#fff,#cfd6e2);}
+#scr-gacha .gc-handle b{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);font-family:"Oswald",sans-serif;font-size:8px;letter-spacing:.2em;color:#ffe9a8;}
+#scr-gacha .gc-coin{position:absolute;right:14px;top:30px;width:22px;height:8px;border-radius:4px;background:#111a2e;box-shadow:inset 0 2px 3px rgba(0,0,0,.8), 0 1px 0 rgba(255,255,255,.3);}
+#scr-gacha .gc-out{background:linear-gradient(180deg,#0c0a06,#1c1710);border:2px solid #5d2419;box-shadow:inset 0 4px 6px rgba(0,0,0,.9);overflow:hidden;}
+#scr-gacha .gc-outcap{position:absolute;left:50%;top:2px;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:linear-gradient(180deg,#ffc63a 50%,#fff 50%);animation:gcOutcap .8s ease-in .7s both;}
+@keyframes gcOutcap{0%{transform:translateY(-20px);opacity:0;}30%{opacity:1;}100%{transform:translateY(24px) rotate(90deg);opacity:0;}}
+#scr-gacha .gc-machine.crank .gc-body{animation:gcBodyShake .18s linear infinite;}
+@keyframes gcBodyShake{0%,100%{transform:translate(0,0);}50%{transform:translate(1px,-1px);}}
+/* ---- ベンチは別の場所に ---- */
+#scr-gacha .gc-bench{margin-top:12px;border-radius:10px;overflow:hidden;background:linear-gradient(180deg,#1c2a4a,#111a2e);border:2px solid rgba(255,255,255,.35);box-shadow:0 12px 24px -14px rgba(0,0,0,.9);}
+#scr-gacha .gc-bench-roof{font-family:"Oswald",sans-serif;font-size:10px;letter-spacing:.35em;color:#ffe9a8;text-align:center;padding:3px 0 2px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.06) 0 12px,transparent 12px 24px);border-bottom:1px solid rgba(255,255,255,.2);}
+#scr-gacha .gc-bench .gc-row{margin-top:0;background:transparent;border-radius:0;padding:8px 8px 6px;}
+/* ---- Sの一撃 ---- */
+.gc-splash{position:fixed;inset:0;z-index:290;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;
+  background:radial-gradient(circle,rgba(20,26,40,.85),rgba(20,26,40,.35) 60%,rgba(20,26,40,0) 80%);animation:gcSplashIn .25s ease-out both;}
+.gc-splash.out{animation:gcSplashOut .3s ease-in both;}
+@keyframes gcSplashIn{from{opacity:0;}to{opacity:1;}} @keyframes gcSplashOut{to{opacity:0;transform:scale(1.2);}}
+.gc-sp-ring{position:absolute;left:50%;top:50%;width:220px;height:220px;margin:-110px 0 0 -110px;border-radius:50%;border:3px solid rgba(255,255,255,.85);
+  box-shadow:0 0 24px rgba(200,215,235,.8);animation:ssRing 1s ease-out both;}
+.gc-sp-ring.r2{animation-delay:.15s;border-color:rgba(190,205,225,.7);}
+.gc-sp-big{font-family:"Oswald",sans-serif;font-size:140px;line-height:1;font-weight:700;
+  background:linear-gradient(180deg,#ffffff,#c9d3e2 45%,#7d8899);-webkit-background-clip:text;background-clip:text;color:transparent;
+  filter:drop-shadow(0 0 18px rgba(220,230,245,.9));animation:ssHit .5s cubic-bezier(.2,1.4,.3,1) both;}
+.gc-sp-sub{margin-top:6px;font-size:14px;letter-spacing:.2em;color:#e8eefb;text-shadow:0 1px 4px rgba(0,0,0,.7);}
+@media (max-width:700px){ .gc-sp-big{font-size:110px;} .gc-sp-ring{width:180px;height:180px;margin:-90px 0 0 -90px;} #scr-gacha .gc-field{aspect-ratio:10/9;} }
+
 /* ---- モーダル ---- */
 #modal-bg,#event-bg{position:fixed;inset:0;background:rgba(30,25,15,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;overflow-y:auto;}
 #modal-bg.show,#event-bg.show{display:flex;}
@@ -5200,10 +5239,10 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   </div>
 </div>
 
-<script src="qrcode.js?v=202609051910"></script>
-<script src="players.js?v=202609051910"></script>
-<script src="party.js?v=202609051910"></script>
-<script src="ss.js?v=202609051910"></script>
-<script src="game.js?v=202609051910"></script>
+<script src="qrcode.js?v=202609052030"></script>
+<script src="players.js?v=202609052030"></script>
+<script src="party.js?v=202609052030"></script>
+<script src="ss.js?v=202609052030"></script>
+<script src="game.js?v=202609052030"></script>
 </body>
 </html>

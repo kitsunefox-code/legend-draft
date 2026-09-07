@@ -211,6 +211,42 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
 .roster-box .slot b{color:var(--ink);font-weight:600;font-family:"Zen Old Mincho","Yu Mincho",serif;}
 .roster-box .slot.empty .sl{color:var(--red);}
 
+
+/* ---- 戦力分析(開幕編成の頭) ---- */
+.pw-card{
+  border:1px solid var(--rule2);border-left:5px solid var(--ink);background:var(--paper2);
+  padding:10px 12px 9px;margin-bottom:12px;
+}
+.pw-card.bat{border-left-color:var(--red);}
+.pw-card.pit{border-left-color:var(--navy);}
+.pw-card.bal{border-left-color:var(--green);}
+.pw-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px;}
+.pw-k{font-size:10px;letter-spacing:.3em;color:var(--ink2);}
+.pw-type{font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:19px;font-weight:900;letter-spacing:.1em;}
+.pw-odds{margin-left:auto;font-size:11.5px;color:var(--ink2);display:flex;align-items:baseline;gap:6px;}
+.pw-odds b{font-family:"Oswald",sans-serif;font-size:22px;color:var(--red);}
+.pw-odds i{font-style:normal;font-size:10.5px;}
+.pw-m{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:11.5px;}
+.pw-m > span:first-child{flex:none;width:34px;color:var(--ink2);letter-spacing:.1em;}
+.pw-m > b{flex:none;width:58px;text-align:right;font-family:"Oswald",sans-serif;font-size:13px;}
+.pw-bar{flex:1;height:8px;background:var(--paper3);border:1px solid var(--rule);position:relative;}
+.pw-bar i{position:absolute;left:0;top:0;bottom:0;background:var(--goldseal);}
+.pw-bar i.p{background:var(--navy);}
+.pw-note{margin-top:6px;font-size:11.5px;line-height:1.7;color:var(--ink2);}
+.c-odds{margin-top:14px;font-size:12px;letter-spacing:.06em;color:#cfc4a5;line-height:1.9;}
+.c-odds span{display:block;font-size:10px;letter-spacing:.4em;color:#9b917a;}
+/* ---- 月末の号外の順位表 ---- */
+.gg-lead{font-size:13px;line-height:1.8;margin-bottom:10px;}
+.gg-tbl{border-top:1px solid var(--ink);}
+.gg-r{display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px dotted var(--rule2);font-size:12px;}
+.gg-r.top{font-weight:700;}
+.gg-rk{flex:none;width:16px;font-family:"Oswald",sans-serif;color:var(--red);}
+.gg-nm{flex:1;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;font-family:"Zen Old Mincho","Yu Mincho",serif;}
+.gg-wl{flex:none;font-family:"Oswald",sans-serif;}
+.gg-gap{flex:none;width:30px;text-align:right;font-family:"Oswald",sans-serif;color:var(--ink2);}
+.gg-mo{flex:none;font-size:10px;color:var(--ink2);}
+.pl-foot .pl-skip{flex:none;}
+
 /* ---- モーダル ---- */
 #modal-bg,#event-bg{position:fixed;inset:0;background:rgba(30,25,15,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;overflow-y:auto;}
 #modal-bg.show,#event-bg.show{display:flex;}
@@ -3795,7 +3831,11 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     flex:none;margin:0;padding:8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
     gap:6px;flex-wrap:nowrap;border-top:2px solid var(--ink);background:var(--paper);
   }
-  #scr-result > .r-acts .btn{flex:1 1 0;min-width:0;padding:10px 4px;font-size:12px;white-space:nowrap;}
+  #scr-result > .r-acts .btn{flex:1 1 0;min-width:0;padding:10px 2px;font-size:11px;white-space:nowrap;letter-spacing:0;}
+  .gg-r{font-size:11px;gap:4px;}
+  .gg-mo{display:none;}
+  .pw-type{font-size:17px;}
+  .pw-odds{margin-left:0;width:100%;}
 
   /* ============================================================
      扉を一画面に。表紙は貼り付け、序と口絵は必要なら繰る
@@ -4298,7 +4338,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   <div class="r-acts">
     <button class="btn ghost" onclick="snapPaper()">記念の一葉を残す</button>
     <button class="btn ghost" onclick="openQr()">観戦用QRを表示</button>
-    <button class="btn" onclick="location.reload()">もう一度あそぶ</button>
+    <button class="btn" onclick="startNextSeason()">来季へ続く</button>
+    <button class="btn ghost" onclick="location.reload()">最初から</button>
   </div>
 </div>
 
@@ -4501,8 +4542,8 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <!-- 優勝号外 -->
 <div id="gogai-bg" onclick="closeGogai()">
   <div id="gogai">
-    <div class="gg-go">特筆</div>
-    <div class="gg-k">球史編纂所 ── 優勝の記</div>
+    <div class="gg-go" id="gg-go">特筆</div>
+    <div class="gg-k" id="gg-k">球史編纂所 ── 優勝の記</div>
     <div class="gg-team" id="gg-team"></div>
     <div class="gg-v" id="gg-v">優　勝</div>
     <div class="gg-sub" id="gg-sub"></div>
@@ -4533,9 +4574,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609041120"></script>
-<script src="players.js?v=202609041120"></script>
-<script src="party.js?v=202609041120"></script>
-<script src="game.js?v=202609041120"></script>
+<script src="qrcode.js?v=202609041510"></script>
+<script src="players.js?v=202609041510"></script>
+<script src="party.js?v=202609041510"></script>
+<script src="game.js?v=202609041510"></script>
 </body>
 </html>

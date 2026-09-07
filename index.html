@@ -513,6 +513,46 @@ button,.btn{touch-action:manipulation;}
   .pw-line{padding:5px 8px;gap:6px;}
 }
 
+
+/* ---- ガチャの見せ場 ── 暗転・光条・着地の光・割れる・判が押される・揺れる ---- */
+#scr-gacha .gc-stage{position:relative;overflow:hidden;transition:background .4s ease;}
+#scr-gacha .gc-stage.dark{background:radial-gradient(ellipse at 50% 40%,#2a3f6e 0,#141d33 55%,#0b1020 100%);}
+#scr-gacha .gc-stage.dark .gc-hint{color:#e8eefb;text-shadow:0 1px 4px rgba(0,0,0,.6);}
+#scr-gacha .gc-stage.dark .gc-machine .gc-dome{border-color:#fff;}
+#scr-gacha .gc-rays{position:absolute;left:50%;top:45%;width:180vmax;height:180vmax;margin:-90vmax 0 0 -90vmax;pointer-events:none;
+  background:conic-gradient(from 0deg,rgba(255,255,255,0) 0 14deg,rgba(255,255,255,.07) 14deg 20deg);
+  animation:gcSpin 14s linear infinite;}
+#scr-gacha .gc-stage.rainbow .gc-rays{background:conic-gradient(from 0deg,rgba(255,80,80,.16),rgba(255,200,60,.16),rgba(120,255,140,.16),rgba(90,170,255,.16),rgba(200,120,255,.16),rgba(255,80,80,.16));animation-duration:6s;}
+#scr-gacha .gc-stage.rainbow .gc-caps.gold{animation:gcRainbow 1.4s ease-in-out infinite;}
+@keyframes gcRainbow{0%{filter:drop-shadow(0 0 6px rgba(255,90,90,.9));}33%{filter:drop-shadow(0 0 14px rgba(255,220,80,1));}66%{filter:drop-shadow(0 0 14px rgba(110,190,255,1));}100%{filter:drop-shadow(0 0 6px rgba(255,90,90,.9));}}
+/* 着地の光。ランクの色が一瞬こぼれる */
+#scr-gacha .gc-cap-glow{position:absolute;left:50%;top:50%;width:140%;height:140%;transform:translate(-50%,-50%);border-radius:50%;pointer-events:none;opacity:0;
+  background:radial-gradient(circle,var(--cc,#2457b8) 0,rgba(255,255,255,0) 65%);
+  animation:gcLand .7s ease-out both;animation-delay:calc(var(--n) * 70ms + .45s);}
+@keyframes gcLand{0%{opacity:0;transform:translate(-50%,-50%) scale(.4);}30%{opacity:.95;}100%{opacity:0;transform:translate(-50%,-50%) scale(1.5);}}
+#scr-gacha .gc-cap.r-SS .gc-cap-glow{--cc:#ffd257;} #scr-gacha .gc-cap.r-S .gc-cap-glow{--cc:#dfe6f2;} #scr-gacha .gc-cap.r-A .gc-cap-glow{--cc:#ff6a55;}
+/* タップ: 揺れて、割れて、上下が飛ぶ */
+#scr-gacha .gc-cap.opening{animation:gcWobble .46s ease-in-out both;pointer-events:none;}
+@keyframes gcWobble{0%{transform:rotate(0);}20%{transform:rotate(-10deg) scale(1.04);}40%{transform:rotate(9deg) scale(1.06);}60%{transform:rotate(-7deg) scale(1.08);}80%{transform:rotate(5deg) scale(1.1);}100%{transform:scale(1.12);}}
+#scr-gacha .gc-cap.opening .gc-cap-top{animation:gcTop .3s ease-in .18s both;}
+#scr-gacha .gc-cap.opening .gc-cap-bot{animation:gcBot .3s ease-in .18s both;}
+@keyframes gcTop{to{transform:translateY(-34px) rotate(-22deg);opacity:0;}}
+@keyframes gcBot{to{transform:translateY(22px) rotate(14deg);opacity:0;}}
+#scr-gacha .gc-cap.opening .gc-cap-glow{animation:gcLand .5s ease-out .16s both;opacity:1;}
+#scr-gacha .gc-cap.opening .gc-cap-l{opacity:0;transition:opacity .15s;}
+/* 札: 飛び込んで、ランクの判がドンと押される */
+#scr-gacha .gc-card{animation:gcCardIn .45s cubic-bezier(.2,1.2,.3,1) both;}
+@keyframes gcCardIn{0%{transform:translateY(24px) scale(.6);opacity:0;}60%{transform:translateY(-4px) scale(1.06);opacity:1;}100%{transform:none;}}
+#scr-gacha .gc-card .gc-rk{animation:gcStamp .4s cubic-bezier(.2,1.4,.3,1) .22s both;}
+@keyframes gcStamp{0%{transform:scale(3) rotate(-14deg);opacity:0;}55%{transform:scale(.9) rotate(3deg);opacity:1;}100%{transform:none;}}
+#scr-gacha .gc-card.r-SS{animation:gcCardIn .45s cubic-bezier(.2,1.2,.3,1) both, gcPulse 1.6s ease-in-out .6s infinite;}
+@keyframes gcPulse{0%,100%{box-shadow:0 0 0 3px var(--amber),0 0 22px rgba(255,198,58,.7);}50%{box-shadow:0 0 0 3px #fff,0 0 40px rgba(255,198,58,1);}}
+#scr-gacha .gc-stage.dark .gc-card{border-color:#fff;}
+/* 高レアで画面が揺れる */
+body.gc-shake{animation:gcQuake .55s ease-out;}
+@keyframes gcQuake{0%,100%{transform:none;}10%{transform:translate(-6px,3px);}20%{transform:translate(6px,-4px);}30%{transform:translate(-5px,-2px);}40%{transform:translate(4px,3px);}50%{transform:translate(-3px,1px);}60%{transform:translate(2px,-2px);}80%{transform:translate(-1px,1px);}}
+@media (prefers-reduced-motion:reduce){ body.gc-shake{animation:none;} #scr-gacha .gc-rays{animation:none;} }
+
 /* ---- モーダル ---- */
 #modal-bg,#event-bg{position:fixed;inset:0;background:rgba(30,25,15,.55);display:none;align-items:center;justify-content:center;z-index:50;padding:14px;overflow-y:auto;}
 #modal-bg.show,#event-bg.show{display:flex;}
@@ -4992,9 +5032,9 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   </div>
 </div>
 
-<script src="qrcode.js?v=202609051420"></script>
-<script src="players.js?v=202609051420"></script>
-<script src="party.js?v=202609051420"></script>
-<script src="game.js?v=202609051420"></script>
+<script src="qrcode.js?v=202609051520"></script>
+<script src="players.js?v=202609051520"></script>
+<script src="party.js?v=202609051520"></script>
+<script src="game.js?v=202609051520"></script>
 </body>
 </html>

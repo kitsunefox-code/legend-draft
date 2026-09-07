@@ -1015,7 +1015,7 @@ function gachaPull(auto){
   G.phase = "drop";
   renderGacha();
   seRollStart();
-  setTimeout(function(){ seRollStop(); if(state.gacha === G){ G.phase = "caps"; renderGacha(); seTap(); } }, 1000);
+  setTimeout(function(){ seRollStop(); if(state.gacha === G){ G.phase = "caps"; renderGacha(); seWhoosh(); } }, 1000);
 }
 function gachaFlash(rank){
   const el = document.createElement("div");
@@ -1025,28 +1025,44 @@ function gachaFlash(rank){
 }
 function gachaReveal(i){
   const G = state.gacha;
-  if(!G || !G.pulls || !G.pulls[i] || G.pulls[i].open) return;
+  if(!G || !G.pulls || !G.pulls[i] || G.pulls[i].open || G.pulls[i].opening) return;
   const x = G.pulls[i];
-  x.open = true; G.revealed++;
-  if(x.rank === "SS"){ seFanfare(); gachaFlash("SS"); confetti(); }
-  else if(x.rank === "S"){ seWin(); gachaFlash("S"); }
-  else seTap();
+  x.opening = true;
   renderGacha();
+  seCrack();
+  if(navigator.vibrate) try{ navigator.vibrate(x.rank === "SS" ? [30,40,60] : 12); }catch(e){}
+  setTimeout(function(){
+    if(state.gacha !== G) return;
+    x.opening = false; x.open = true; G.revealed++;
+    if(x.rank === "SS"){ seFanfare(); gachaFlash("SS"); confetti(); gachaShake(); }
+    else if(x.rank === "S"){ seWin(); gachaFlash("S"); }
+    else seTap();
+    renderGacha();
+  }, 460);
+}
+function gachaShake(){
+  document.body.classList.add("gc-shake");
+  setTimeout(function(){ document.body.classList.remove("gc-shake"); }, 600);
 }
 function gachaRevealAll(){
   const G = state.gacha;
   if(!G || !G.pulls) return;
-  const rest = G.pulls.filter(x => !x.open);
+  const rest = G.pulls.filter(x => !x.open && !x.opening);
   if(!rest.length) return;
-  // 一枚ずつ順に開く。最後がいちばん良いものになるよう並べる(見せ場を最後に)
-  rest.sort((a, b) => RANK_ORDER.indexOf(b.rank) - RANK_ORDER.indexOf(a.rank));
+  // 並びはそのまま。一番いいものだけ最後に回して見せ場にする
+  let best = rest[0];
+  rest.forEach(x => { if(RANK_ORDER.indexOf(x.rank) < RANK_ORDER.indexOf(best.rank)) best = x; });
+  const order = rest.filter(x => x !== best).concat([best]);
   let k = 0;
   const step = function(){
     if(state.gacha !== G) return;
-    const x = rest[k++];
+    const x = order[k++];
     if(!x) return;
     gachaReveal(G.pulls.indexOf(x));
-    if(k < rest.length) setTimeout(step, x.rank === "SS" || x.rank === "S" ? 700 : 160);
+    if(k < order.length){
+      const last = k === order.length - 1;
+      setTimeout(step, (x.rank === "SS" || x.rank === "S") ? 1300 : (last ? 900 : 520));
+    }
   };
   step();
 }
@@ -1061,8 +1077,8 @@ function gachaProgress(t){
   return {got, total};
 }
 function gachaCapHtml(x, i, big){
-  return '<button class="gc-cap r-' + x.rank + (x.sure ? " sure" : "") + (big ? " big" : "") + '" style="--n:' + i + '" onclick="gachaReveal(' + i + ')">' +
-    '<span class="gc-cap-top"></span><span class="gc-cap-bot"></span><span class="gc-cap-shine"></span>' +
+  return '<button class="gc-cap r-' + x.rank + (x.sure ? " sure" : "") + (big ? " big" : "") + (x.opening ? " opening" : "") + '" style="--n:' + i + '" onclick="gachaReveal(' + i + ')">' +
+    '<span class="gc-cap-glow"></span><span class="gc-cap-top"></span><span class="gc-cap-bot"></span><span class="gc-cap-shine"></span>' +
     '<span class="gc-cap-l">' + esc(x.d.label) + '</span></button>';
 }
 function gachaCardHtml(x, big){
@@ -1110,6 +1126,8 @@ function renderGacha(){
   const nOpen = gachaOpenFor(t, R).length;
   if(!G.pulls || G.phase === "drop"){
     const dropping = G.phase === "drop";
+    $("gc-stage").classList.toggle("dark", dropping);
+    $("gc-stage").classList.remove("rainbow");
     $("gc-stage").innerHTML =
       '<div class="gc-machine' + (dropping ? " crank" : "") + '">' +
         '<div class="gc-dome">' + Array.from({length: 16}, (_, i) => '<i style="--i:' + i + '"></i>').join("") + '</div>' +
@@ -1134,7 +1152,10 @@ function renderGacha(){
       RANK_ORDER.filter(r => cnt[r]).map(r => '<span class="gc-sum-r r-' + r + '">' + r + '<i>' + cnt[r] + '</i></span>').join("") +
       '<b>目玉 ' + esc(best.p ? best.p.name : parkShort(best.park)) + '</b></div>';
   }
+  $("gc-stage").classList.toggle("dark", !allOpen);
+  $("gc-stage").classList.toggle("rainbow", hasSS && !allOpen);
   $("gc-stage").innerHTML =
+    (allOpen ? '' : '<div class="gc-rays"></div>') +
     '<div class="gc-caps n' + G.pulls.length + (hasSS && !allOpen ? " gold" : "") + '">' + items + '</div>' +
     (allOpen ? summary : '<div class="gc-hint">' + (hasSS ? '金色の光が漏れている……！' : 'カプセルをタップして開封') + '</div>');
   $("gc-foot").innerHTML = t.cpu ? '' :
@@ -5518,6 +5539,19 @@ function seTap(){
   if(!sndOn) return; const c=ac(); if(!c) return; tone(c.currentTime, 620, 0.07, 0.10, "triangle");
 }
 let rollTimer = null;
+// カプセルが割れる音と、落ちてくる風切り
+function seCrack(){
+  if(!sndOn) return; const c=ac(); if(!c) return;
+  const t = c.currentTime;
+  noiseBurst(t, 0.09, 3200, 0.16);
+  tone(t, 880, 0.05, 0.08, "square"); tone(t+0.04, 1320, 0.08, 0.06, "triangle");
+}
+function seWhoosh(){
+  if(!sndOn) return; const c=ac(); if(!c) return;
+  const t = c.currentTime;
+  for(let i = 0; i < 6; i++) tone(t + i*0.04, 900 - i*110, 0.05, 0.05, "sine");
+  noiseBurst(t + 0.2, 0.06, 900, 0.10);
+}
 function seRollStart(){
   if(!sndOn) return; const c=ac(); if(!c) return;
   seRollStop();

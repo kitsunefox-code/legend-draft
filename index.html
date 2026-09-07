@@ -3558,12 +3558,16 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding:0;
   }
   #scr-setup > h1{display:none;}
-  #scr-setup > .panel{flex:none;margin:8px 10px 0;}
-  #scr-setup > .setup-main > .sub{display:none;}
-  #scr-setup > .setup-main{padding:10px 12px;}
-  /* 畳んだ設定群は、はみ出したぶんだけ繰る */
-  #scr-setup > .panel.fold{margin-top:6px;}
-  #scr-setup > .setup-go{flex:none;margin:auto 0 0;}
+  /* 参加者〜編成の設定群はこの箱の中で繰る。開いた設定に指が届くように */
+  #setup-body{
+    flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:0 10px 12px;
+  }
+  #setup-body > .panel{margin:8px 0 0;}
+  #setup-body > .setup-main > .sub{display:none;}
+  #setup-body > .setup-main{padding:10px 12px;}
+  #setup-body > .panel.fold{margin-top:6px;}
+  #scr-setup > .setup-go{flex:none;margin:0;position:static;}
   /* 設定は「ドラフト会議へ」を下に貼り付ける。押しに行くために繰らない */
   .setup-go{
     position:sticky;bottom:0;z-index:35;margin-top:14px;padding:10px 0;
@@ -3808,6 +3812,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   }
   #pool{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;overflow:hidden;}
   #pool > #pool-pv{flex:none;}
+  /* 絞り込みを開いている間は下見の面を畳み、札に場所を渡す。
+     検索の結果が1行しか見えないのでは探せない */
+  #scr-draft .f-row.open ~ .pool #pool-pv{display:none;}
   #pool > .pl-cats{
     flex:none;margin:6px 0 0;flex-wrap:nowrap;overflow-x:auto;
     -webkit-overflow-scrolling:touch;scrollbar-width:none;
@@ -3822,9 +3829,13 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:7px;
     align-content:start;grid-auto-rows:min-content;
   }
-  /* 下見の面はここでは要点だけ。写真は低く、寸評は畳む */
-  .pl-shot img{max-height:96px;}
-  .pl-body{padding:8px 10px 0;gap:9px;}
+  /* 下見の面はここでは要点だけ。写真とデータを横に並べ、札に場所を渡す */
+  #pool-pv .pv-body{grid-template-columns:96px minmax(0,1fr);gap:8px;padding:8px 10px 0;align-items:start;}
+  #pool-pv .pl-shot{width:96px;}
+  #pool-pv .pl-shot img{max-height:120px;height:120px;object-fit:cover;}
+  #pool-pv .pl-figs{margin-top:2px;}
+  #pool-pv .pv-h{font-size:11.5px;padding:3px 6px;}
+  .pl-body{gap:8px;}
   #pool-pv .pv-note{display:none;}
   .pl-more{padding:6px 10px 8px;}
   .pl-tile img{height:54px;}
@@ -4054,6 +4065,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
 <div id="scr-setup" class="screen">
   <h1><span class="kicker">STEP 1</span>球団結成<span class="en">FRANCHISE</span></h1>
 
+  <div id="setup-body">
   <div class="panel setup-main">
     <b>参加者<span class="pn-cnt">2〜6人</span></b>
     <div class="sub" style="margin:4px 0 10px;">名前を入れて、球団のエンブレムを選びます。「球団縛り」を付けると、その人はその球団（前身球団を含む）の選手しか指名できません。</div>
@@ -4182,6 +4194,7 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
     </div>
   </div>
 
+  </div>
   <div class="setup-go">
     <div class="sg-note">準備ができたら、監督から順に指名していきます</div>
     <button class="btn lg" onclick="startDraft()">ドラフト会議へ</button>
@@ -4596,9 +4609,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609041600"></script>
-<script src="players.js?v=202609041600"></script>
-<script src="party.js?v=202609041600"></script>
-<script src="game.js?v=202609041600"></script>
+<script src="qrcode.js?v=202609041730"></script>
+<script src="players.js?v=202609041730"></script>
+<script src="party.js?v=202609041730"></script>
+<script src="game.js?v=202609041730"></script>
 </body>
 </html>

@@ -367,7 +367,9 @@ function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
   // 枠を組んでからチームを作る(newTeamがSP_KEYSを写し取るため順序が大事)
-  applyRoster(optNum("opt-sp", 4), optNum("opt-rp", 3), optNum("opt-bn", 3));
+  const gachaOn = $("opt-gacha") ? $("opt-gacha").checked : false;
+  if(gachaOn) applyRoster(5, 5, 6);   // ガチャは27人固定: 野手15・投手11・監督1
+  else applyRoster(optNum("opt-sp", 4), optNum("opt-rp", 3), optNum("opt-bn", 3));
   // メジャー限定。指名の対象を丸ごと差し替える
   state.opts.mlbOnly = $("opt-mlbonly") ? $("opt-mlbonly").checked : false;
   state.opts.gacha = $("opt-gacha") ? $("opt-gacha").checked : false;
@@ -431,9 +433,9 @@ function startDraft(){
   $("f-fr").innerHTML = `<option value="">全球団</option>` + FRANCHISES.map(f=>`<option>${f}</option>`).join("");
   const decades=[...new Set(POOL.map(p=>p.decade))].sort();
   $("f-era").innerHTML = `<option value="">全年代</option>` + decades.map(d=>`<option>${d}</option>`).join("");
+  if(state.opts.gacha){ startGacha(); return; }   // 本拠地は球場ガチャで決まる
   if(state.opts.park){ startParkDraft(); return; }
   state.parts.forEach(t=>{ if(!t.park) t.park = PARKS.find(x=>x.id==="fujiidera"); });  // 球場なしなら癖のない球場
-  if(state.opts.gacha){ startGacha(); return; }
   show("scr-draft");
   nextTurn(true);
 }
@@ -918,32 +920,45 @@ function finishParkDraft(){
 
 // ============================================================
 // ガチャモード ── ドラフトの代わりに、順番にガチャを回して球団を作る。
-// 一回に空いている枠3つぶんのカプセルが落ち、タップで開封。
-// 出る選手のランクは確率で決まり、SSが出れば宴会が沸く
+// 監督→野手→投手→球場の4本立て。野手は15連、投手は11連が一気に落ち、
+// タップで開封。ランクは確率で決まり、SSが出れば画面が金に染まる
 // ============================================================
 const GACHA_TIERS = [["SS", 3], ["S", 10], ["A", 27], ["B", 35], ["C", 25]];
-const GACHA_PER = 10;   // 10連。一回にA以上を一枚は保証する
+const GACHA_ROUNDS = [
+  {k:"M", label:"監督ガチャ", note:"球団の頭脳。優勝回数の多い名将が出るか", grps:["MGR"]},
+  {k:"B", label:"野手ガチャ", note:"打線と控え、15人ぶんのカプセルが一気に落ちる", grps:["捕","一","二","三","遊","外","DH","BN"]},
+  {k:"P", label:"投手ガチャ", note:"先発・中継ぎ・抑え、11人ぶん", grps:["SP","RP","CL"]},
+  {k:"K", label:"球場ガチャ", note:"本拠地が決まる。狭い箱なら打線が、広い外野なら投手が生きる", grps:null},
+];
+const RANK_ORDER = ["SS", "S", "A", "B", "C"];
 function startGacha(){
-  state.gacha = {order: shuffle(state.parts.map((_, i) => i)), ptr: 0, round: 1, pulls: null, revealed: 0};
+  state.gacha = {order: shuffle(state.parts.map((_, i) => i)), ptr: 0, round: 0, pulls: null, revealed: 0, phase: "idle"};
   show("scr-gacha");
   gachaNext();
 }
 function gachaTeam(){ return state.parts[state.gacha.order[state.gacha.ptr]]; }
+function gachaRound(){ return GACHA_ROUNDS[state.gacha.round]; }
+function gachaOpenFor(t, R){
+  if(R.k === "K") return t.park ? [] : [{key:"PARK", grp:"PARK", label:"本拠地"}];
+  return openSlots(t).filter(d => R.grps.indexOf(d.grp) >= 0);
+}
 function gachaNext(){
   const G = state.gacha;
   if(!G) return;
-  if(state.parts.every(rosterFull)){
+  if(G.ptr >= G.order.length){ G.ptr = 0; G.round++; }
+  if(G.round >= GACHA_ROUNDS.length){
     state.gacha = null; state.currentIdx = -1;
-    curtain("全球団の枠が埋まりました", "ガチャで生まれた球団で、一四四試合を戦います。", "開幕編成へ", startCamp);
+    state.parts.forEach(t => { if(!t.park) t.park = PARKS.find(x => x.id === "fujiidera"); });
+    curtain("全球団が出そろいました", "ガチャで生まれた球団で、一四四試合を戦います。", "開幕編成へ", startCamp);
     return;
   }
-  let guard = 0;
-  while(rosterFull(gachaTeam()) && guard++ < 24) G.ptr = (G.ptr + 1) % G.order.length;
+  const R = gachaRound();
   state.currentIdx = G.order[G.ptr];
-  G.pulls = null; G.revealed = 0;
   const t = gachaTeam();
-  if(t.cpu){ renderGacha(); setTimeout(function(){ gachaPull(true); }, 350); return; }
-  curtain(t.name + " の番", "端末を受け取って、ガチャを回してください。", "ガチャへ", renderGacha);
+  if(!gachaOpenFor(t, R).length){ G.ptr++; gachaNext(); return; }
+  G.pulls = null; G.revealed = 0; G.phase = "idle";
+  if(t.cpu){ renderGacha(); setTimeout(function(){ gachaPull(true); }, 500); return; }
+  curtain(t.name + " の番 ── " + R.label, R.note + "<br>端末を受け取って、回してください。", "ガチャへ", renderGacha);
 }
 // 枠に合う候補から、ランクの確率で一人引く。上のランクに誰もいなければ下へ流す
 function gachaDraw(t, d, minTier){
@@ -953,114 +968,179 @@ function gachaDraw(t, d, minTier){
   cands.forEach(p => { const r = rankOf(ovrFor(p, d.grp)); (byTier[r] = byTier[r] || []).push(p); });
   let roll = rnd() * 100, tier = "C";
   for(const [r, w] of GACHA_TIERS){ if(roll < w){ tier = r; break; } roll -= w; }
-  const order = ["SS", "S", "A", "B", "C"];
-  // 保証枠: 指定ランク以上に引き上げる
-  if(minTier && order.indexOf(tier) > order.indexOf(minTier)) tier = minTier;
-  let i = order.indexOf(tier);
-  while(i < order.length && !(byTier[order[i]] && byTier[order[i]].length)) i++;
-  if(i >= order.length){ i = order.indexOf(tier); while(i >= 0 && !(byTier[order[i]] && byTier[order[i]].length)) i--; }
-  const list = byTier[order[i]];
+  if(minTier && RANK_ORDER.indexOf(tier) > RANK_ORDER.indexOf(minTier)) tier = minTier;
+  let i = RANK_ORDER.indexOf(tier);
+  while(i < RANK_ORDER.length && !(byTier[RANK_ORDER[i]] && byTier[RANK_ORDER[i]].length)) i++;
+  if(i >= RANK_ORDER.length){ i = RANK_ORDER.indexOf(tier); while(i >= 0 && !(byTier[RANK_ORDER[i]] && byTier[RANK_ORDER[i]].length)) i--; }
+  const list = byTier[RANK_ORDER[i]];
   return list[Math.floor(rnd() * list.length)];
+}
+// 球場の「格」。癖の強さで決める。MLBの名球場と極端な球場ほど上
+function parkRank(pk){
+  const edge = Math.abs((pk.hr || 1) - 1) + Math.abs((pk.run || 1) - 1);
+  if(pk.cat === "MLB" && edge >= 0.18) return "SS";
+  if(pk.cat === "MLB" || edge >= 0.22) return "S";
+  if(edge >= 0.12) return "A";
+  if(pk.cat === "草野球") return "C";
+  return "B";
 }
 function gachaPull(auto){
   const G = state.gacha;
-  if(!G || G.pulls) return;
+  if(!G || G.pulls || G.phase === "drop") return;
   const t = gachaTeam();
-  const open = shuffle(openSlots(t)).slice(0, GACHA_PER);
+  const R = gachaRound();
   const pulls = [];
-  for(let n = 0; n < open.length; n++){
-    const d = open[n];
-    // 最後の一枚で、まだA以上が出ていなければ保証を効かせる
-    const need = n === open.length - 1 && open.length >= 5 &&
-      !pulls.some(x => x.rank === "SS" || x.rank === "S" || x.rank === "A");
-    const p = gachaDraw(t, d, need ? "A" : null);
-    if(!p) continue;
-    assignPick(t, p);
-    pulls.push({d, p, open: !!auto, rank: rankOf(ovrFor(p, d.grp)), sure: need});
+  if(R.k === "K"){
+    const taken = new Set(state.parts.map(x => x.park && x.park.id).filter(Boolean));
+    const free = PARKS.filter(pk => !taken.has(pk.id));
+    const pk = free[Math.floor(rnd() * free.length)] || PARKS[0];
+    t.park = pk;
+    pulls.push({d:{label:"本拠地", grp:"PARK"}, park: pk, open: !!auto, rank: parkRank(pk)});
+  }else{
+    const open = shuffle(gachaOpenFor(t, R));
+    for(let n = 0; n < open.length; n++){
+      const d = open[n];
+      // 最後の一枚で、まだA以上が出ていなければ保証を効かせる
+      const need = n === open.length - 1 && open.length >= 5 &&
+        !pulls.some(x => x.rank === "SS" || x.rank === "S" || x.rank === "A");
+      const p = gachaDraw(t, d, need ? "A" : null);
+      if(!p) continue;
+      assignPick(t, p);
+      pulls.push({d, p, open: !!auto, rank: rankOf(ovrFor(p, d.grp)), sure: need});
+    }
   }
   G.pulls = pulls; G.revealed = auto ? pulls.length : 0;
-  if(auto){ renderGacha(); setTimeout(gachaAdvance, 900); return; }
-  seRollStart();
-  setTimeout(seRollStop, 900);
+  if(auto){ G.phase = "caps"; renderGacha(); setTimeout(gachaAdvance, 1100); return; }
+  // ハンドルを回す→カプセルが落ちる
+  G.phase = "drop";
   renderGacha();
+  seRollStart();
+  setTimeout(function(){ seRollStop(); if(state.gacha === G){ G.phase = "caps"; renderGacha(); seTap(); } }, 1000);
+}
+function gachaFlash(rank){
+  const el = document.createElement("div");
+  el.className = "gc-flash r-" + rank;
+  document.body.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 1000);
 }
 function gachaReveal(i){
   const G = state.gacha;
   if(!G || !G.pulls || !G.pulls[i] || G.pulls[i].open) return;
   const x = G.pulls[i];
   x.open = true; G.revealed++;
-  if(x.rank === "SS") seFanfare(); else if(x.rank === "S") seWin(); else seTap();
+  if(x.rank === "SS"){ seFanfare(); gachaFlash("SS"); confetti(); }
+  else if(x.rank === "S"){ seWin(); gachaFlash("S"); }
+  else seTap();
   renderGacha();
+}
+function gachaRevealAll(){
+  const G = state.gacha;
+  if(!G || !G.pulls) return;
+  const rest = G.pulls.filter(x => !x.open);
+  if(!rest.length) return;
+  // 一枚ずつ順に開く。最後がいちばん良いものになるよう並べる(見せ場を最後に)
+  rest.sort((a, b) => RANK_ORDER.indexOf(b.rank) - RANK_ORDER.indexOf(a.rank));
+  let k = 0;
+  const step = function(){
+    if(state.gacha !== G) return;
+    const x = rest[k++];
+    if(!x) return;
+    gachaReveal(G.pulls.indexOf(x));
+    if(k < rest.length) setTimeout(step, x.rank === "SS" || x.rank === "S" ? 700 : 160);
+  };
+  step();
 }
 function gachaAdvance(){
   const G = state.gacha;
   if(!G) return;
-  G.ptr = (G.ptr + 1) % G.order.length;
-  if(G.ptr === 0) G.round++;
+  G.ptr++;
   gachaNext();
 }
 function gachaProgress(t){
-  const total = SLOT_DEFS.length, got = SLOT_DEFS.filter(d => t.slots[d.key]).length;
+  const total = SLOT_DEFS.length + 1, got = SLOT_DEFS.filter(d => t.slots[d.key]).length + (t.park ? 1 : 0);
   return {got, total};
+}
+function gachaCapHtml(x, i, big){
+  return '<button class="gc-cap r-' + x.rank + (x.sure ? " sure" : "") + (big ? " big" : "") + '" style="--n:' + i + '" onclick="gachaReveal(' + i + ')">' +
+    '<span class="gc-cap-top"></span><span class="gc-cap-bot"></span><span class="gc-cap-shine"></span>' +
+    '<span class="gc-cap-l">' + esc(x.d.label) + '</span></button>';
+}
+function gachaCardHtml(x, big){
+  if(x.park){
+    const pk = x.park, ph = PARK_PHOTO[pk.id];
+    return '<div class="gc-card park r-' + x.rank + '">' +
+      '<div class="gc-burst"></div>' +
+      '<div class="gc-rk"><span class="rank rank-' + x.rank + '">' + x.rank + '</span></div>' +
+      '<div class="gc-face wide">' + (ph ? '<img src="assets/park/thumb/' + pk.id + '.jpg" alt="" decoding="async" onerror="this.remove()">' : '') + '</div>' +
+      '<div class="gc-nm">' + esc(parkShort(pk)) + '</div>' +
+      '<div class="gc-meta">' + esc(pk.cat) + '・' + esc(pk.type) + '</div>' +
+      '<div class="gc-st">本塁打' + (pk.hr >= 1.12 ? "出やすい" : pk.hr <= 0.9 ? "出にくい" : "標準") + '・' + (pk.run >= 1.06 ? "打高" : pk.run <= 0.96 ? "投高" : "標準") + '</div>' +
+    '</div>';
+  }
+  const p = x.p;
+  return '<div class="gc-card r-' + x.rank + (big ? " big" : "") + '">' +
+    '<div class="gc-burst"></div>' +
+    '<div class="gc-rk">' + rankIcon(ovrFor(p, x.d.grp), big ? 44 : 26) + '</div>' +
+    '<div class="gc-face">' + (p.ph !== undefined
+      ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
+      : avatarBox(p, big ? 72 : 48)) + '</div>' +
+    '<div class="gc-nm">' + esc(p.name) + titleBadge(p) + '</div>' +
+    '<div class="gc-meta">' + esc(x.d.label) + '　' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' +
+    '<div class="gc-st">' + esc(statShort(p)) + '</div>' +
+  '</div>';
 }
 function renderGacha(){
   const G = state.gacha;
   if(!G) return;
   const t = gachaTeam();
+  const R = gachaRound();
   const pr = gachaProgress(t);
   $("gc-head").innerHTML =
-    '<div class="gc-who">' + teamEmblem(t, 26) + '<b>' + esc(t.name) + '</b>' + (t.cpu ? '<i>CPU</i>' : '') + '</div>' +
-    '<div class="gc-prog"><span>第' + G.round + '巡</span><b>' + pr.got + '</b>/' + pr.total + '枠' +
-      '<span class="gc-bar"><i style="width:' + Math.round(pr.got / pr.total * 100) + '%"></i></span></div>' +
-    '<div class="gc-others">' + state.parts.map(x => {
-      const q = gachaProgress(x);
-      return '<span class="gc-o' + (x === t ? " now" : "") + '">' + teamEmblem(x, 14) + esc(x.name) + '<i>' + q.got + '</i></span>';
-    }).join("") + '</div>';
+    '<div class="gc-who">' + teamEmblem(t, 26) + '<b>' + esc(t.name) + '</b>' + (t.cpu ? '<i>CPU</i>' : '') +
+      '<span class="gc-rnd">' + esc(R.label) + '</span></div>' +
+    '<div class="gc-steps">' + GACHA_ROUNDS.map((r, i) =>
+      '<span class="gc-stp' + (i < G.round ? " done" : i === G.round ? " now" : "") + '">' + esc(r.label.replace("ガチャ", "")) + '</span>').join("") + '</div>' +
+    '<div class="gc-prog"><b>' + pr.got + '</b>/' + pr.total + '枠' +
+      '<span class="gc-bar"><i style="width:' + Math.round(pr.got / pr.total * 100) + '%"></i></span>' +
+      '<span class="gc-others">' + state.parts.map(x => {
+        const q = gachaProgress(x);
+        return '<span class="gc-o' + (x === t ? " now" : "") + '">' + teamEmblem(x, 13) + '<i>' + q.got + '</i></span>';
+      }).join("") + '</span></div>';
 
-  if(!G.pulls){
+  const nOpen = gachaOpenFor(t, R).length;
+  if(!G.pulls || G.phase === "drop"){
+    const dropping = G.phase === "drop";
     $("gc-stage").innerHTML =
-      '<div class="gc-machine">' +
-        '<div class="gc-dome">' + Array.from({length: 14}, (_, i) => '<i style="--i:' + i + '"></i>').join("") + '</div>' +
-        '<div class="gc-slot"></div>' +
+      '<div class="gc-machine' + (dropping ? " crank" : "") + '">' +
+        '<div class="gc-dome">' + Array.from({length: 16}, (_, i) => '<i style="--i:' + i + '"></i>').join("") + '</div>' +
+        '<div class="gc-body"><div class="gc-handle"><i></i></div><div class="gc-out"></div></div>' +
       '</div>' +
-      '<div class="gc-hint">' + (t.cpu ? 'CPUが回しています……' : Math.min(GACHA_PER, openSlots(t).length) + '連ガチャ。A以上を一枚保証') + '</div>';
-    $("gc-foot").innerHTML = t.cpu ? '' :
-      '<button class="btn lg gc-go" onclick="gachaPull()">ガチャを回す</button>';
+      '<div class="gc-hint">' + (t.cpu ? 'CPUが回しています……' : dropping ? 'ガラガラ……' :
+        (R.k === "K" ? '本拠地が一つ出ます' : nOpen + '連ガチャ' + (nOpen >= 5 ? '。A以上を一枚保証' : ''))) + '</div>';
+    $("gc-foot").innerHTML = t.cpu || dropping ? '' :
+      '<button class="btn lg gc-go" onclick="gachaPull()">' + esc(R.label) + 'を回す</button>';
     return;
   }
-  const caps = G.pulls.map((x, i) => {
-    if(!x.open){
-      return '<button class="gc-cap c' + (i % 3) + (x.sure ? " sure" : "") + '" onclick="gachaReveal(' + i + ')">' +
-        '<span class="gc-cap-top"></span><span class="gc-cap-bot"></span>' +
-        '<span class="gc-cap-l">' + esc(x.d.label) + '</span></button>';
-    }
-    const p = x.p;
-    return '<div class="gc-card r-' + x.rank + '">' +
-      '<div class="gc-burst"></div>' +
-      '<div class="gc-rk">' + rankIcon(ovrFor(p, x.d.grp), 34) + '</div>' +
-      '<div class="gc-face">' + (p.ph !== undefined
-        ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
-        : avatarBox(p, 56)) + '</div>' +
-      '<div class="gc-nm">' + esc(p.name) + titleBadge(p) + '</div>' +
-      '<div class="gc-meta">' + esc(x.d.label) + '　' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' +
-      '<div class="gc-st">' + esc(statShort(p)) + '</div>' +
-    '</div>';
-  }).join("");
-  $("gc-stage").innerHTML = '<div class="gc-caps n' + G.pulls.length + '">' + caps + '</div>' +
-    (G.revealed < G.pulls.length && !t.cpu ? '<div class="gc-hint">カプセルをタップして開封</div>' : '');
+  const big = G.pulls.length === 1;
+  const items = G.pulls.map((x, i) => x.open ? gachaCardHtml(x, big) : gachaCapHtml(x, i, big)).join("");
+  const hasSS = G.pulls.some(x => x.rank === "SS");
   const allOpen = G.revealed >= G.pulls.length;
+  let summary = "";
+  if(allOpen && G.pulls.length > 1){
+    const cnt = {};
+    G.pulls.forEach(x => { cnt[x.rank] = (cnt[x.rank] || 0) + 1; });
+    const best = G.pulls.slice().sort((a, b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank))[0];
+    summary = '<div class="gc-sum">' +
+      RANK_ORDER.filter(r => cnt[r]).map(r => '<span class="gc-sum-r r-' + r + '">' + r + '<i>' + cnt[r] + '</i></span>').join("") +
+      '<b>目玉 ' + esc(best.p ? best.p.name : parkShort(best.park)) + '</b></div>';
+  }
+  $("gc-stage").innerHTML =
+    '<div class="gc-caps n' + G.pulls.length + (hasSS && !allOpen ? " gold" : "") + '">' + items + '</div>' +
+    (allOpen ? summary : '<div class="gc-hint">' + (hasSS ? '金色の光が漏れている……！' : 'カプセルをタップして開封') + '</div>');
   $("gc-foot").innerHTML = t.cpu ? '' :
     (allOpen
-      ? '<button class="btn lg gc-go" onclick="gachaAdvance()">' + (state.parts.every(rosterFull) ? "開幕編成へ" : "次の人へ") + '</button>'
+      ? '<button class="btn lg gc-go" onclick="gachaAdvance()">次へ</button>'
       : '<button class="btn ghost" onclick="gachaRevealAll()">まとめて開封</button>');
-}
-function gachaRevealAll(){
-  const G = state.gacha;
-  if(!G || !G.pulls) return;
-  let top = "C";
-  G.pulls.forEach(x => { if(!x.open){ x.open = true; G.revealed++; } if(["SS","S","A","B","C"].indexOf(x.rank) < ["SS","S","A","B","C"].indexOf(top)) top = x.rank; });
-  if(top === "SS") seFanfare(); else if(top === "S") seWin(); else seTap();
-  renderGacha();
 }
 
 

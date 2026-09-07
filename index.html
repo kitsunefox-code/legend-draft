@@ -15,7 +15,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Oswald:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Oswald:wght@500;600;700&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
 <title>球史 〜レジェンドドラフト〜</title>
 <style>
 :root{
@@ -606,6 +606,117 @@ body.gc-shake{animation:gcQuake .55s ease-out;}
   .ss-list li{font-size:12.5px;padding:5px 8px 5px 20px;}
   .ss-pg.card .ss-face{width:120px;height:150px;}
   .ss-desc{display:none;}
+}
+
+
+/* ============================================================
+   選手カード(プロスピ風): 写真全面・名前の帯・金銀の枠・ホロの光沢
+   ============================================================ */
+.pc{position:relative;padding:3px;border-radius:12px;background:var(--pcfr,#5a6577);box-shadow:0 10px 24px -12px rgba(0,0,0,.75);cursor:pointer;}
+.pc.r-C{--pcfr:linear-gradient(160deg,#8b95a6,#4c5566);}
+.pc.r-B{--pcfr:linear-gradient(160deg,#6aa0ff,#1f4fb8 60%,#0f2f78);}
+.pc.r-A{--pcfr:linear-gradient(160deg,#ff8d6b,#c33320 55%,#7a1a10);}
+.pc.r-S{--pcfr:linear-gradient(160deg,#ffffff,#b9c2d1 30%,#7d8899 55%,#e6ebf3 80%,#8f99ab);}
+.pc.r-SS{--pcfr:linear-gradient(160deg,#fff6c8,#f2c14e 25%,#b47f00 50%,#ffe59a 72%,#c8951a);box-shadow:0 0 0 1px #fff3b0,0 0 26px rgba(255,198,58,.75),0 12px 26px -12px rgba(0,0,0,.8);}
+.pc-in{position:relative;aspect-ratio:3/4;border-radius:9px;overflow:hidden;background:#0d1322;}
+.pc-ph{position:absolute;inset:0;}
+.pc-ph img{width:100%;height:100%;object-fit:cover;object-position:50% 12%;display:block;}
+.pc-ph .pc-av{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 50% 35%,#31415f,#0d1322);}
+.pc-sh{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.15) 0,rgba(0,0,0,0) 30%,rgba(0,0,0,0) 52%,rgba(8,12,24,.92) 100%);}
+.pc-holo{position:absolute;inset:0;pointer-events:none;mix-blend-mode:screen;opacity:0;
+  background:linear-gradient(115deg,rgba(255,255,255,0) 35%,rgba(255,255,255,.55) 47%,rgba(255,255,255,0) 60%);
+  background-size:250% 100%;}
+.pc.r-S .pc-holo,.pc.r-SS .pc-holo{opacity:1;animation:pcHolo 3.2s ease-in-out infinite;}
+.pc.r-SS .pc-holo{background:linear-gradient(115deg,rgba(255,255,255,0) 30%,rgba(255,230,150,.6) 42%,rgba(140,220,255,.45) 50%,rgba(255,180,220,.5) 58%,rgba(255,255,255,0) 70%);background-size:250% 100%;}
+@keyframes pcHolo{0%{background-position:120% 0;}100%{background-position:-120% 0;}}
+.pc-pos{position:absolute;left:5px;top:5px;font-family:var(--display);font-weight:900;font-size:11px;letter-spacing:.06em;color:#fff;background:rgba(8,12,24,.78);border:1px solid rgba(255,255,255,.35);padding:1px 7px;border-radius:5px;}
+.pc-rk{position:absolute;right:4px;top:4px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.6));}
+.pc-mlb{position:absolute;left:5px;top:28px;font-family:"Oswald",sans-serif;font-size:9px;letter-spacing:.1em;color:#fff;background:linear-gradient(180deg,#1b3f8a,#0d2456);border:1px solid rgba(255,255,255,.4);padding:0 5px;border-radius:3px;}
+.pc-nm{position:absolute;left:0;right:0;bottom:22px;padding:0 6px;color:#fff;font-family:var(--display);font-weight:900;font-size:13px;line-height:1.2;letter-spacing:.02em;text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-nm .tbadge,.pc-nm .seal{font-size:9px;}
+.pc-st{position:absolute;left:0;right:0;bottom:6px;padding:0 6px;color:#ffe9a8;font-family:"Oswald",sans-serif;font-size:11px;letter-spacing:.02em;text-shadow:0 1px 2px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;}
+.pc-meta{position:absolute;left:0;right:0;bottom:-2px;padding:0 6px 4px;color:#cbd3e2;font-size:10px;}
+/* 大きさ */
+.pc.sz-s{width:62px;border-radius:8px;padding:2px;} .pc.sz-s .pc-in{border-radius:6px;}
+.pc.sz-s .pc-nm{font-size:9px;bottom:5px;padding:0 3px;} .pc.sz-s .pc-pos{font-size:8.5px;padding:0 4px;left:3px;top:3px;} .pc.sz-s .pc-rk{right:2px;top:2px;} .pc.sz-s .pc-mlb{display:none;}
+.pc.sz-m{width:104px;}
+.pc.sz-l{width:min(78vw,250px);padding:4px;border-radius:16px;} .pc.sz-l .pc-in{border-radius:13px;}
+.pc.sz-l .pc-nm{font-size:22px;bottom:44px;padding:0 12px;white-space:normal;} .pc.sz-l .pc-st{font-size:16px;bottom:24px;padding:0 12px;} .pc.sz-l .pc-meta{bottom:6px;padding:0 12px;font-size:12px;}
+.pc.sz-l .pc-pos{font-size:14px;padding:3px 10px;left:8px;top:8px;} .pc.sz-l .pc-rk{right:8px;top:8px;} .pc.sz-l .pc-mlb{top:40px;left:8px;font-size:11px;}
+/* 拡大表示 */
+#cardpop-bg{position:fixed;inset:0;z-index:255;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(6,9,18,.86);cursor:pointer;}
+#cardpop-bg.show{display:flex;}
+#cardpop-body{display:flex;flex-direction:column;align-items:center;gap:12px;animation:gcCardIn .4s cubic-bezier(.2,1.2,.3,1) both;}
+.cp-desc{max-width:300px;color:#dfe5f1;font-size:12.5px;line-height:1.7;text-align:left;}
+.cp-tap{font-size:11px;letter-spacing:.3em;color:#9aa6bd;}
+/* ============================================================
+   守備位置に置くガチャ
+   ============================================================ */
+#scr-gacha .gc-fieldwrap{width:100%;max-width:520px;margin:0 auto;}
+#scr-gacha .gc-fieldwrap.gold{animation:gcGold 1.2s ease-in-out infinite;}
+#scr-gacha .gc-field{position:relative;width:100%;aspect-ratio:10/8;border-radius:12px;overflow:visible;
+  background:linear-gradient(180deg,#5f9b46,#3f7d30);border:3px solid rgba(255,255,255,.75);box-shadow:0 18px 34px -18px rgba(0,0,0,.9), inset 0 0 0 1px rgba(0,0,0,.25);}
+#scr-gacha .gc-field .fd-grass{border-radius:10px;}
+#scr-gacha .gc-at{position:absolute;transform:translate(-50%,-50%);}
+#scr-gacha .gc-spot{position:relative;width:62px;height:82px;display:flex;align-items:center;justify-content:center;}
+#scr-gacha .gc-spot .gc-cap{width:62px;height:62px;}
+#scr-gacha .gc-spot .gc-cap .gc-cap-top,#scr-gacha .gc-spot .gc-cap .gc-cap-bot{left:4px;right:4px;height:26px;}
+#scr-gacha .gc-spot .gc-cap .gc-cap-top{top:5px;border-radius:26px 26px 0 0;} #scr-gacha .gc-spot .gc-cap .gc-cap-bot{top:31px;border-radius:0 0 26px 26px;}
+#scr-gacha .gc-spot .gc-cap-l{font-size:11px;padding:1px 5px;}
+#scr-gacha .gc-spot .gc-cap-shine{left:9px;top:9px;width:11px;height:5px;}
+#scr-gacha .gc-spot .gc-cap-mlb{font-size:8px;padding:0 4px;top:-6px;}
+#scr-gacha .gc-spot.open .pc{animation:gcCardIn .45s cubic-bezier(.2,1.2,.3,1) both;}
+#scr-gacha .gc-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding:6px 8px;border-radius:10px;background:rgba(8,12,24,.45);}
+#scr-gacha .gc-rowk{flex:none;writing-mode:vertical-rl;font-size:11px;letter-spacing:.2em;color:#ffe9a8;font-weight:800;}
+#scr-gacha .gc-pen{position:relative;border-radius:12px;padding:8px;background:linear-gradient(180deg,#5f9b46,#3f7d30);border:3px solid rgba(255,255,255,.75);overflow:hidden;}
+#scr-gacha .gc-pen .fd-grass{position:absolute;inset:0;}
+#scr-gacha .gc-pen .gc-row{position:relative;margin-top:0;background:rgba(8,12,24,.35);}
+#scr-gacha .gc-pen .gc-row + .gc-row{margin-top:6px;}
+#scr-gacha .gc-cardwrap{display:flex;justify-content:center;}
+#scr-gacha .gc-foot .gc-next{padding:11px 18px;}
+/* ============================================================
+   SSの見せ場: 光輪と火花、GET の判
+   ============================================================ */
+.ss-hit{position:relative;}
+.ss-ring{position:absolute;left:50%;top:44%;width:260px;height:260px;margin:-130px 0 0 -130px;border-radius:50%;pointer-events:none;
+  border:3px solid rgba(255,198,58,.7);box-shadow:0 0 30px rgba(255,198,58,.6),inset 0 0 30px rgba(255,198,58,.4);animation:ssRing 1.6s ease-out infinite;}
+.ss-ring.r2{animation-delay:.5s;border-color:rgba(255,255,255,.7);}
+@keyframes ssRing{0%{transform:scale(.3);opacity:0;}30%{opacity:1;}100%{transform:scale(1.6);opacity:0;}}
+.ss-spark{position:absolute;left:50%;top:44%;width:0;height:0;pointer-events:none;}
+.ss-spark i{position:absolute;left:-3px;top:-3px;width:6px;height:6px;border-radius:50%;background:#fff6c8;box-shadow:0 0 8px #ffc63a;
+  animation:ssSpark 1.5s ease-out infinite;animation-delay:calc(var(--i) * 80ms);transform:rotate(calc(var(--i) * 20deg)) translateY(0);}
+@keyframes ssSpark{0%{transform:rotate(calc(var(--i) * 20deg)) translateY(0);opacity:1;}100%{transform:rotate(calc(var(--i) * 20deg)) translateY(-190px);opacity:0;}}
+.ss-big{position:relative;}
+.ss-pg.final{display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;}
+.ss-pg.final .ss-card{animation:gcCardIn .6s cubic-bezier(.2,1.2,.3,1) both;}
+.ss-get-stamp{position:absolute;right:6%;top:-6px;z-index:3;font-family:"Oswald",sans-serif;font-size:34px;font-weight:700;letter-spacing:.06em;color:#fff;
+  background:linear-gradient(180deg,#e4432c,#a8281a);padding:2px 14px;border:3px solid #fff;border-radius:8px;transform:rotate(-12deg);
+  box-shadow:0 8px 20px -8px rgba(0,0,0,.8);animation:gcStamp .5s cubic-bezier(.2,1.4,.3,1) .5s both;}
+.ss-pg.final .ss-desc{color:#e8dcb5;font-size:12.5px;line-height:1.7;max-width:320px;text-align:left;}
+.ss-pg.final .ss-get{max-width:320px;}
+.ss-pg.final .ss-src{color:#9a8f6c;}
+/* ============================================================
+   質感の底上げ: 見出しの書体、帯の質感、影の統一
+   ============================================================ */
+:root{--display:"Noto Sans JP","Yu Gothic","Hiragino Kaku Gothic ProN","Meiryo",sans-serif;}
+h1,h2,.btn,.gc-who,.pv-name,.champ-name,.od-tab,.pl-cat,.pk-cat,.s-tab{font-family:var(--display) !important;}
+.draft-banner,.gc-head{box-shadow:0 10px 24px -14px rgba(27,42,69,.8);}
+.panel,.pv,#park-panel,#order-card,#event-panel,#modal{box-shadow:0 12px 30px -20px rgba(27,42,69,.45),0 1px 0 rgba(255,255,255,.8) inset;}
+.btn{text-shadow:0 1px 1px rgba(0,0,0,.25);}
+.btn.lg{background:linear-gradient(180deg,#f05a44,#d63a25);}
+.pl-tile,.pk-tile{box-shadow:0 6px 14px -10px rgba(27,42,69,.6);}
+#scr-gacha .gc-stage{background:radial-gradient(ellipse at 50% 30%,#ffffff 0,#e9eff6 55%,#d8e2ee 100%);}
+@media (max-width:700px){
+  #scr-gacha .gc-spot{width:56px;height:76px;}
+  #scr-gacha .gc-spot .gc-cap{width:56px;height:56px;}
+  #scr-gacha .gc-spot .gc-cap .gc-cap-top,#scr-gacha .gc-spot .gc-cap .gc-cap-bot{height:23px;}
+  #scr-gacha .gc-spot .gc-cap .gc-cap-bot{top:28px;}
+  .pc.sz-s{width:56px;}
+  #scr-gacha .gc-field{aspect-ratio:10/8.6;}
+  #scr-gacha .gc-row{gap:4px;padding:5px 6px;}
+  #scr-gacha .gc-foot{gap:8px;}
+  #scr-gacha .gc-foot .btn.ghost{flex:1;padding:11px 6px;font-size:13px;}
+  #scr-gacha .gc-foot .gc-next{flex:1;padding:11px 6px;font-size:13px;}
 }
 
 /* ---- モーダル ---- */
@@ -5053,6 +5164,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 </div>
 
 <!-- 優勝号外 -->
+<div id="cardpop-bg" onclick="cardPopClose()"><div id="cardpop-body"></div></div>
 <div id="ss-bg" onclick="ssTap()"><div class="ss-rays"></div><div id="ss-panel"></div></div>
 <div id="gogai-bg" onclick="closeGogai()">
   <div id="gogai">
@@ -5088,10 +5200,10 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   </div>
 </div>
 
-<script src="qrcode.js?v=202609051720"></script>
-<script src="players.js?v=202609051720"></script>
-<script src="party.js?v=202609051720"></script>
-<script src="ss.js?v=202609051720"></script>
-<script src="game.js?v=202609051720"></script>
+<script src="qrcode.js?v=202609051910"></script>
+<script src="players.js?v=202609051910"></script>
+<script src="party.js?v=202609051910"></script>
+<script src="ss.js?v=202609051910"></script>
+<script src="game.js?v=202609051910"></script>
 </body>
 </html>

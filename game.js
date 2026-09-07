@@ -997,7 +997,9 @@ function gachaPull(auto){
     t.park = pk;
     pulls.push({d:{label:"本拠地", grp:"PARK"}, park: pk, open: !!auto, rank: parkRank(pk)});
   }else{
-    const open = shuffle(gachaOpenFor(t, R));
+    // 守備位置の順に並べて引く(捕→一→二→三→遊→左→中→右→指→控え / 先発→中継→抑え)
+    const ORDER = ["C","B1","B2","B3","SS","OF1","OF2","OF3","DH"].concat(BENCH_KEYS, SP_KEYS, RP_KEYS, ["CL"]);
+    const open = gachaOpenFor(t, R).slice().sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
     for(let n = 0; n < open.length; n++){
       const d = open[n];
       // 最後の一枚で、まだA以上が出ていなければ保証を効かせる
@@ -1099,7 +1101,10 @@ function ssRender(){
     : avatarBox(p, 120);
   let body = "";
   if(c.page === 0){
-    body = '<div class="ss-hit"><span class="ss-big">SS</span><span class="ss-sub">伝説級の逸材が出現……！</span></div>';
+    body = '<div class="ss-hit">' +
+      '<div class="ss-ring"></div><div class="ss-ring r2"></div>' +
+      '<div class="ss-spark">' + Array.from({length: 18}, (_, i) => '<i style="--i:' + i + '"></i>').join("") + '</div>' +
+      '<span class="ss-big">SS</span><span class="ss-sub">伝説級の逸材が出現……！</span></div>';
   }else if(c.page === 1){
     const life = [];
     if(p.b) life.push(p.b + "年生まれ" + (p.d ? "（" + p.d + "年没）" : ""));
@@ -1130,13 +1135,9 @@ function ssRender(){
       (car ? '<div class="ss-car">' + car.map(function(f){ return '<span><i>' + f[0] + '</i>' + f[1] + '</span>'; }).join("") + '</div>' : '') +
       '<div class="ss-tap">タップで次へ</div></div>';
   }else{
-    body = '<div class="ss-pg card">' +
-      '<div class="ss-rk">' + rankIcon(ovrFor(p, grp), 56) + '</div>' +
-      '<div class="ss-face">' + face + '</div>' +
-      (p.mlb ? '<span class="gc-mlbtag">MLB</span>' : '') +
-      '<div class="ss-name real">' + esc(p.name) + titleBadge(p) + '</div>' +
-      '<div class="ss-meta">' + esc(c.x.d.label) + '　' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' +
-      '<div class="ss-stat">' + esc(statShort(p)) + '</div>' +
+    body = '<div class="ss-pg final">' +
+      '<div class="ss-get-stamp">GET!</div>' +
+      cardHtml(p, "SS", {size:"l", pos:c.x.d.label, grp, cls:"ss-card"}) +
       (p.desc ? '<div class="ss-desc">' + esc(p.desc) + '</div>' : '') +
       '<button class="btn lg ss-get" onclick="event.stopPropagation();ssNext()">獲得！</button>' +
       (lore.src ? '<div class="ss-src">経歴・受賞歴の出典: Wikipedia</div>' : '') +
@@ -1181,6 +1182,41 @@ function gachaProgress(t){
   const total = SLOT_DEFS.length + 1, got = SLOT_DEFS.filter(d => t.slots[d.key]).length + (t.park ? 1 : 0);
   return {got, total};
 }
+// 選手カード。写真を全面に、下に名前の帯、左上に守備位置、右上にランク。
+// 枠と光沢はランクで変わる(金=SS、銀=S、赤銅=A)。size: "s"(守備図) / "m"(格子) / "l"(拡大・SS)
+function cardHtml(p, rank, opt){
+  opt = opt || {};
+  const size = opt.size || "m";
+  const pos = opt.pos || "";
+  const grp = opt.grp || (p.cat === "P" ? p.role : "B");
+  const ph = p.ph !== undefined
+    ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" loading="lazy" onerror="this.remove()">'
+    : '<div class="pc-av">' + avatarSvg(p, size === "l" ? 120 : 64) + '</div>';
+  const st = p.cat === "M" ? ("優勝" + (p.pennants||0) + "・日本一" + (p.japan||0)) : statShort(p);
+  return '<div class="pc r-' + rank + ' sz-' + size + (opt.cls ? " " + opt.cls : "") + '"' + (opt.onclick ? ' onclick="' + opt.onclick + '"' : '') + '>' +
+    '<div class="pc-in">' +
+      '<div class="pc-ph">' + ph + '</div>' +
+      '<div class="pc-sh"></div><div class="pc-holo"></div>' +
+      (pos ? '<span class="pc-pos">' + esc(pos) + '</span>' : '') +
+      '<span class="pc-rk">' + rankIcon(ovrFor(p, grp), size === "l" ? 44 : size === "s" ? 20 : 26) + '</span>' +
+      (p.mlb ? '<span class="pc-mlb">MLB</span>' : '') +
+      '<div class="pc-nm">' + esc(p.name) + (size !== "s" ? titleBadge(p) : '') + '</div>' +
+      (size !== "s" ? '<div class="pc-st">' + esc(st) + '</div>' : '') +
+      (size === "l" ? '<div class="pc-meta">' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' : '') +
+    '</div></div>';
+}
+// 開けたカードを大きく見る
+function cardPop(i){
+  const G = state.gacha;
+  if(!G || !G.pulls || !G.pulls[i] || !G.pulls[i].p) return;
+  const x = G.pulls[i];
+  $("cardpop-body").innerHTML = cardHtml(x.p, x.rank, {size:"l", pos:x.d.label, grp:x.d.grp}) +
+    (x.p.desc ? '<div class="cp-desc">' + esc(x.p.desc) + '</div>' : '') +
+    '<div class="cp-tap">タップで閉じる</div>';
+  $("cardpop-bg").classList.add("show");
+  seTap();
+}
+function cardPopClose(){ $("cardpop-bg").classList.remove("show"); }
 function gachaCapHtml(x, i, big){
   return '<button class="gc-cap r-' + x.rank + (x.sure ? " sure" : "") + (big ? " big" : "") + (x.opening ? " opening" : "") + (x.p && x.p.mlb ? " mlb" : "") + '" style="--n:' + i + '" onclick="gachaReveal(' + i + ')">' +
     (x.p && x.p.mlb ? '<span class="gc-cap-mlb">MLB</span>' : '') +
@@ -1200,16 +1236,9 @@ function gachaCardHtml(x, big){
     '</div>';
   }
   const p = x.p;
-  return '<div class="gc-card r-' + x.rank + (big ? " big" : "") + '">' +
-    '<div class="gc-burst"></div>' +
-    '<div class="gc-rk">' + rankIcon(ovrFor(p, x.d.grp), big ? 44 : 26) + '</div>' +
-    '<div class="gc-face">' + (p.ph !== undefined
-      ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
-      : avatarBox(p, big ? 72 : 48)) + '</div>' +
-    (p.mlb ? '<span class="gc-mlbtag">MLB</span>' : '') +
-    '<div class="gc-nm">' + esc(p.name) + titleBadge(p) + '</div>' +
-    '<div class="gc-meta">' + esc(x.d.label) + '　' + roleLabel(p) + '・' + esc(p.team) + ' \'' + String(p.year).slice(2) + '</div>' +
-    '<div class="gc-st">' + esc(statShort(p)) + '</div>' +
+  const i = state.gacha && state.gacha.pulls ? state.gacha.pulls.indexOf(x) : -1;
+  return '<div class="gc-cardwrap' + (big ? " big" : "") + '">' +
+    cardHtml(p, x.rank, {size: big ? "l" : "m", pos: x.d.label, grp: x.d.grp, onclick: i >= 0 ? "cardPop(" + i + ")" : ""}) +
   '</div>';
 }
 function renderGacha(){
@@ -1247,9 +1276,15 @@ function renderGacha(){
     return;
   }
   const big = G.pulls.length === 1;
-  const items = G.pulls.map((x, i) => x.open ? gachaCardHtml(x, big) : gachaCapHtml(x, i, big)).join("");
   const hasSS = G.pulls.some(x => x.rank === "SS");
   const allOpen = G.revealed >= G.pulls.length;
+  let items = "";
+  if(R.k === "B" || R.k === "P"){
+    items = gachaFieldHtml(G, R);
+  }else{
+    items = '<div class="gc-caps n' + G.pulls.length + (hasSS && !allOpen ? " gold" : "") + '">' +
+      G.pulls.map((x, i) => x.open ? gachaCardHtml(x, big) : gachaCapHtml(x, i, big)).join("") + '</div>';
+  }
   let summary = "";
   if(allOpen && G.pulls.length > 1){
     const cnt = {};
@@ -1262,13 +1297,53 @@ function renderGacha(){
   $("gc-stage").classList.toggle("dark", !allOpen);
   $("gc-stage").classList.toggle("rainbow", hasSS && !allOpen);
   $("gc-stage").innerHTML =
-    (allOpen ? '' : '<div class="gc-rays"></div>') +
-    '<div class="gc-caps n' + G.pulls.length + (hasSS && !allOpen ? " gold" : "") + '">' + items + '</div>' +
-    (allOpen ? summary : '<div class="gc-hint">' + (hasSS ? '金色の光が漏れている……！' : 'カプセルをタップして開封') + '</div>');
+    (allOpen ? '' : '<div class="gc-rays"></div>') + items +
+    (allOpen ? summary : '<div class="gc-hint">' + (hasSS ? '金色の光が漏れている……！' : 'カプセルをタップして開封。開けたカードはタップで拡大') + '</div>');
   $("gc-foot").innerHTML = t.cpu ? '' :
     (allOpen
       ? '<button class="btn lg gc-go" onclick="gachaAdvance()">次へ</button>'
-      : '<button class="btn ghost" onclick="gachaRevealAll()">まとめて開封</button>');
+      : '<button class="btn ghost" onclick="gachaRevealAll()">まとめて開封</button>' +
+        '<button class="btn gc-next" onclick="gachaRevealNext()">次を開く</button>');
+}
+// 守備位置の順に、次の一枚を開く
+function gachaRevealNext(){
+  const G = state.gacha;
+  if(!G || !G.pulls) return;
+  const i = G.pulls.findIndex(x => !x.open && !x.opening);
+  if(i >= 0) gachaReveal(i);
+}
+// 野手は守備図の上に、投手はマウンドとブルペンに。カプセルがその場で札に変わる
+const GC_FIELD = {
+  OF1:[17,22], OF2:[50,14], OF3:[83,22],
+  SS:[33,46], B2:[67,46], B3:[13,62], B1:[87,62],
+  C:[50,82], DH:[87,84],
+};
+function gachaFieldHtml(G, R){
+  const hasSS = G.pulls.some(x => x.rank === "SS");
+  const allOpen = G.revealed >= G.pulls.length;
+  const spot = (x, i, extraCls) => {
+    const inner = x.open
+      ? cardHtml(x.p, x.rank, {size:"s", pos:x.d.label, grp:x.d.grp, onclick:"cardPop(" + i + ")"})
+      : gachaCapHtml(x, i, false);
+    return '<div class="gc-spot' + (extraCls ? " " + extraCls : "") + (x.open ? " open" : "") + '">' + inner + '</div>';
+  };
+  if(R.k === "B"){
+    const onField = [], bench = [];
+    G.pulls.forEach((x, i) => { if(GC_FIELD[x.d.key]) onField.push([x, i]); else bench.push([x, i]); });
+    return '<div class="gc-fieldwrap' + (hasSS && !allOpen ? " gold" : "") + '">' +
+      '<div class="gc-field">' +
+        '<div class="fd-grass"></div><div class="fd-dirt"></div><div class="fd-mound"></div><div class="fd-home"></div>' +
+        onField.map(([x, i]) => '<div class="gc-at" style="left:' + GC_FIELD[x.d.key][0] + '%;top:' + GC_FIELD[x.d.key][1] + '%">' + spot(x, i) + '</div>').join("") +
+      '</div>' +
+      (bench.length ? '<div class="gc-row"><span class="gc-rowk">控え</span>' + bench.map(([x, i]) => spot(x, i)).join("") + '</div>' : '') +
+    '</div>';
+  }
+  const sp = [], rp = [], cl = [];
+  G.pulls.forEach((x, i) => { if(x.d.grp === "SP") sp.push([x, i]); else if(x.d.grp === "CL") cl.push([x, i]); else rp.push([x, i]); });
+  const row = (k, list) => list.length ? '<div class="gc-row"><span class="gc-rowk">' + k + '</span>' + list.map(([x, i]) => spot(x, i)).join("") + '</div>' : '';
+  return '<div class="gc-fieldwrap pit' + (hasSS && !allOpen ? " gold" : "") + '">' +
+    '<div class="gc-pen"><div class="fd-grass"></div>' + row("先発", sp) + row("中継", rp) + row("抑え", cl) + '</div>' +
+  '</div>';
 }
 
 

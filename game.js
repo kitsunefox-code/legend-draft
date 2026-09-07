@@ -5384,7 +5384,10 @@ function tone(t, freq, dur, vol, type="square"){
   o.connect(g); g.connect(ctx.destination);
   o.start(t); o.stop(t+dur+0.05);
 }
-function seTap(){ if(!sndOn) return; const c=ac(); if(!c) return; tone(c.currentTime, 620, 0.07, 0.10, "triangle"); }
+function seTap(){
+  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(e){}
+  if(!sndOn) return; const c=ac(); if(!c) return; tone(c.currentTime, 620, 0.07, 0.10, "triangle");
+}
 let rollTimer = null;
 function seRollStart(){
   if(!sndOn) return; const c=ac(); if(!c) return;

@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#173d2d">
 <meta name="description" content="歴代プロ野球の名選手をドラフトして自動ペナントで優勝を決めるパーティーゲーム">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -375,6 +375,31 @@ th{color:var(--ink2);font-weight:normal;font-size:12px;border-bottom:2px solid v
   .gc-caps{gap:8px;}
   .gc-cap,.gc-card{width:31%;min-width:0;}
   .gc-cap{height:110px;}
+}
+
+
+/* ============================================================
+   仕上げ ── 押した手応え、上端のノッチ、文字の描画
+   ============================================================ */
+html{-webkit-text-size-adjust:100%;}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;-webkit-tap-highlight-color:transparent;}
+button,.btn{touch-action:manipulation;}
+.btn{transition:transform .08s ease, box-shadow .08s ease, filter .08s ease;}
+.btn:active{transform:translateY(1px) scale(.985);filter:brightness(.96);}
+.pl-tile:active,.pk-tile:active,.pl-cat:active,.pk-cat:active,.s-tab:active,.rs-tab:active,
+.od-pk-r:active,.mlb-card:active,.kuji:active,.em-cell:active,.opt-tile:active{filter:brightness(.94);}
+.pl-tile,.pk-tile{transition:box-shadow .12s ease, transform .12s ease;}
+.pl-tile.now,.pk-tile.now{transform:translateY(-1px);}
+@media (max-width:700px){
+  /* 上に貼り付く帯はノッチのぶん下げる */
+  #scr-draft > .draft-banner,#park-panel h2,.gc-head,#scr-season > .board,#scr-result > .champ-box,
+  #scr-setup > #setup-body,#scr-title > .bk-cover,#order-card,#event-panel{
+    padding-top:calc(8px + env(safe-area-inset-top, 0px));
+  }
+  #scr-draft > .draft-banner{padding-top:calc(6px + env(safe-area-inset-top, 0px));}
+  #park-panel h2{margin-top:0;}
+  .telop{padding-top:calc(12px + env(safe-area-inset-top, 0px));}
+  .curtain,#curtain-bg{padding-top:calc(20px + env(safe-area-inset-top, 0px));}
 }
 
 /* ---- モーダル ---- */
@@ -4781,9 +4806,9 @@ select:focus, input[type="text"]:focus, input[type="search"]:focus{
   </div>
 </div>
 
-<script src="qrcode.js?v=202609051010"></script>
-<script src="players.js?v=202609051010"></script>
-<script src="party.js?v=202609051010"></script>
-<script src="game.js?v=202609051010"></script>
+<script src="qrcode.js?v=202609051040"></script>
+<script src="players.js?v=202609051040"></script>
+<script src="party.js?v=202609051040"></script>
+<script src="game.js?v=202609051040"></script>
 </body>
 </html>

@@ -162,7 +162,7 @@ function ldParkStage(x){
 function ldManagerStage(x){
   const G=state.gacha,done=!!x?.open,p=x?.p,phase=ldCeremonyStage(G,x);
   const tint=x?ldRankTint(x.rank):'#e0a600';
-  const paper='<article class="manager-document"><header><span>監督就任に関する契約書</span><b>'+esc(gachaTeam().name)+'</b></header><p class="manager-clause">本球団は、次の監督にチームの指揮を委ねる。</p><div class="manager-signature">'+(done?'<em class="manager-epithet">'+ldEpithet(p)+'</em>':'<em class="manager-epithet manager-epithet-wait">&nbsp;</em>')+'<small>就任監督</small><strong>'+(done?esc(p.name):'────────')+'</strong></div>'+(done?'<div class="manager-record"><span>通算勝利 <b>'+(p.wins??'—')+'</b></span><span>リーグ優勝 <b>'+(p.pennants??'—')+'</b></span><span>'+(p.mlb?'世界一':'日本一')+' <b>'+(p.japan??'—')+'</b></span></div><p class="manager-desc">'+esc(p.desc||'')+'</p><div class="manager-seal">契約成立</div>':'<p class="manager-status">就任の署名を確認しています…</p>')+'<footer><span>契約先</span><b>'+esc(gachaTeam().name)+'</b></footer></article>';
+  const paper='<article class="manager-document"><header><span>監督就任に関する契約書</span><b>'+esc(gachaTeam().name)+'</b></header><p class="manager-clause">本球団は、次の監督にチームの指揮を委ねる。</p><div class="manager-signature">'+(done?'<em class="manager-epithet">'+ldEpithet(p)+'</em>':'<em class="manager-epithet manager-epithet-wait">&nbsp;</em>')+'<small>就任監督</small><strong'+(done?' class="ink-signature signed'+(Array.from(p.name).length>7?' ink-long':'')+'"':'')+'>'+(done?esc(p.name):'────────')+'</strong></div>'+(done?'<div class="manager-record"><span>通算勝利 <b>'+(p.wins??'—')+'</b></span><span>リーグ優勝 <b>'+(p.pennants??'—')+'</b></span><span>'+(p.mlb?'世界一':'日本一')+' <b>'+(p.japan??'—')+'</b></span></div><p class="manager-desc">'+esc(p.desc||'')+'</p><div class="manager-seal">契約成立</div>':'<p class="manager-status">就任の署名を確認しています…</p>')+'<footer><span>契約先</span><b>'+esc(gachaTeam().name)+'</b></footer></article>';
   const heading=done?ldManagerHeadline(p):phase==='idle'?'一通の封筒が、届いた。':phase==='approach'?'封を、切る。':'契約書が、姿を見せる。';
   return '<section class="manager-ceremony manager-'+phase+'" style="--rk:'+tint+'"><div class="manager-heading"><span>球団人事</span><h2>'+heading+'</h2><p>'+esc(gachaTeam().name)+' の指揮を託す。</p></div><div class="manager-mail"><div class="manager-letter">'+paper+'</div><img class="mail-closed" src="envelope-closed.webp" alt=""><img class="mail-open" src="envelope-open.webp" alt=""><div class="mail-seal" aria-hidden="true"></div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'契約を確認して次へ':'封筒をタップして開封')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして次の契約へ':'タップして次へ'):phase==='idle'?'封筒をタップして開ける':'')+'</div></div>'+(done?'<div class="manager-appointed">'+cardHtml(p,x.rank,{size:(typeof innerWidth==='number'&&innerWidth<=700)?'s':'l',pos:'監督',onclick:'cardPop(0)'})+'</div>':'')+'</section>';
 }
@@ -203,10 +203,13 @@ function ldWriteSignature(G){
   if(state.gacha!==G||G.ceremony!=='lights')return;
   const name=G.pulls?.[0]?.p?.name,signature=document.querySelector('.manager-signature strong');
   if(!name||!signature)return;
-  signature.classList.add('ink-signature');
+  signature.classList.add('ink-signature');if(Array.from(name).length>7)signature.classList.add('ink-long');
   signature.innerHTML=Array.from(name).map((letter,i)=>'<span style="--stroke:'+i+'">'+esc(letter)+'</span>').join('');
-  const status=document.querySelector('.manager-status');if(status)status.textContent='新監督の署名が、記されていく。';
-  ldSe([[440,0,0.5,0.03,'sine']]);
+  const status=document.querySelector('.manager-status');if(status)status.textContent='新監督が、筆を執る。';
+  // 一画ごとの筆の走り(ノイズを短く)。書き終えたら落款
+  const n=Array.from(name).length;
+  for(let i=0;i<n;i++)ldDelay(()=>{if(state.gacha===G&&typeof noiseBurst==='function'&&typeof sndOn!=='undefined'&&sndOn&&typeof ac==='function'){const cx=ac();if(cx)noiseBurst(cx.currentTime,0.12,900,0.05);}},i*250);
+  ldDelay(()=>{if(state.gacha===G&&signature.isConnected!==false){signature.classList.add('signed');ldSe([[880,0,0.08,0.06],[1320,0.06,0.16,0.05]]);}},n*250+200);
 }
 
 ldField=function(){const kind=gachaRound().k,x=state.gacha.pulls?.[0];return kind==='K'?ldParkStage(x):kind==='M'?ldManagerStage(x):ldPlayerField();};
@@ -252,7 +255,10 @@ renderGacha=function(){
   const G=state.gacha;if(!G)return;
   // 演出の途中(接近・署名中)に描き直すと動きが途切れるので、差し替えない
   if(G.pulls&&!G.pulls[0]?.open&&(G.ceremony==='approach'||G.ceremony==='lights')&&document.querySelector('.home-approach,.manager-approach,.home-lights,.manager-lights'))return;
+  // 排出直後(未開封)は転がりの途中。同じ引きで描き直すと転がりが最初からやり直しになる
+  if(G.pulls&&G.phase==='caps'&&G.revealed===0&&G.drawnFor===G.pulls&&!ldResultView&&$('gc-stage').querySelector('.gc-fieldwrap,.ld-bullpen'))return;
   ldClubRender();
+  G.drawnFor=(G.phase==='caps')?G.pulls:null;
   const tabs=$('ld-tabs').querySelectorAll('button');if(tabs[0])tabs[0].innerHTML='<small>01</small>本拠地';if(tabs[1])tabs[1].innerHTML='<small>02</small>監督契約';
   const kind=gachaRound().k;if(!['K','M'].includes(kind))return;
   const title=document.querySelector('#ld-intro h1');if(title)title.textContent=kind==='K'?'本拠地の決定':'監督契約';

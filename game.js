@@ -3805,6 +3805,26 @@ function buildMonthGogai(m){
     return {t, rank:i+1, mw, ml, mx, gap: i === 0 ? 0 : ((lead.W-lead.L)-(t.W-t.L))/2};
   });
   const bigRun = rows.slice().sort((a,b)=>b.mx-a.mx)[0];
+  // 月間MVP。先月末に写した数字との差で選ぶ(野手は本塁打・打点・安打、投手は勝ち・セーブ・防御率)
+  let mvp = null;
+  (state.seasonStats || []).forEach(function(s){
+    const z = s.m0 || {};
+    if(s.kind === "B"){
+      const h = (s.h||0)-(z.h||0), hr = (s.hr||0)-(z.hr||0), rbi = (s.rbi||0)-(z.rbi||0), ab = (s.ab||0)-(z.ab||0);
+      if(ab >= 30){
+        const sc = hr*4 + rbi*1.2 + h;
+        if(!mvp || sc > mvp.sc) mvp = {sc, p:s.p, t:s.t, line: avg3(h/ab) + "・" + hr + "本・" + rbi + "打点"};
+      }
+    }else{
+      const w = (s.w||0)-(z.w||0), so = (s.so||0)-(z.so||0), ip = (s.ip||0)-(z.ip||0), er = (s.er||0)-(z.er||0), sv = (s.sv||0)-(z.sv||0);
+      if(ip >= 15 || sv >= 4){
+        const era = ip ? er*9/ip : 9;
+        const sc = w*5 + sv*4 + so*0.4 + Math.max(0, 4.5-era)*4;
+        if(!mvp || sc > mvp.sc) mvp = {sc, p:s.p, t:s.t, line: w + "勝" + (sv ? sv + "S" : "") + "・防御率" + era.toFixed(2) + "・" + so + "奪三振"};
+      }
+    }
+    s.m0 = {h:s.h||0, hr:s.hr||0, rbi:s.rbi||0, ab:s.ab||0, w:s.w||0, so:s.so||0, ip:s.ip||0, er:s.er||0, sv:s.sv||0};
+  });
   let head, sub;
   if(state.monthLeader0 && state.monthLeader0 !== lead){
     head = "首位交代"; sub = `${lead.name}が${state.monthLeader0.name}をかわし、${MONTHS[m]}を首位で終える`;
@@ -3817,7 +3837,7 @@ function buildMonthGogai(m){
   state.parts.forEach(t => { t.mW0 = t.W; t.mL0 = t.L; });
   state.monthLeader0 = lead;
   state.monthStartDay = state.day;
-  return {m, head, sub, rows};
+  return {m, head, sub, rows, mvp};
 }
 function showMonthGogai(mg, after){
   state.gogaiAfter = after || null;
@@ -3825,7 +3845,9 @@ function showMonthGogai(mg, after){
   $("gg-k").textContent = "球史編纂所 ── " + MONTHS[mg.m] + "の記";
   $("gg-team").textContent = mg.head;
   $("gg-v").textContent = MONTHS[mg.m] + "終了時点";
+  $("gogai").classList.add("gg-month");
   $("gg-sub").innerHTML = '<div class="gg-lead">' + esc(mg.sub) + '</div>' +
+    (mg.mvp ? '<div class="gg-mvp">' + faceThumb(mg.mvp.p, 46, 58) + '<div class="gg-mvp-t"><small>月間MVP</small><b>' + esc(mg.mvp.p.name) + '</b><span>' + esc(mg.mvp.t.name) + '　' + esc(mg.mvp.line) + '</span></div></div>' : '') +
     '<div class="gg-tbl">' + mg.rows.map(r =>
       '<div class="gg-r' + (r.rank === 1 ? " top" : "") + '"><span class="gg-rk">' + r.rank + '</span>' +
       teamEmblem(r.t, 15) + '<span class="gg-nm">' + esc(r.t.name) + '</span>' +
@@ -4534,8 +4556,9 @@ function renderOrder(){
         : `${avg3(st.avg)} ${Math.round((st.hr||0)*(seasonProg()||1))}本`)
       : (p ? orderStat(p) : "");
     const isNew = p && (p.joined !== undefined && p.joined !== false || p.traded || p.reinf);
-    return `<div class="od-row${odDrag && odDrag.kind===kind && odDrag.i===i ? " dragging" : ""}${isNew ? " fresh" : ""}"
-      onpointerdown="odGrab(event,'${kind}',${i})">
+    const sel = c.sel && c.sel.kind===kind && c.sel.i===i;
+    return `<div class="od-row${odDrag && odDrag.kind===kind && odDrag.i===i ? " dragging" : ""}${isNew ? " fresh" : ""}${sel ? " sel" : ""}"
+      onpointerdown="odGrab(event,'${kind}',${i})" onclick="odTapRow(event,'${kind}',${i})">
       <span class="od-grip" aria-hidden="true">⠿</span>
       <span class="od-n">${kind==="rot" ? "第"+(i+1) : (i+1)}</span>
       ${faceThumb(p)}
@@ -4555,12 +4578,12 @@ function renderOrder(){
   if(c.tab === "field"){
     body = fieldHtml(t, c) +
       `<div class="od-col" data-kind="bat">
-         <div class="od-h">打順<span class="od-hint">つまんで動かせます・「替」で入替</span></div>
+         <div class="od-h">打順<span class="od-hint">つまんで動かせます・「替」で入替</span><span class="od-hint od-hint-tap">行をタップ → もう一行タップで順番入替・「替」で選手入替</span></div>
          ${c.order.map((k,i)=>row(c.order,i,"bat")).join("")}
        </div>` + benchHtml(t, "bn");
   }else if(c.tab === "pit"){
     body = `<div class="od-col" data-kind="rot">
-         <div class="od-h">先発ローテーション<span class="od-hint">上から順に登板</span></div>
+         <div class="od-h">先発ローテーション<span class="od-hint">上から順に登板</span><span class="od-hint od-hint-tap">行をタップ → もう一行タップで順番入替</span></div>
          ${c.rot.map((k,i)=>row(c.rot,i,"rot")).join("")}
        </div>` + benchHtml(t, "rp");
   }else{
@@ -4572,7 +4595,20 @@ function renderOrder(){
     '<div class="od-body">' + body + '</div>' +
     '<div id="od-pick" class="od-pick" hidden></div>';
 }
-function odTab(k){ const c = state.orderCtx; if(!c) return; c.tab = k; odPickClose(); seTap(); renderOrder(); }
+function odTab(k){ const c = state.orderCtx; if(!c) return; c.tab = k; c.sel = null; odPickClose(); seTap(); renderOrder(); }
+// 狭い画面: 行をタップして選び、もう一行をタップすると順番が入れ替わる
+function odTapRow(ev, kind, i){
+  if(ev && ev.target && ev.target.closest && ev.target.closest(".od-b")) return;
+  if(!(typeof matchMedia === "function" && matchMedia("(max-width:700px)").matches)) return;
+  const c = state.orderCtx;
+  if(!c) return;
+  const s = c.sel;
+  if(s && s.kind === kind){
+    if(s.i !== i){ const arr = kind === "rot" ? c.rot : c.order; const tmp = arr[s.i]; arr[s.i] = arr[i]; arr[i] = tmp; seWin(); }
+    c.sel = null; renderOrder(); return;
+  }
+  c.sel = {kind, i}; seTap(); renderOrder();
+}
 // 戦力分析の一行版。守備図の上に置く
 function powerLineHtml(t){
   const odds = powerOdds(); const me = odds.find(x=>x.t===t); const ty = powerType(me.pw);
@@ -6071,6 +6107,7 @@ function seFanfare(){
 function showGogai(champ){
   state.gogaiAfter = null;
   $("gg-go").textContent = "特筆";
+  $("gogai").classList.remove("gg-month");
   $("gg-k").textContent = "球史編纂所 ── 優勝の記";
   $("gg-team").textContent = champ.name;
   const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
@@ -7408,7 +7445,7 @@ function rouletteRender(){
   const wedges = ROULETTE.map(function(r,i){
     const hit = res && res.id === r.id;
     return '<path d="' + arc(i) + '" fill="' + r.color + '" stroke="#fbf7ec" stroke-width="3.5"' +
-           ' class="rw-seg' + (hit ? " hit" : "") + '"/>';
+           ' class="rw-seg ' + r.cls + (hit ? " hit" : "") + '"/>';
   }).join("");
   // コマの中身は漢字1字だけを大きく。細い放射状の文字を詰め込むと読めないので、
   // 何の目かは盤の下の対照表で示す
@@ -7474,7 +7511,8 @@ function rouletteRender(){
         '<circle cx="140" cy="140" r="133" fill="#221e17"/>' +
         wedges + texts +
         '<circle cx="140" cy="140" r="31" fill="#fbf7ec" stroke="#221e17" stroke-width="3"/>' +
-        '<text class="rw-hub" x="140" y="148" text-anchor="middle">運</text>' +
+        '<text class="rw-hub" x="140" y="146" text-anchor="middle">運</text>' +
+        '<circle cx="140" cy="140" r="133" fill="none" stroke="#e0a600" stroke-width="2.5" class="rw-rim"/>' +
       '</svg>' +
       '<div class="rl-flash"></div>' +
     '</div>' +

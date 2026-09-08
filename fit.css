@@ -1,0 +1,190 @@
+/* 一画面に収める(扉・ガチャの結果・編成)、排出即ロール、ルーレット・月報の装い、筆のサイン */
+
+/* ============================================================
+   ガチャ: 排出された瞬間に、筐体の口(下・中央)から守備位置へ転がっていく
+   ============================================================ */
+#scr-gacha .gc-field{container-type:size;}
+#scr-gacha .gc-at .ld-capsule{animation:ldRoll 1.15s cubic-bezier(.22,1,.36,1) both !important;}
+@keyframes ldRoll{
+  0%{transform:translate(var(--dx,0px),var(--dy,60vh)) rotate(-900deg) scale(.5);opacity:0;}
+  8%{opacity:1;}
+  55%{transform:translate(calc(var(--dx,0px)*.3),calc(var(--dy,60vh)*.3 - 28px)) rotate(-260deg) scale(1.06);}
+  78%{transform:translate(0,-8px) rotate(-30deg) scale(1.02);}
+  100%{transform:none;}
+}
+#scr-gacha .ld-bench .ld-capsule,#scr-gacha .gc-pen .ld-capsule,#scr-gacha .ld-pitch-row .ld-capsule{animation:ldRollUp 1s cubic-bezier(.22,1,.36,1) both !important;}
+@keyframes ldRollUp{0%{transform:translateY(50vh) rotate(-720deg) scale(.5);opacity:0;}10%{opacity:1;}70%{transform:translateY(-10px) rotate(15deg) scale(1.05);}100%{transform:none;}}
+#scr-gacha .gc-at:nth-child(1) .ld-capsule{animation-delay:.02s !important;} #scr-gacha .gc-at:nth-child(2) .ld-capsule{animation-delay:.09s !important;}
+#scr-gacha .gc-at:nth-child(3) .ld-capsule{animation-delay:.16s !important;} #scr-gacha .gc-at:nth-child(4) .ld-capsule{animation-delay:.23s !important;}
+#scr-gacha .gc-at:nth-child(5) .ld-capsule{animation-delay:.30s !important;} #scr-gacha .gc-at:nth-child(6) .ld-capsule{animation-delay:.37s !important;}
+#scr-gacha .gc-at:nth-child(7) .ld-capsule{animation-delay:.44s !important;} #scr-gacha .gc-at:nth-child(8) .ld-capsule{animation-delay:.51s !important;}
+#scr-gacha .gc-at:nth-child(9) .ld-capsule{animation-delay:.58s !important;}
+#scr-gacha .ld-bench-slots .gc-spot:nth-child(1) .ld-capsule{animation-delay:.5s !important;} #scr-gacha .ld-bench-slots .gc-spot:nth-child(2) .ld-capsule{animation-delay:.56s !important;}
+#scr-gacha .ld-bench-slots .gc-spot:nth-child(3) .ld-capsule{animation-delay:.62s !important;} #scr-gacha .ld-bench-slots .gc-spot:nth-child(4) .ld-capsule{animation-delay:.68s !important;}
+#scr-gacha .ld-bench-slots .gc-spot:nth-child(5) .ld-capsule{animation-delay:.74s !important;} #scr-gacha .ld-bench-slots .gc-spot:nth-child(6) .ld-capsule{animation-delay:.80s !important;}
+#scr-gacha .ld-pitch-row .gc-spot:nth-child(2) .ld-capsule{animation-delay:.08s !important;} #scr-gacha .ld-pitch-row .gc-spot:nth-child(3) .ld-capsule{animation-delay:.16s !important;}
+#scr-gacha .ld-pitch-row .gc-spot:nth-child(4) .ld-capsule{animation-delay:.24s !important;} #scr-gacha .ld-pitch-row .gc-spot:nth-child(5) .ld-capsule{animation-delay:.32s !important;}
+/* 「抽選完了」の幕は挟まない */
+#scr-gacha .ld-draw-show{display:none !important;}
+@media (prefers-reduced-motion:reduce){ #scr-gacha .gc-at .ld-capsule,#scr-gacha .ld-bench .ld-capsule,#scr-gacha .ld-pitch-row .ld-capsule{animation:none !important;} }
+
+/* ============================================================
+   筆のサイン(監督契約)
+   ============================================================ */
+.manager-signature strong.ink-signature{font-family:"Yuji Boku","Yuji Syuku","Zen Old Mincho","Yu Mincho",serif !important;font-weight:400;font-size:clamp(30px,8vw,46px);line-height:1.25;color:#161311;letter-spacing:.02em;position:relative;display:inline-block;padding-right:.2em;}
+.manager-signature strong.ink-signature span{display:inline-block;clip-path:inset(0 100% -10% 0);filter:blur(.8px);opacity:.9;animation:brushWrite .34s cubic-bezier(.2,.7,.3,1) forwards;animation-delay:calc(var(--stroke,0)*.25s);transform:rotate(-1.5deg);}
+@keyframes brushWrite{0%{clip-path:inset(0 100% -10% 0);filter:blur(1.2px);opacity:.6;}60%{filter:blur(.4px);opacity:1;}100%{clip-path:inset(-10% -6% -10% -6%);filter:blur(0);opacity:1;}}
+.manager-signature strong.ink-signature.signed span{clip-path:none;filter:none;opacity:1;animation:none;}
+.manager-signature strong.ink-signature.ink-long{font-size:clamp(22px,5.6vw,34px);letter-spacing:0;}
+/* 落款: 書き終えたら朱の印が押される */
+.manager-signature strong.ink-signature::after{content:"印";position:absolute;right:-.55em;bottom:.05em;width:.62em;height:.62em;border:2px solid #b8281e;color:#b8281e;font:900 .34em/1 "Zen Old Mincho","Yu Mincho",serif;display:flex;align-items:center;justify-content:center;transform:rotate(-8deg) scale(0);opacity:0;background:rgba(184,40,30,.06);}
+.manager-signature strong.ink-signature.signed::after{animation:hankoStamp .35s cubic-bezier(.2,1.6,.4,1) both;}
+@keyframes hankoStamp{0%{transform:rotate(-8deg) scale(1.8);opacity:0;}100%{transform:rotate(-8deg) scale(1);opacity:.92;}}
+@media (prefers-reduced-motion:reduce){ .manager-signature strong.ink-signature span{clip-path:none;filter:none;animation:none;} }
+
+/* ============================================================
+   ルーレット: 五輪の柔道団体戦の抽選盤のように。暗い舞台に平らな扇、金の針
+   ============================================================ */
+#event-panel:has(.rl-stage){background:radial-gradient(ellipse at 50% 30%,#1b2b4a,#0a1121 70%) !important;color:#eef2f8;border-top-color:#e0a600 !important;}
+#event-panel:has(.rl-stage) h2{color:#fff;border-bottom-color:#2a3a58;font-family:"Noto Sans JP",sans-serif !important;font-weight:800;letter-spacing:.04em;}
+#event-panel:has(.rl-stage) h2 .kicker{background:#e0a600;color:#1a1206;}
+#event-panel:has(.rl-stage)>.sub{color:#a9b5c9;}
+#event-panel:has(.rl-stage) .rl-team{color:#fff;font-family:"Noto Sans JP",sans-serif;}
+#event-panel:has(.rl-stage) .rl-team .rl-turn{color:#d6bf86;border-color:#3a4a68;}
+.rl-stage{width:300px;height:300px;}
+.rl-wheel{width:290px;height:290px;filter:drop-shadow(0 0 0 transparent);}
+.rl-wheel circle:first-child{fill:#0b1324;}
+.rl-wheel .rw-seg{stroke:#0b1324;stroke-width:3px;}
+.rl-wheel .rw-seg.good{fill:#2a9a5b;} .rl-wheel .rw-seg.bad{fill:#e4432c;} .rl-wheel .rw-seg.none{fill:#3a4a68;} .rl-wheel .rw-seg.hr{fill:#e0a600;}
+.rl-wheel .rw-seg:nth-child(odd).good{fill:#23874f;} .rl-wheel .rw-seg:nth-child(odd).bad{fill:#c73a26;} .rl-wheel .rw-seg:nth-child(odd).none{fill:#33415c;}
+.rl-wheel .rw-i{font:900 26px "Noto Sans JP",sans-serif;fill:#fff;paint-order:stroke;stroke:rgba(0,0,0,.35);stroke-width:2px;}
+.rl-wheel .rw-hub{font:700 15px "Oswald","Noto Sans JP",sans-serif;fill:#e0a600;letter-spacing:2px;}
+.rl-wheel circle[fill="#fbf7ec"]{fill:#0b1324;stroke:#e0a600;stroke-width:3px;}
+.rl-wheel .rw-rim{stroke:#e0a600;stroke-width:2.5px;fill:none;}
+.rl-stage.landed .rw-seg{filter:saturate(.25) brightness(.45);}
+.rl-stage.landed .rw-seg.hit{filter:none;animation:rwHit 1s ease-out 3;}
+.rl-lamps{display:none;}
+.rl-needle{top:-6px;border-top-color:#e0a600;border-left-width:13px;border-right-width:13px;border-top-width:34px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.7));}
+.rl-needle::after{content:"";position:absolute;left:-13px;top:-34px;width:26px;height:6px;background:#fff;opacity:.6;}
+.rl-flash{background:radial-gradient(circle,rgba(255,236,170,.9),rgba(255,236,170,0) 62%);}
+.btn.rl-go{background:linear-gradient(180deg,#f0c23a,#d59a00);color:#1a1206;box-shadow:0 3px 0 #8c6300,0 8px 18px -8px rgba(224,166,0,.6);border:0;}
+#event-panel:has(.rl-stage) .rl-chip{background:#141d30;border-color:#2c3a56;color:#c9d2e0;}
+#event-panel:has(.rl-stage) .rl-chip.hit{background:#e0a600;border-color:#e0a600;color:#1a1206;}
+#event-panel:has(.rl-stage) .rl-wait span{color:#8f9ab0;border-color:#2c3a56;font-family:"Noto Sans JP",sans-serif;}
+#event-panel:has(.rl-stage) .rl-card{background:#141d30;border-color:#2c3a56;box-shadow:0 10px 30px -14px #000;color:#eef2f8;border-radius:10px;}
+#event-panel:has(.rl-stage) .rl-big{color:#fff;font-family:"Noto Sans JP",sans-serif;}
+#event-panel:has(.rl-stage) .rl-eff{background:#0e1526;border-color:#2c3a56;color:#f1e6c9;}
+#event-panel:has(.rl-stage) .rl-msg{color:#a9b5c9;font-family:"Noto Sans JP",sans-serif;}
+#event-panel:has(.rl-stage) .rl-pick-h{color:#c9d2e0;}
+@media (max-width:700px){
+  .rl-stage{width:250px;height:250px;margin:6px auto;}
+  .rl-wheel{width:242px;height:242px;}
+}
+
+/* ============================================================
+   月報: 暗い一枚のカードに、見出し・月間MVP・順位
+   ============================================================ */
+#gogai.gg-month{transform:none;background-color:#101a2e !important;background-image:linear-gradient(160deg,#151f36,#0b1121) !important;background-size:auto !important;color:#eef2f8;border:1px solid #2c3a56;outline:0;border-top:4px solid #e0a600;border-radius:14px;padding:22px 24px 18px;box-shadow:0 30px 60px -30px #000;animation:ggMonthIn .45s cubic-bezier(.2,1,.3,1);}
+@keyframes ggMonthIn{from{opacity:0;transform:translateY(16px) scale(.98);}to{opacity:1;transform:none;}}
+#gogai.gg-month .gg-go{position:static;writing-mode:horizontal-tb;font:600 11px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.4em;color:#e0a600;border:0;padding:0;margin:0 0 6px;}
+#gogai.gg-month .gg-go::after{content:" MONTHLY REPORT";}
+#gogai.gg-month .gg-k{font-family:"Noto Sans JP",sans-serif;font-size:11px;letter-spacing:.2em;color:#8f9ab0;border-bottom:1px solid #2c3a56;padding-bottom:8px;margin-bottom:12px;}
+#gogai.gg-month .gg-team{font-family:"Noto Sans JP",sans-serif;font-size:34px;letter-spacing:.02em;line-height:1.2;color:#fff;}
+#gogai.gg-month .gg-v{font-family:"Oswald","Noto Sans JP",sans-serif;font-size:11px;letter-spacing:.3em;background:transparent;color:#d6bf86;padding:0;margin:6px 0 10px;border-bottom:0;}
+#gogai.gg-month .gg-sub{color:#c9d2e0;font-family:"Noto Sans JP",sans-serif;}
+#gogai.gg-month .gg-lead{font-size:13px;color:#eef2f8;}
+#gogai.gg-month .gg-mvp{display:flex;align-items:center;gap:12px;margin:10px 0;padding:10px 12px;border-radius:10px;background:linear-gradient(90deg,rgba(224,166,0,.16),rgba(224,166,0,.03));border:1px solid rgba(224,166,0,.4);}
+#gogai.gg-month .gg-mvp .f-th{width:46px;height:58px;border-radius:6px;border:1px solid #e0a600;}
+#gogai.gg-month .gg-mvp-t{min-width:0;}
+#gogai.gg-month .gg-mvp-t small{display:block;font:600 10px/1 "Oswald",sans-serif;letter-spacing:.3em;color:#e0a600;margin-bottom:4px;}
+#gogai.gg-month .gg-mvp-t b{display:block;font:800 18px/1.2 "Noto Sans JP",sans-serif;color:#fff;}
+#gogai.gg-month .gg-mvp-t span{display:block;font-size:11.5px;color:#c9d2e0;margin-top:2px;font-family:"Oswald","Noto Sans JP",sans-serif;letter-spacing:.04em;}
+#gogai.gg-month .gg-tbl{border-top:1px solid #2c3a56;}
+#gogai.gg-month .gg-r{border-bottom:1px solid #1d2840;padding:6px 0;font-size:12.5px;}
+#gogai.gg-month .gg-r.top{color:#fff;}
+#gogai.gg-month .gg-rk{color:#e0a600;font-size:14px;}
+#gogai.gg-month .gg-nm{font-family:"Noto Sans JP",sans-serif;}
+#gogai.gg-month .gg-wl{color:#fff;font-size:14px;}
+#gogai.gg-month .gg-gap{color:#8f9ab0;}
+#gogai.gg-month .gg-mo{color:#8f9ab0;}
+#gogai.gg-month .gg-tap{color:#5f6b84;letter-spacing:.2em;margin-top:14px;}
+@media (max-width:700px){
+  #gogai.gg-month{padding:16px 16px 14px;max-width:calc(100vw - 20px);transform:none;}
+  #gogai.gg-month .gg-team{font-size:26px;}
+  #gogai.gg-month .gg-mo{display:none;}
+}
+
+/* ============================================================
+   狭い画面を一画面に
+   ============================================================ */
+@media (max-width:700px){
+  /* ---- 扉: 表紙は横組み、口絵は省き、序と4つのボタンと凡例を一画面に ---- */
+  #scr-title > .bk-cover{flex-direction:row;align-items:center;text-align:left;gap:14px;padding:10px 14px 10px !important;margin:0;}
+  #scr-title .bk-daisen{padding:8px 6px;gap:6px;}
+  #scr-title .bk-title{font-size:24px !important;letter-spacing:.12em;}
+  #scr-title .bk-kan{font-size:9px;}
+  #scr-title .bk-side{text-align:left;padding-top:0;}
+  #scr-title .bk-naidai{font-size:20px !important;}
+  #scr-title .bk-sub{font-size:11px;margin-top:2px;}
+  #scr-title .bk-kanki{display:none !important;}
+  #scr-title > .bk-inner{overflow:hidden !important;display:flex;flex-direction:column;gap:8px;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px)) !important;}
+  #scr-title .bk-lead{flex:none;}
+  #scr-title .bk-jo{font-size:13px;margin:6px 6px 0;padding:4px 0;}
+  #scr-title .bk-body{font-size:12px !important;line-height:1.7 !important;padding:8px 10px 0 !important;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  #scr-title .bk-acts{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:8px 10px 10px !important;margin-top:4px !important;}
+  #scr-title .bk-acts .btn{flex:none;width:100%;white-space:nowrap;padding:10px 4px;font-size:12px;letter-spacing:.02em;}
+  #scr-title .bk-acts .btn.lg{grid-column:1/-1;font-size:16px;padding:13px 8px;}
+  #scr-title .bk-hanrei{display:grid;grid-template-columns:auto 1fr auto 1fr auto 1fr;gap:4px 8px;padding:8px 10px 6px;font-size:11px;align-items:baseline;}
+  #scr-title .bk-hanrei dd b{font-size:14px;}
+  #scr-title .bk-hanrei .hr-n{font-size:10px;}
+  #scr-title .bk-zu{display:none !important;}
+
+  /* ---- ガチャの盤と結果一覧 ---- */
+  #scr-gacha .ld-bench-slots{display:grid !important;grid-template-columns:repeat(6,minmax(0,1fr)) !important;gap:3px !important;}
+  #scr-gacha .ld-bench-slots .gc-spot,#scr-gacha .ld-bench-slots .pc,#scr-gacha .ld-bench-slots .ld-capsule{width:100% !important;max-width:none !important;}
+  #scr-gacha .ld-bench-slots .gc-spot{height:auto !important;}
+  #scr-gacha .ld-bench{padding:6px 6px !important;}
+  #scr-gacha .ld-bench-label{margin-bottom:2px !important;}
+  #scr-gacha .gc-field{aspect-ratio:1.1 !important;}
+  #scr-gacha .ld-results{padding:8px 8px 10px !important;}
+  #scr-gacha .ld-results header{margin-bottom:8px !important;}
+  #scr-gacha .ld-results header>small{font-size:10px !important;}
+  #scr-gacha .ld-results h2{font-size:18px !important;margin:2px 0 !important;}
+  #scr-gacha .ld-results p{display:none;}
+  #scr-gacha .ld-result-counts{gap:8px !important;margin-top:6px !important;}
+  #scr-gacha .ld-result-counts>span{font-size:12px !important;}
+  #scr-gacha .ld-result-grid{grid-template-columns:repeat(5,minmax(0,1fr)) !important;gap:8px 4px !important;}
+  #scr-gacha .ld-result-position{font-size:8px !important;padding-left:4px !important;margin-bottom:3px !important;border-left-width:1px !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #scr-gacha .ld-result-grid .ld-card.sz-s{width:100% !important;}
+
+  /* ---- 編成: パワプロのように。守備図の下に打順を詰め、行のタップで順番を入れ替える ---- */
+  #order-bg{padding:0 !important;align-items:stretch !important;overflow:hidden !important;}
+  #order-card{display:flex;flex-direction:column;height:100dvh;max-height:none !important;overflow:hidden !important;border:0;border-radius:0 !important;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px)) !important;}
+  #order-card h2{margin:0 0 6px;font-size:15px;flex:none;}
+  #order-body{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;gap:0;}
+  #order-body .od-tabs{flex:none;margin:0 0 6px !important;padding:0 !important;}
+  #order-body .od-tab{padding:6px 0;min-height:36px;font-size:12.5px;}
+  #order-body .od-body{flex:1 1 auto;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
+  #order-body .pw-line{flex:none;padding:4px 8px;margin-bottom:6px;font-size:11px;}
+  #order-body .fd{flex:none;aspect-ratio:10/6.6;margin:0 auto 6px;}
+  #order-body .fd-p{width:56px;padding:2px 2px 3px;}
+  #order-body .fd-p .f-th{width:28px;height:34px;}
+  #order-body .fd-nm{font-size:9px;max-width:52px;}
+  #order-body .od-col{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;}
+  #order-body .od-h{flex:none;font-size:10.5px;padding:3px 8px;margin-bottom:3px;}
+  #order-body .od-h .od-hint{display:none;}
+  #order-body .od-h .od-hint-tap{display:inline;margin-left:8px;font-size:9px;color:#ffe6a3;}
+  #order-body .od-col .od-row{padding:2px 2px;gap:4px;font-size:12px;border-bottom:1px solid rgba(0,0,0,.08);min-height:30px;cursor:pointer;}
+  #order-body .od-row .od-grip,#order-body .od-row .od-st,#order-body .od-row .od-b:not(.od-sw){display:none;}
+  #order-body .od-row .f-th{width:22px;height:28px;}
+  #order-body .od-row .od-n{width:26px;font-size:11px;line-height:18px;}
+  #order-body .od-row .od-pos{width:22px;font-size:10px;}
+  #order-body .od-row .od-name{font-size:12px;}
+  #order-body .od-row .od-b.od-sw{width:34px;height:26px;font-size:11px;}
+  #order-body .od-row.sel{background:rgba(224,166,0,.22);box-shadow:inset 3px 0 0 #e0a600;}
+  #order-body .od-row.sel .od-n{background:#e0a600;color:#1a1206;}
+  /* 控えの一覧は「替」の中に集約し、盤の下には出さない */
+  #order-body .od-body > .od-h,#order-body .od-body > .od-row.od-fix,#order-body .od-body > .od-note{display:none;}
+  #order-card .od-foot{flex:none;margin-top:6px;gap:6px;}
+  #order-card .od-foot .btn{padding:9px 10px;font-size:12px;}
+}

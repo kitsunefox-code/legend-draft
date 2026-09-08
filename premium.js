@@ -27,7 +27,7 @@ function ldRefreshActions(){const actions=$('gc-foot').querySelector('.ld-foot-a
 function ldToggleResults(){const G=state.gacha;if(ldBusy||!G?.pulls||G.revealed<G.pulls.length)return;ldResultView=!ldResultView;renderGacha();}
 function ldResults(){
   const pulls=state.gacha.pulls;
-  return '<section class="ld-results"><header><small>DRAFT COMPLETE</small><h2>獲得したレジェンド</h2><p>'+pulls.length+'枚のカードをタップして詳細を見る</p><div class="ld-result-counts">'+RANK_ORDER.map(r=>{const n=pulls.filter(x=>x.rank===r).length;return n?'<span>'+ldRank(r)+'<b>× '+n+'</b></span>':'';}).join('')+'</div></header><div class="ld-result-grid">'+pulls.map((x,i)=>'<div><span class="ld-result-position">'+esc(ldPositions[x.d.key]||x.d.label)+'</span>'+cardHtml(x.p,x.rank,{size:'m',pos:ldPositions[x.d.key]||x.d.label,grp:x.d.grp,onclick:'cardPop('+i+')'})+'</div>').join('')+'</div></section>';
+  return '<section class="ld-results"><header><small>DRAFT COMPLETE</small><h2>獲得したレジェンド</h2><p>'+pulls.length+'枚のカードをタップして詳細を見る</p><div class="ld-result-counts">'+RANK_ORDER.map(r=>{const n=pulls.filter(x=>x.rank===r).length;return n?'<span>'+ldRank(r)+'<b>× '+n+'</b></span>':'';}).join('')+'</div></header><div class="ld-result-grid">'+pulls.map((x,i)=>'<div><span class="ld-result-position">'+esc(ldPositions[x.d.key]||x.d.label)+'</span>'+cardHtml(x.p,x.rank,{size:(typeof innerWidth==='number'&&innerWidth<=700)?'s':'m',pos:ldPositions[x.d.key]||x.d.label,grp:x.d.grp,onclick:'cardPop('+i+')'})+'</div>').join('')+'</div></section>';
 }
 function ldTrial(round=2){
   ldCancel();ldDemo=true;applyRoster(5,5,6);POOL=PLAYERS.concat(MLB_STARS);
@@ -73,7 +73,7 @@ function ldSlot(x,i){
 function ldField(){
   const R=gachaRound(),slots=ldSlots();
   if(R.k==='B'){
-    const field=slots.map((x,i)=>GC_FIELD[x.d.key]?'<div class="gc-at" style="left:'+GC_FIELD[x.d.key][0]+'%;top:'+GC_FIELD[x.d.key][1]+'%">'+ldSlot(x,i)+'</div>':'').join('');
+    const field=slots.map((x,i)=>GC_FIELD[x.d.key]?'<div class="gc-at" style="left:'+GC_FIELD[x.d.key][0]+'%;top:'+GC_FIELD[x.d.key][1]+'%;--dx:'+(50-GC_FIELD[x.d.key][0])+'cqw;--dy:'+(112-GC_FIELD[x.d.key][1])+'cqh">'+ldSlot(x,i)+'</div>':'').join('');
     const bench=slots.map((x,i)=>!GC_FIELD[x.d.key]?ldSlot(x,i):'').join('');
     return '<div class="gc-fieldwrap"><div class="ld-field-caption"><span>先発野手</span><span>守備位置をタップして開封</span></div><div class="gc-field">'+field+'<span class="ld-mound-label">LEGEND DRAFT</span></div><div class="ld-bench"><div class="ld-bench-label">BENCH <small>控え野手</small></div><div class="ld-bench-slots">'+bench+'</div></div></div>';
   }
@@ -107,9 +107,8 @@ cardHtml=function(p,rank,opt={}){
       <div class="ld-card-bg"></div><span class="ld-jersey" aria-hidden="true">${p.no??'LD'}</span>
       ${photo.src?`<img class="ld-portrait" src="${attr(photo.src)}" data-fallback="${attr(photo.fallback)}" alt="${attr(p.name)}" loading="${size==='l'?'eager':'lazy'}" decoding="async" fetchpriority="${size==='l'?'high':'auto'}" referrerpolicy="no-referrer" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';this.closest('.ld-card').classList.remove('ld-hires');this.closest('.ld-card').classList.add('ld-low-res')}else{this.hidden=true;this.closest('.ld-card').classList.add('ld-no-photo')}">`:''}
       <div class="ld-card-shade"></div><div class="ld-card-foil"></div><div class="ld-card-prism"></div><div class="ld-card-etch"></div>
-      <div class="ld-card-top"><span>${esc(opt.pos||roleLabel(p))}</span><b>${p.year}<small>SEASON</small></b></div>
+      <div class="ld-card-top"><div class="ld-card-rk">${p.danger?dokuroSvg(size==='l'?54:size==='m'?34:22):rankIcon(rating,size==='l'?54:size==='m'?34:22)}<b>${p.year}<small>SEASON</small></b></div><span class="ld-card-posn">${esc(opt.pos||roleLabel(p))}</span></div>
       <div class="ld-card-edition">${edition}</div>
-      <div class="ld-card-rank">${p.danger?dokuroSvg(size==='l'?64:size==='m'?42:27):rankIcon(rating,size==='l'?64:size==='m'?42:27)}<small>${rank==='SS'?'LEGEND':rank==='S'?'SUPER STAR':rank==='D'?'DANGER':'RANK'}</small></div>
       <div class="ld-card-bottom"><div class="ld-card-club"><i></i><span>${esc(p.team)}</span>${p.mlb?'<b>MLB</b>':''}</div>
         ${rank==='SS'&&ssEpithet(p)?`<div class="ld-epithet">${esc(ssEpithet(p))}</div>`:''}<div class="ld-card-name ${p.name.length>9?'ld-name-long':''}">${esc(p.name)}</div>
         ${size!=='s'?`<div class="ld-card-stats ${p.cat==='B'?'ld-batting-stats':''}">${stats.map(([k,v])=>`<span><small>${k}</small><b>${v??'—'}</b></span>`).join('')}</div>${p.cat==='B'?`<div class="ld-card-career"><span>通算安打 <b>${p.car?.h??'—'}</b></span><span>通算盗塁 <b>${p.car?.sb??'—'}</b></span></div>`:''}<div class="ld-card-series"><span>${edition}</span><b><small>OVR</small> ${rating}</b></div>`:''}

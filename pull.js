@@ -27,7 +27,7 @@ gachaPull=function(auto){
   seRollStart();
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   ldDelay(()=>{if(state.gacha!==G)return;stage?.classList.add('is-dispensing');seCrack();if(message)message.textContent='カプセル排出！ 守備位置へ届けます';},reduced?80:1650);
-  ldDelay(()=>{if(state.gacha!==G)return;seRollStop();ldPulling=false;ldBusy=false;ldOriginalPull();},reduced?180:2950);
+  ldDelay(()=>{if(state.gacha!==G)return;seRollStop();ldPulling=false;ldBusy=false;ldOriginalPull();if(state.gacha===G&&G.pulls&&G.phase==='drop'){G.phase='caps';renderGacha();}},reduced?180:1750);
 };
 let ldGripState=null;
 function ldGrip(e){

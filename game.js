@@ -263,7 +263,7 @@ function foldPanel(el){
 function foldSummary(){
   const ev = $("ev-cnt");
   if(ev){
-    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-cpu","opt-mlbonly"];
+    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-cpu","opt-mlbonly"];
     const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
     ev.textContent = n + "件";
   }
@@ -432,6 +432,7 @@ function startDraft(){
   state.rankCap = Number($("opt-rank").value) || 0; // 0=縛りなし
   state.opts.party = $("opt-party") ? $("opt-party").checked : false;
   state.opts.saihai = $("opt-saihai") ? $("opt-saihai").checked : false;
+  state.opts.points = $("opt-points") ? $("opt-points").checked : true;   // パーティー総合得点(切ると順位だけ)
   state.opts.park = $("opt-park") ? $("opt-park").checked : false;
   state.opts.injury = $("opt-injury") ? $("opt-injury").checked : false;
 
@@ -2279,6 +2280,7 @@ function nextBidResolution(){
     if(g.idxs.length === 1){
       const t = state.parts[g.idxs[0]];
       assignPick(t, g.p);
+      if(!t.cpu && !t.oshi) t.oshi = g.p;   // 第1巡で獲った男が、その球団の「推し」
       pickAnnounce(t, g.p, "第1巡・単独指名");
       bid.qi++;
       continue;
@@ -2374,23 +2376,38 @@ function kujiOpenAll(){
   setTimeout(function(){
     seRollStop();                 // 一拍の無音を置く
     setTimeout(function(){
-      lot.order.forEach(function(idx, i){
-        const el = $("kuji-"+i);
-        if(el) el.classList.add("opened");
-      });
-      const wt = state.parts[lot.winner];
-      seWin();
-      if(m) m.textContent = "";
-      $("kuji-result").innerHTML =
-        '<span class="kr-win">交渉権獲得</span><span style="color:' + wt.color + '">●</span> ' + esc(wt.name) +
-        (n >= 4 ? '　<span class="kr-note">' + n + '球団競合を制した</span>' : '');
-      const losers = lot.order.filter(function(x){ return x !== lot.winner; })
-        .map(function(x){ return state.parts[x]; });
-      const cry = losers.filter(function(t){ return (t.lotLose||0) >= 2; });
-      if(cry.length){
-        $("kuji-result").innerHTML += '<div class="kr-cry">' + esc(cry[0].name) + 'は' + ((cry[0].lotLose||0)+1) + '度続けて抽選を外した…</div>';
-      }
-      setTimeout(function(){ const b = $("kuji-next"); if(b) b.style.display = ""; }, 700);
+      // 外れの封筒から一つずつ開き、当たりは最後に。会場の視線が残った一通に集まる
+      const losersI = lot.order.map(function(idx, i){ return {idx, i}; }).filter(function(x){ return x.idx !== lot.winner; });
+      const winI = lot.order.indexOf(lot.winner);
+      let k = 0;
+      const step = function(){
+        if(k < losersI.length){
+          const el = $("kuji-" + losersI[k].i);
+          if(el) el.classList.add("opened", "lost");
+          seMiss();
+          k++;
+          if(m) m.textContent = k < losersI.length ? "外れ……　残る封筒は" + (n - k) + "通" : "残るは一通 ―――";
+          setTimeout(step, k < losersI.length ? 520 : 900);
+          return;
+        }
+        const el = $("kuji-" + winI);
+        if(el) el.classList.add("opened", "won");
+        const wt = state.parts[lot.winner];
+        seFanfare(); confetti();
+        if(m) m.textContent = "";
+        $("kuji-result").innerHTML =
+          '<span class="kr-win">交渉権確定</span><span style="color:' + wt.color + '">●</span> ' + esc(wt.name) +
+          (n >= 4 ? '　<span class="kr-note">' + n + '球団競合を制した</span>' : '') +
+          '<div class="kr-card">' + cardHtml(lot.g.p, rankOf(lot.g.p.ovr), {size:'m', pos:(lot.g.p.cat==='P' ? (lot.g.p.role||'投') : (String(lot.g.p.pos||'').slice(0,1)||'野'))}) + '</div>';
+        const losers = lot.order.filter(function(x){ return x !== lot.winner; })
+          .map(function(x){ return state.parts[x]; });
+        const cry = losers.filter(function(t){ return (t.lotLose||0) >= 2; });
+        if(cry.length){
+          $("kuji-result").innerHTML += '<div class="kr-cry">' + esc(cry[0].name) + 'は' + ((cry[0].lotLose||0)+1) + '度続けて抽選を外した…</div>';
+        }
+        setTimeout(function(){ const b = $("kuji-next"); if(b) b.style.display = ""; }, 700);
+      };
+      step();
     }, 700);
   }, roll);
 }
@@ -2402,6 +2419,7 @@ function lotteryDone(){
   wt.lotWin = (wt.lotWin||0) + 1;
   wt.lotLose = 0;
   assignPick(wt, lot.g.p);
+  if(!wt.cpu && !wt.oshi) wt.oshi = lot.g.p;
   pickAnnounce(wt, lot.g.p, '第1巡・' + lot.g.idxs.length + '球団競合の抽選を制し');
   for(const idx of lot.g.idxs){
     if(idx !== lot.winner){
@@ -2622,6 +2640,7 @@ function startSeason(){
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
   state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; });
+  awardYaku();   // 開幕オーダーの役
   state.eventQueue = [];
   // 月末のGMの決断(人間の球団だけ)。月報のすぐ後に来るよう、ルーレットより先に積む
   [0,1,2,3,4].forEach(function(m){ state.eventQueue.push({after:m, type:"gm", no:m}); });
@@ -3414,6 +3433,13 @@ function finishSeason(){
     const r = (t.h2h || {})[t.rival.name] || {w:0, l:0};
     if(r.w > r.l) addPts(t, 3, "宿敵" + t.rival.name + "に勝ち越し " + r.w + "勝" + r.l + "敗");
   });
+  // 推しがタイトルを獲れば+3
+  try{
+    computeTitles().forEach(function(x){
+      const t = x.team;
+      if(t && t.oshi && t.oshi.name === x.name) addPts(t, 3, "推し " + x.name + "が" + x.tt);
+    });
+  }catch(e){}
   if(s.length >= 3){
     $("s-note").textContent = `全${Math.round(state.gamesPer)}試合を完走。クライマックスシリーズは2位${s[1].name}と3位${s[2].name}から。勝者が1位${s[0].name}に挑む`;
     telop(`レギュラーシーズン終了 ―― CSは ${s[1].name} 対 ${s[2].name} から`);
@@ -3766,7 +3792,7 @@ function h2hAdd(win, lose){
 }
 // パーティー得点。順位のほかに、予想・采配・快挙・宿敵で稼げる
 function addPts(t, v, why){
-  if(!t || !v) return;
+  if(!t || !v || (state.opts && state.opts.points === false)) return;
   t.pts = (t.pts || 0) + v;
   (t.ptsLog = t.ptsLog || []).push({v, why, d: state.schedule ? dateLabel(Math.max(0, state.day - 1)) : ""});
 }
@@ -3834,6 +3860,7 @@ function finishDay(rolled){
       state.recordGogai = state.recordGogai || [];
       state.recordGogai.push({kind, p, t, opp, score: (t === A ? g.rA + "-" + g.rB : g.rB + "-" + g.rA), txt, date: dl});
       addPts(t, 1, "快挙 " + kind);
+      if(t.oshi === p) addPts(t, 2, "推し " + p.name + "の" + kind);
     };
     if(f){
       const winSp = win === A ? spA : spB, winF = win === A ? f.A : f.B, loseF = win === A ? f.B : f.A;
@@ -3957,7 +3984,10 @@ function buildMonthGogai(m){
     }
     s.m0 = {h:s.h||0, hr:s.hr||0, rbi:s.rbi||0, ab:s.ab||0, w:s.w||0, so:s.so||0, ip:s.ip||0, er:s.er||0, sv:s.sv||0};
   });
-  if(mvp) addPts(mvp.t, 1, "月間MVP " + mvp.p.name);
+  if(mvp){
+    addPts(mvp.t, 1, "月間MVP " + mvp.p.name);
+    state.parts.forEach(function(t){ if(t.oshi === mvp.p) addPts(t, 2, "推し " + mvp.p.name + "が月間MVP"); });
+  }
   let head, sub;
   if(state.monthLeader0 && state.monthLeader0 !== lead){
     head = "首位交代"; sub = `${lead.name}が${state.monthLeader0.name}をかわし、${MONTHS[m]}を首位で終える`;
@@ -4684,6 +4714,58 @@ function campNext(){
     "編成を組む",
     function(){ openOrder(idx); });
 }
+// ============================================================
+// オーダー役 ── 並びと顔ぶれで成立する「役」。開幕の編成で成立していれば加点(上限6点)
+// ============================================================
+const ORDER_YAKU = [
+  {id:"junketsu", label:"純血打線", pts:3, desc:"打線9人が同じ球団の系譜",
+   check(t){ const l = lineupOf(t); if(l.length < 9) return false; const f = l[0].fr; return !!f && l.every(p => p.fr === f); }},
+  {id:"jidai", label:"同時代の九人", pts:3, desc:"打線9人が同じ年代",
+   check(t){ const l = lineupOf(t); if(l.length < 9) return false; return l.every(p => p.decade === l[0].decade); }},
+  {id:"nichibei", label:"日米同盟", pts:1, desc:"打線にメジャー5人以上と日本4人",
+   check(t){ const l = lineupOf(t); const m = l.filter(p => p.mlb).length; return m >= 5 && l.length - m >= 4; }},
+  {id:"zigzag", label:"ジグザグ打線", pts:2, desc:"打順で左右の打者が交互に並ぶ(両打は自由)",
+   check(t){ const l = lineupOf(t); if(l.length < 9) return false; for(let i = 1; i < l.length; i++){ const a = l[i-1].bh, b = l[i].bh; if(a === "両" || b === "両") continue; if(!a || !b || a === b) return false; } return true; }},
+  {id:"idaten", label:"韋駄天打線", pts:2, desc:"打線の盗塁合計が250以上",
+   check(t){ return lineupOf(t).reduce((a, p) => a + (p.sb || 0), 0) >= 250; }},
+  {id:"taiho", label:"大砲部隊", pts:2, desc:"打線の本塁打合計が300以上",
+   check(t){ return lineupOf(t).reduce((a, p) => a + (p.hr || 0), 0) >= 300; }},
+  {id:"nitoryu", label:"二刀流起用", pts:2, desc:"二刀流の選手が打線に入っている",
+   check(t){ return lineupOf(t).some(p => p.twoWay); }},
+  {id:"senzen", label:"戦前の英雄たち", pts:2, desc:"打線と先発に1950年より前の選手が3人以上",
+   check(t){ return lineupOf(t).concat(rotKeys(t).map(k => t.slots[k]).filter(Boolean)).filter(p => p.year < 1950).length >= 3; }},
+  {id:"kyoshi", label:"名将の教え子", pts:2, desc:"監督と同じ球団の選手が打線に5人以上",
+   check(t){ const m = t.slots.MGR; if(!m) return false; return lineupOf(t).filter(p => p.team === m.team).length >= 5; }},
+  {id:"teppeki", label:"鉄壁ローテ", pts:2, desc:"先発ローテ全員が防御率2.50以下",
+   check(t){ const r = rotKeys(t).map(k => t.slots[k]).filter(Boolean); return r.length >= 3 && r.every(p => Number(p.era) <= 2.5); }},
+];
+function orderYaku(t){ return ORDER_YAKU.filter(function(y){ try{ return y.check(t); }catch(e){ return false; } }); }
+function yakuLineHtml(t, c){
+  // 編集中の並びで判定する(保存前)
+  const so = t.order, sr = t.rot;
+  if(c){ t.order = c.order; t.rot = c.rot; }
+  const ys = orderYaku(t);
+  t.order = so; t.rot = sr;
+  return '<div class="yk-line"><span class="yk-lb">役</span>' +
+    (ys.length ? ys.map(function(y){ return '<span class="yk-chip" title="' + esc(y.desc) + '">' + esc(y.label) + '<b>+' + y.pts + '</b></span>'; }).join("")
+               : '<span class="yk-none">役なし。並びと顔ぶれで役が付くと開幕時に加点</span>') +
+    '<button type="button" class="yk-help" onclick="yakuHelp()">一覧</button></div>';
+}
+function yakuHelp(){
+  const box = $("od-pick");
+  if(!box) return;
+  box.innerHTML = '<div class="od-pk-h"><b>オーダー役の一覧</b><span class="od-pk-t">開幕の編成で成立していれば総合得点に加算(上限6点)</span><button class="btn ghost sm" onclick="odPickClose()">閉じる</button></div>' +
+    ORDER_YAKU.map(function(y){ return '<div class="yk-row"><b>' + esc(y.label) + '</b><i>+' + y.pts + '</i><span>' + esc(y.desc) + '</span></div>'; }).join("");
+  box.hidden = false;
+  seTap();
+}
+function awardYaku(){
+  state.parts.forEach(function(t){
+    let tot = 0;
+    orderYaku(t).forEach(function(y){ if(tot + y.pts <= 6){ addPts(t, y.pts, "役 " + y.label); tot += y.pts; } });
+    if(tot) state.news.unshift({mo:"開幕", txt:"【役】" + t.name + "の開幕オーダーに役が成立。" + orderYaku(t).map(function(y){ return y.label; }).join("・") + "（+" + tot + "点）"});
+  });
+}
 // 打順とローテを定跡どおりに組む(CPUと「おまかせ」で共用)
 function autoOrderFor(t){
   const keys = orderKeys(t).slice();
@@ -4777,6 +4859,7 @@ function renderOrder(){
   }
   $("order-body").innerHTML =
     (state.campCtx && c.tab !== "pol" ? powerLineHtml(t) : "") +
+    (state.opts.points !== false && c.tab === "field" ? yakuLineHtml(t, c) : "") +
     '<div class="od-tabs">' + tabs + '</div>' +
     '<div class="od-body">' + body + '</div>' +
     '<div id="od-pick" class="od-pick" hidden></div>';
@@ -5181,35 +5264,48 @@ function gmRender(){
   const t = c.queue[c.idx];
   const s = standingsSorted(), rank = s.indexOf(t) + 1, stk = streakOf(t);
   const others = state.parts.filter(x => x !== t);
+  const oshiHtml = (function(){
+    if(t.oshi){
+      const d = SLOT_DEFS.find(function(x){ return x.key !== "MGR" && t.slots[x.key] === t.oshi; });
+      const st = d ? statLineLive(statOf(t, t.oshi, d.grp)) : "";
+      return '<div class="gm-rival gm-oshi"><span class="gm-lb">推し</span>' + faceThumb(t.oshi, 22, 28) + '<b>' + esc(t.oshi.name) + '</b><span class="gm-h2h">' + esc(st || "今季まだ出場なし") + '</span><small>月間MVP+2・快挙+2・タイトル+3</small></div>';
+    }
+    const cands = lineupOf(t).concat(rotKeys(t).map(function(k){ return t.slots[k]; }).filter(Boolean));
+    return '<div class="gm-sec"><div class="gm-h">推し選手を宣言<small>この選手の活躍が自分の得点になる。一人だけ、変えられません</small></div><div class="gm-teams gm-oshi-list">' +
+      cands.map(function(p){ return '<button type="button" class="gm-team' + (c.oshi === p ? " on" : "") + '" onclick="gmOshi(' + p.id + ')">' + faceThumb(p, 20, 26) + '<b>' + esc(p.name) + '</b></button>'; }).join("") + '</div></div>';
+  })();
   const rivalHtml = t.rival
     ? (function(){ const r = (t.h2h||{})[t.rival.name] || {w:0,l:0}; return '<div class="gm-rival"><span class="gm-lb">宿敵</span>' + teamEmblem(t.rival, 18) + '<b>' + esc(t.rival.name) + '</b><span class="gm-h2h">直接対決 <i>' + r.w + '</i>勝<i>' + r.l + '</i>敗</span><small>勝ち越して終えれば+3点</small></div>'; })()
     : '<div class="gm-sec"><div class="gm-h">宿敵を選ぶ<small>今季の直接対決を勝ち越せば+3点。相手は変えられません</small></div><div class="gm-teams">' +
       others.map(x => '<button type="button" class="gm-team' + (c.rival === x ? " on" : "") + '" onclick="gmRival(' + state.parts.indexOf(x) + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b>' + (x.cpu ? '<small>CPU</small>' : '') + '</button>').join("") + '</div></div>';
   const cards = c.cards.map((p, i) => '<button type="button" class="gm-card' + (c.pick === i ? " on" : "") + '" onclick="gmPick(' + i + ')"><b>' + esc(p.label) + '</b><span>' + esc(p.eff) + '</span></button>').join("");
   const preds = state.parts.map((x, i) => '<button type="button" class="gm-team' + (c.pred === i ? " on" : "") + '" onclick="gmPred(' + i + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b><small>' + (s.indexOf(x)+1) + '位</small></button>').join("");
-  const ready = c.pick !== null && c.pred !== null && (t.rival || c.rival);
+  const ready = c.pick !== null && (state.opts.points === false || (c.pred !== null && (t.rival || c.rival) && (t.oshi || c.oshi)));
   $("event-panel").innerHTML =
     '<div class="gm-wrap">' +
     '<h2><span class="kicker">' + (MONTH_LABEL[c.no] || "") + '末</span>GMの決断</h2>' +
     '<div class="gm-team-line">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b><span>' + rank + '位　' + t.W + '勝' + t.L + '敗' + (stk ? '　' + (stk > 0 ? stk + '連勝中' : (-stk) + '連敗中') : '') + '</span><span class="gm-pts">総合 <i>' + (t.pts||0) + '</i>点</span></div>' +
     (c.report.length ? '<div class="gm-report">' + c.report.map(r => '<div class="' + (r.ok ? "ok" : "ng") + '">' + esc(r.txt) + '</div>').join("") + '</div>' : '') +
-    rivalHtml +
+    (state.opts.points === false ? '' : oshiHtml + rivalHtml) +
     '<div class="gm-sec"><div class="gm-h">今月の施策<small>一つだけ。必ず得と損が抱き合わせ</small></div><div class="gm-cards">' + cards + '</div></div>' +
-    '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月末の首位は？ 的中で+2点</small></div><div class="gm-teams">' + preds + '</div></div>' +
+    (state.opts.points === false ? '' : '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月末の首位は？ 的中で+2点</small></div><div class="gm-teams">' + preds + '</div></div>') +
     '<div class="gm-foot"><span>' + (c.idx+1) + ' / ' + c.queue.length + '球団</span><button class="btn rl-go" ' + (ready ? '' : 'disabled') + ' onclick="gmCommit()">決定</button></div>' +
     '</div>';
 }
 function gmPick(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pick = i; seTap(); gmRender(); }
 function gmPred(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pred = i; seTap(); gmRender(); }
 function gmRival(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.rival = state.parts[i]; seTap(); gmRender(); }
+function gmOshi(id){ const c = state.eventCtx; if(!c || c.type !== "gm") return; const t = c.queue[c.idx]; c.oshi = lineupOf(t).concat(pitchersOf(t)).find(function(p){ return p.id === id; }) || null; seTap(); gmRender(); }
 function gmCommit(){
   const c = state.eventCtx;
-  if(!c || c.type !== "gm" || c.pick === null || c.pred === null) return;
+  if(!c || c.type !== "gm" || c.pick === null) return;
   const t = c.queue[c.idx];
+  if(state.opts.points !== false && c.pred === null) return;
   if(!t.rival && c.rival) t.rival = c.rival;
+  if(!t.oshi && c.oshi) t.oshi = c.oshi;
   const card = c.cards[c.pick];
   const msg = card.run(t) || "";
-  t.pred = state.parts[c.pred];
+  t.pred = c.pred === null ? null : state.parts[c.pred];
   const txt = "【GM】" + t.name + "が「" + card.label + "」を実行。" + msg;
   state.news.unshift({mo: (MONTH_LABEL[c.no] || "") + "末", txt}); telop(txt);
   seWin();
@@ -5783,8 +5879,9 @@ const R_PANES = [["rparty","総合得点"], ["rrank","順位と表彰"], ["rchro
 function renderResultTabs(){
   const box = $("r-tabs");
   if(!box) return;
-  if(!state.rPane) state.rPane = "rparty";
-  box.innerHTML = R_PANES.map(function(x){
+  const panes = R_PANES.filter(function(x){ return x[0] !== "rparty" || state.opts.points !== false; });
+  if(!state.rPane || !panes.some(function(x){ return x[0] === state.rPane; })) state.rPane = panes[0][0];
+  box.innerHTML = panes.map(function(x){
     return '<button class="s-tab' + (state.rPane === x[0] ? " on" : "") +
       '" onclick="resultPane(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
   }).join("");

@@ -24,33 +24,104 @@ function ldParkTagline(pk){
   if(pk.run <= 0.96) return '一点の重みが違う、守りの城。';
   return '勝負を分けるのは、ここで過ごす一年。';
 }
-const MAP_MS = 2800;   // 世界地図からその場所へ飛ぶ時間
-// 世界地図。ピンの位置を基点に拡大し、街へ降りていく
+// 儀式の段階。引く前は必ず「idle」。前の人の「complete」を持ち越さない
+function ldCeremonyStage(G,x){
+  if(x&&x.open)return 'complete';
+  if(!G||!G.pulls)return 'idle';
+  return G.ceremony==='lights'?'lights':'approach';
+}
+function ldReduced(){return typeof window!=='undefined'&&window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;}
+function ldRankTint(rank){return (typeof ldRankColor!=='undefined'&&ldRankColor[rank])||'#e0a600';}
+// 小さな効果音(game.js の tone を借りる)
+function ldSe(list){if(typeof sndOn==='undefined'||!sndOn||typeof ac!=='function')return;const c=ac();if(!c)return;const t=c.currentTime;list.forEach(([f,dt,dur,vol,type])=>tone(t+dt,f,dur||0.08,vol||0.08,type||'triangle'));}
+function seMapTick(){ldSe([[1200,0,0.04,0.05,'square']]);}
+function seMapLock(){ldSe([[660,0,0.12,0.09],[990,0.09,0.18,0.09],[1320,0.18,0.3,0.07]]);}
+function seNameTick(){ldSe([[520,0,0.05,0.05,'square']]);}
+function seSealBreak(){if(typeof seCrack==='function')seCrack();}
+
+// ============================================================
+// 球場: 世界地図の上で候補地が点灯 → 本拠地でロック → その街へ降りる → 入場 → 照明
+// ============================================================
+const MAP_MS = 4200;   // タップから地図が消えるまで(探索1.3秒→ロック0.5秒→降下2秒→着地)
+const PARK_CITY = {
+  escon:'北海道・北広島', jingu:'東京・神宮外苑', hama:'神奈川・横浜', zozo:'千葉・幕張', paypay:'福岡・百道浜',
+  mazda:'広島', tokyodome:'東京・水道橋', beluna:'埼玉・所沢', kyocera:'大阪・大正', koshien:'兵庫・西宮',
+  rakuten:'宮城・仙台', vantelin:'愛知・名古屋', korakuen:'東京・後楽園', osaka:'大阪・難波', nishinomiya:'兵庫・西宮北口',
+  kawasaki:'神奈川・川崎', heiwadai:'福岡・大濠', fujiidera:'大阪・藤井寺', coors:'コロラド・デンバー', fenway:'ボストン',
+  wrigley:'シカゴ', yankee:'ニューヨーク・ブロンクス', oracle:'サンフランシスコ', petco:'サンディエゴ', bocchan:'愛媛・松山',
+  muscat:'岡山・倉敷', alpen:'富山', cellular:'沖縄・那覇', tokyostadium:'東京・南千住', nagoya:'愛知・名古屋',
+  'hiroshima-old':'広島・基町', nissei:'大阪・森ノ宮', dodger:'ロサンゼルス', gabp:'オハイオ・シンシナティ', tropicana:'フロリダ・セントピーターズバーグ',
+  polo:'ニューヨーク・マンハッタン', sunmarine:'宮崎', kitakyushu:'福岡・北九州', ishikawa:'石川・金沢', komachi:'秋田',
+  hardoff:'新潟', kusanagi:'静岡', obihiro:'北海道・帯広', abira:'北海道・安平',
+};
+function ldParkRegion(pk){
+  const g=PARK_GEO[pk.id];if(!g)return '';
+  const lat=g[0],lng=g[1];
+  return lng<0?'アメリカ':lat<27?'日本・沖縄':lng<131.5?'日本・九州':lng<134.5?'日本・中国／四国':lng<136.5?'日本・関西':lng<138.5?'日本・中部':lat<37.5?'日本・関東':lat<41?'日本・東北':'日本・北海道';
+}
+// 地図の土台。ピンは拡大される箱の外に置き、拡大しても同じ大きさに見せる
 function ldWorldMap(pk){
-  const xy = parkMapXY(pk);
-  if(!xy) return '';
-  const g = PARK_GEO[pk.id], lat = g[0], lng = g[1];
-  const region = lng < 0 ? 'アメリカ' : lat < 27 ? '日本・沖縄' : lng < 131.5 ? '日本・九州' : lng < 134.5 ? '日本・中国／四国' : lng < 136.5 ? '日本・関西' : lng < 138.5 ? '日本・中部' : lat < 37.5 ? '日本・関東' : lat < 41 ? '日本・東北' : '日本・北海道';
-  return '<div class="gc-map" style="--px:'+xy.x.toFixed(2)+'%;--py:'+xy.y.toFixed(2)+'%">' +
-    '<div class="gc-map-box"><img class="gc-map-img" src="worldmap.webp" alt="" decoding="async">' +
-      '<div class="gc-map-grid"></div>' +
-      '<div class="gc-map-pin"><i></i><i class="r2"></i><b></b></div>' +
-    '</div>' +
-    '<div class="gc-map-cap"><small>'+esc(region)+'</small><b>'+esc(pk.name)+'</b><span>へ向かう……</span></div>' +
-    '<div class="gc-map-credit">地図: NASA Blue Marble (Public domain)</div>' +
+  const xy=parkMapXY(pk);if(!xy)return '';
+  const others=PARKS.filter(p=>p.id!==pk.id&&PARK_GEO[p.id]);
+  const dots=others.map(p=>{const q=parkMapXY(p);return '<i style="left:'+q.x.toFixed(2)+'%;top:'+q.y.toFixed(2)+'%"></i>';}).join('');
+  return '<div class="gc-map" style="--px:'+xy.x.toFixed(2)+'%;--py:'+xy.y.toFixed(2)+'%">'+
+    '<div class="gc-map-box"><img class="gc-map-img" src="worldmap.webp" alt="" decoding="async"><div class="gc-map-grid"></div><div class="gc-map-dots">'+dots+'</div></div>'+
+    '<div class="gc-map-pin"><i></i><i class="r2"></i><b></b></div>'+
+    '<div class="gc-map-cap"><small>本拠地を探しています</small><b>&nbsp;</b><span>&nbsp;</span></div>'+
+    '<div class="gc-map-credit">地図: NASA Blue Marble (Public domain)</div>'+
   '</div>';
+}
+// 地図の進行。候補地を巡るルーレット → 決定地でロック → その地点を中央へ寄せながら降下
+function ldMapRun(G,pk){
+  const map=document.querySelector('.gc-map'),box=map&&map.querySelector('.gc-map-box'),pin=map&&map.querySelector('.gc-map-pin');
+  if(!map||!box||!pin)return;
+  const alive=()=>state.gacha===G&&G.ceremony==='approach'&&map.isConnected;
+  const cap=map.querySelector('.gc-map-cap'),capSmall=cap.querySelector('small'),capB=cap.querySelector('b'),capSpan=cap.querySelector('span');
+  const mapRect=map.getBoundingClientRect();
+  const place=(q)=>{const r=box.getBoundingClientRect();return {x:r.left-mapRect.left+r.width*q.x/100,y:r.top-mapRect.top+r.height*q.y/100};};
+  const moveTo=(q)=>{const s=place(q);pin.style.left=s.x.toFixed(1)+'px';pin.style.top=s.y.toFixed(1)+'px';};
+  const dest=parkMapXY(pk);
+  // 候補地: 決定地と離れた球場を混ぜて、最後に決定地で止まる
+  const pool=PARKS.filter(p=>p.id!==pk.id&&PARK_GEO[p.id]).sort(()=>rnd()-0.5).slice(0,7).map(parkMapXY);
+  const steps=pool.concat([dest]);
+  const gaps=[0,110,110,120,140,170,220,300];   // だんだん遅くなる
+  let t=120;
+  map.classList.add('map-search');moveTo(steps[0]);
+  steps.forEach((q,i)=>{t+=gaps[i]||0;ldDelay(()=>{if(!alive())return;moveTo(q);seMapTick();if(i===steps.length-1)lock();},t);});
+  function lock(){
+    map.classList.remove('map-search');map.classList.add('map-lock');seMapLock();
+    capSmall.textContent=ldParkRegion(pk);capB.textContent=PARK_CITY[pk.id]||'';capSpan.textContent='本拠地を確認';
+    ldDelay(()=>{if(!alive())return;
+      // ピンを画面の中央へ寄せつつ拡大。原点をピンに置けば、平行移動ぶんだけピンが動く
+      const r=box.getBoundingClientRect(),s=place(dest);
+      const cx=mapRect.width/2,cy=mapRect.height*0.44,dx=cx-s.x,dy=cy-s.y;
+      box.style.transformOrigin=dest.x.toFixed(2)+'% '+dest.y.toFixed(2)+'%';
+      map.classList.add('map-dive');
+      box.style.transform='translate('+dx.toFixed(1)+'px,'+dy.toFixed(1)+'px) scale(7)';
+      pin.style.left=cx.toFixed(1)+'px';pin.style.top=cy.toFixed(1)+'px';
+      capSpan.textContent='降下中……';
+    },520);
+    ldDelay(()=>{if(!alive())return;capSpan.textContent='着地';map.classList.add('map-land');},2250);
+  }
 }
 function ldParkPhoto(pk){const source=PARK_PHOTO[pk.id];return source?ldPlayerPhoto({pu:source.u}).src:'';}
 function ldParkStage(x){
-  const G=state.gacha,done=!!x?.open,phase=done?'complete':G.ceremony||'idle',pk=x?.park;
+  const G=state.gacha,done=!!x?.open,phase=ldCeremonyStage(G,x),pk=x?.park;
   const photo=pk&&ldParkPhoto(pk),credit=pk&&PARK_PHOTO[pk.id];
-  const mapHtml = (pk && !done && !G.mapDone) ? ldWorldMap(pk) : '';
-  return '<section class="home-ceremony home-'+phase+(mapHtml?' home-mapping':'')+'" aria-label="本拠地の決定">'+mapHtml+'<img class="home-panorama" src="'+(photo||'stadium.webp')+'" alt="'+(done&&photo?esc(pk.name):'')+'" onerror="this.src=\'stadium.webp\';this.onerror=null;this.closest(\'section\').classList.add(\'home-fallback\')"><img class="home-tunnel" src="stadium-entry.webp" alt=""><div class="home-shade"></div><div class="home-light" aria-hidden="true"></div><div class="home-lamps" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home-content">'+(done?'<span class="home-eyebrow">'+esc(gachaTeam().name)+' の本拠地　<b class="home-grade">球場の格 '+parkRank(pk)+'</b></span><h2>'+esc(pk.name)+'</h2><p class="home-tagline">'+ldParkTagline(pk)+'</p><p class="home-type">'+esc(pk.cat)+' / '+esc(pk.type)+'</p><div class="home-traits">'+parkTraitChips(pk)+'</div><div class="home-facts"><span><small>本塁打</small><b>'+(pk.hr>=1.12?'出やすい':pk.hr<=.9?'出にくい':'標準')+'</b></span><span><small>球場の傾向</small><b>'+(pk.run>=1.06?'打者有利':pk.run<=.96?'投手有利':'バランス型')+'</b></span></div><p class="home-note">'+esc(pk.note||'')+'</p>':'<span class="home-eyebrow">本拠地を決める</span><h2>'+(phase==='idle'?'ここから、<br>球団の歴史が始まる。':phase==='approach'?'スタンドの、その先へ。':'照明が、灯る。')+'</h2><p class="home-type">'+(phase==='idle'?'まだ誰もいない球場へ。':'まもなく、あなたのホームが決まります。')+'</p>')+'</div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'本拠地を確認して次へ':'タップして球場へ入る')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして別の球場へ':'タップして次へ'):phase==='idle'?'タップして球場に入る':'')+'</div>'+(done?'<div class="home-credit">'+(credit?'<a href="'+esc(credit.u)+'" target="_blank" rel="noopener">写真：'+esc(credit.a)+' / '+esc(credit.l)+'</a>':'<span>球場イメージ</span>')+'<span class="home-image-fallback">球場イメージ</span></div>':'')+'</section>';
+  const mapHtml=(pk&&phase==='approach'&&!G.mapDone)?ldWorldMap(pk):'';
+  const tint=x?ldRankTint(x.rank):'#e0a600';
+  return '<section class="home-ceremony home-'+phase+(mapHtml?' home-mapping':'')+'" style="--rk:'+tint+'" aria-label="本拠地の決定">'+mapHtml+'<img class="home-panorama" src="'+(photo||'stadium.webp')+'" alt="'+(done&&photo?esc(pk.name):'')+'" onerror="this.src=\'stadium.webp\';this.onerror=null;this.closest(\'section\').classList.add(\'home-fallback\')"><img class="home-tunnel" src="stadium-entry.webp" alt=""><div class="home-shade"></div><div class="home-light" aria-hidden="true"></div><div class="home-lamps" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home-content">'+(done?'<span class="home-eyebrow">'+esc(gachaTeam().name)+' の本拠地　<b class="home-grade">球場の格 '+parkRank(pk)+'</b></span><h2>'+esc(pk.name)+'</h2><p class="home-tagline">'+ldParkTagline(pk)+'</p><p class="home-type">'+esc(PARK_CITY[pk.id]||'')+'　'+esc(pk.cat)+' / '+esc(pk.type)+'</p><div class="home-traits">'+parkTraitChips(pk)+'</div><div class="home-facts"><span><small>本塁打</small><b>'+(pk.hr>=1.12?'出やすい':pk.hr<=.9?'出にくい':'標準')+'</b></span><span><small>球場の傾向</small><b>'+(pk.run>=1.06?'打者有利':pk.run<=.96?'投手有利':'バランス型')+'</b></span></div><p class="home-note">'+esc(pk.note||'')+'</p>':'<span class="home-eyebrow">本拠地を決める</span><h2>'+(phase==='idle'?'ここから、<br>球団の歴史が始まる。':phase==='approach'?'スタンドの、その先へ。':'照明が、灯る。')+'</h2><p class="home-type">'+(phase==='idle'?'まだ誰もいない球場へ。':'まもなく、あなたのホームが決まります。')+'</p>')+'</div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'本拠地を確認して次へ':'タップして球場へ入る')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして別の球場へ':'タップして次へ'):phase==='idle'?'タップして球場に入る':'')+'</div>'+(done?'<div class="home-credit">'+(credit?'<a href="'+esc(credit.u)+'" target="_blank" rel="noopener">写真：'+esc(credit.a)+' / '+esc(credit.l)+'</a>':'<span>球場イメージ</span>')+'<span class="home-image-fallback">球場イメージ</span></div>':'')+'</section>';
 }
+
+// ============================================================
+// 監督: 封筒が届く → 封蝋がランクの色に光る → 開封 → 契約書 → 候補者の名前が巡る → 署名 → 契約成立
+// ============================================================
 function ldManagerStage(x){
-  const done=!!x?.open,p=x?.p,phase=done?'complete':state.gacha.ceremony||'idle';
-  const paper='<article class="manager-document"><header><span>監督就任に関する契約書</span><b>'+esc(gachaTeam().name)+'</b></header><p class="manager-clause">本球団は、次の監督にチームの指揮を委ねる。</p><div class="manager-signature">'+(done?'<em class="manager-epithet">'+ldEpithet(p)+'</em>':'')+'<small>就任監督</small><strong>'+(done?esc(p.name):'────────')+'</strong></div>'+(done?'<div class="manager-record"><span>通算勝利 <b>'+(p.wins??'—')+'</b></span><span>リーグ優勝 <b>'+(p.pennants??'—')+'</b></span><span>'+(p.mlb?'世界一':'日本一')+' <b>'+(p.japan??'—')+'</b></span></div><p>'+esc(p.desc||'')+'</p><div class="manager-seal">契約成立</div>':'<p class="manager-status">就任の署名を確認しています…</p>')+'<footer><span>契約先</span><b>'+esc(gachaTeam().name)+'</b></footer></article>';
-  return '<section class="manager-ceremony manager-'+phase+'"><div class="manager-heading"><span>球団人事</span><h2>'+(done?ldManagerHeadline(p):'一通の封筒が、届いた。')+'</h2><p>'+esc(gachaTeam().name)+' の指揮を託す。</p></div><div class="manager-mail"><div class="manager-letter">'+paper+'</div><img class="mail-closed" src="envelope-closed.webp" alt=""><img class="mail-open" src="envelope-open.webp" alt=""><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'契約を確認して次へ':'封筒をタップして開封')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして次の契約へ':'タップして次へ'):phase==='idle'?'封筒をタップして開ける':'')+'</div></div>'+(done?'<div class="manager-appointed">'+cardHtml(p,x.rank,{size:'l',pos:'監督',onclick:'cardPop(0)'})+'</div>':'')+'</section>';
+  const G=state.gacha,done=!!x?.open,p=x?.p,phase=ldCeremonyStage(G,x);
+  const tint=x?ldRankTint(x.rank):'#e0a600';
+  const paper='<article class="manager-document"><header><span>監督就任に関する契約書</span><b>'+esc(gachaTeam().name)+'</b></header><p class="manager-clause">本球団は、次の監督にチームの指揮を委ねる。</p><div class="manager-signature">'+(done?'<em class="manager-epithet">'+ldEpithet(p)+'</em>':'<em class="manager-epithet manager-epithet-wait">&nbsp;</em>')+'<small>就任監督</small><strong>'+(done?esc(p.name):'────────')+'</strong></div>'+(done?'<div class="manager-record"><span>通算勝利 <b>'+(p.wins??'—')+'</b></span><span>リーグ優勝 <b>'+(p.pennants??'—')+'</b></span><span>'+(p.mlb?'世界一':'日本一')+' <b>'+(p.japan??'—')+'</b></span></div><p class="manager-desc">'+esc(p.desc||'')+'</p><div class="manager-seal">契約成立</div>':'<p class="manager-status">就任の署名を確認しています…</p>')+'<footer><span>契約先</span><b>'+esc(gachaTeam().name)+'</b></footer></article>';
+  const heading=done?ldManagerHeadline(p):phase==='idle'?'一通の封筒が、届いた。':phase==='approach'?'封を、切る。':'契約書が、姿を見せる。';
+  return '<section class="manager-ceremony manager-'+phase+'" style="--rk:'+tint+'"><div class="manager-heading"><span>球団人事</span><h2>'+heading+'</h2><p>'+esc(gachaTeam().name)+' の指揮を託す。</p></div><div class="manager-mail"><div class="manager-letter">'+paper+'</div><img class="mail-closed" src="envelope-closed.webp" alt=""><img class="mail-open" src="envelope-open.webp" alt=""><div class="mail-seal" aria-hidden="true"></div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'契約を確認して次へ':'封筒をタップして開封')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして次の契約へ':'タップして次へ'):phase==='idle'?'封筒をタップして開ける':'')+'</div></div>'+(done?'<div class="manager-appointed">'+cardHtml(p,x.rank,{size:(typeof innerWidth==='number'&&innerWidth<=700)?'s':'l',pos:'監督',onclick:'cardPop(0)'})+'</div>':'')+'</section>';
 }
 function ldCeremonyTap(){
   const G=state.gacha;if(!G||ldBusy)return;
@@ -61,11 +132,30 @@ function ldCeremonyPhase(G,phase){
   if(state.gacha!==G||G.ceremony==='complete')return;
   const kind=gachaRound().k,scene=document.querySelector(kind==='K'?'.home-ceremony':'.manager-ceremony');
   G.ceremony=phase;
-  if(scene){scene.classList.remove(kind==='K'?'home-approach':'manager-approach');scene.classList.add((kind==='K'?'home-':'manager-')+phase);const line=scene.querySelector('.home-content h2');if(line)line.textContent='照明が、灯る。';}else renderGacha();
-  if(kind==='M')ldDelay(()=>ldWriteSignature(G),window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:950);
+  if(scene){
+    scene.classList.remove(kind==='K'?'home-approach':'manager-approach');scene.classList.add((kind==='K'?'home-':'manager-')+phase);
+    const line=scene.querySelector(kind==='K'?'.home-content h2':'.manager-heading h2');if(line)line.textContent=kind==='K'?'照明が、灯る。':'契約書が、姿を見せる。';
+  }else renderGacha();
+  if(kind==='M'){
+    // 契約書が持ち上がったら、候補者の名前が巡ってから本人の署名
+    const reduced=ldReduced();
+    ldDelay(()=>ldNameRoulette(G,()=>ldWriteSignature(G)),reduced?0:1150);
+  }
   seWin();
 }
-
+// 就任監督の欄で、他の監督の名前が次々に浮かんでは消える。最後に本人へ
+function ldNameRoulette(G,then){
+  if(state.gacha!==G||G.ceremony!=='lights')return then();
+  const real=G.pulls?.[0]?.p,slot=document.querySelector('.manager-signature strong'),status=document.querySelector('.manager-status');
+  if(!real||!slot||ldReduced())return then();
+  const pool=(typeof POOL!=='undefined'?POOL:[]).filter(p=>p.cat==='M'&&p.name!==real.name&&!(typeof nameTaken==='function'&&nameTaken(p))).sort(()=>rnd()-0.5).slice(0,7);
+  if(!pool.length)return then();
+  if(status)status.textContent='候補者を、絞り込んでいる。';
+  slot.classList.add('name-roulette');
+  const gaps=[0,90,90,100,120,150,200];let t=0;
+  pool.forEach((p,i)=>{t+=gaps[i]||0;ldDelay(()=>{if(state.gacha!==G||G.ceremony!=='lights')return;slot.textContent=p.name;seNameTick();},t);});
+  ldDelay(()=>{if(state.gacha!==G||G.ceremony!=='lights')return;slot.classList.remove('name-roulette');slot.textContent='';then();},t+260);
+}
 function ldWriteSignature(G){
   if(state.gacha!==G||G.ceremony!=='lights')return;
   const name=G.pulls?.[0]?.p?.name,signature=document.querySelector('.manager-signature strong');
@@ -73,6 +163,7 @@ function ldWriteSignature(G){
   signature.classList.add('ink-signature');
   signature.innerHTML=Array.from(name).map((letter,i)=>'<span style="--stroke:'+i+'">'+esc(letter)+'</span>').join('');
   const status=document.querySelector('.manager-status');if(status)status.textContent='新監督の署名が、記されていく。';
+  ldSe([[440,0,0.5,0.03,'sine']]);
 }
 
 ldField=function(){const kind=gachaRound().k,x=state.gacha.pulls?.[0];return kind==='K'?ldParkStage(x):kind==='M'?ldManagerStage(x):ldPlayerField();};
@@ -92,15 +183,32 @@ function ldCeremonyFinish(){
 gachaPull=function(auto){
   const G=state.gacha,kind=gachaRound().k;if(auto||!['K','M'].includes(kind))return ldPlayerPull(auto);
   if(!G||G.pulls||ldBusy)return;
-  G.ceremony='approach';ldOriginalPull();ldBusy=true;seRollStop();seWhoosh();
-  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if(kind==='K'&&!reduced){G.mapDone=false;ldDelay(()=>{if(state.gacha===G){G.mapDone=true;const m=document.querySelector('.gc-map');if(m)m.remove();const s=document.querySelector('.home-ceremony');if(s)s.classList.remove('home-mapping');}},MAP_MS);}else{G.mapDone=true;}
-  ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:kind==='K'?1800+MAP_MS:900);
-  ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:kind==='K'?3200+MAP_MS:2500+Array.from(G.pulls[0].p.name).length*250);   // 署名は1文字0.25秒
+  G.ceremony='approach';G.mapDone=false;ldOriginalPull();ldBusy=true;seRollStop();
+  const reduced=ldReduced();
+  if(kind==='K'){
+    if(reduced){G.mapDone=true;}
+    else{
+      seWhoosh();
+      const pk=G.pulls?.[0]?.park;
+      ldDelay(()=>{if(state.gacha===G&&G.ceremony==='approach')ldMapRun(G,pk);},60);
+      // 地図が終わったら外し、入場(トンネル)を始める
+      ldDelay(()=>{if(state.gacha!==G)return;G.mapDone=true;const m=document.querySelector('.gc-map');if(m)m.remove();const s=document.querySelector('.home-ceremony');if(s)s.classList.remove('home-mapping');seWhoosh();},MAP_MS);
+    }
+    const mapMs=reduced?0:MAP_MS;
+    ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:mapMs+1900);
+    ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:mapMs+3500);
+  }else{
+    G.mapDone=true;
+    if(!reduced){ldDelay(seSealBreak,800);}
+    const nameMs=Array.from(G.pulls[0].p.name).length*250;   // 署名は1文字0.25秒
+    ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:1900);
+    ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:1900+1150+1010+nameMs+700);
+  }
 };
 renderGacha=function(){
   const G=state.gacha;if(!G)return;
-  if(G.ceremony==='approach'&&G.phase==='caps'&&document.querySelector('.home-approach,.manager-approach'))return;
+  // 演出の途中(接近・署名中)に描き直すと動きが途切れるので、差し替えない
+  if(G.pulls&&!G.pulls[0]?.open&&(G.ceremony==='approach'||G.ceremony==='lights')&&document.querySelector('.home-approach,.manager-approach,.home-lights,.manager-lights'))return;
   ldClubRender();
   const tabs=$('ld-tabs').querySelectorAll('button');if(tabs[0])tabs[0].innerHTML='<small>01</small>本拠地';if(tabs[1])tabs[1].innerHTML='<small>02</small>監督契約';
   const kind=gachaRound().k;if(!['K','M'].includes(kind))return;

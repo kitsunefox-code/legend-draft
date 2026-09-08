@@ -403,7 +403,8 @@
 /* 中継: イニング表は合計を大きく、イニング別は細く */
 #lv-board table{table-layout:fixed;}
 #lv-board th,#lv-board td{padding:3px 0;font-size:9.5px;}
-#lv-board td.tn{font-size:12px;font-weight:700;text-align:left;padding-left:6px;width:26%;}
+#lv-board th:first-child{width:27%;}
+#lv-board td.tn{font-size:11px;font-weight:700;text-align:left;padding-left:5px;padding-right:2px;width:27%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.3px;}
 #lv-board td.r,#lv-board th:last-child{font:700 20px/1.1 "Oswald",sans-serif;color:#ffd257;width:14%;}
 #lv-board td.now{background:rgba(255,210,87,.18);}
 /* ルーレット: 対照表は小さく、当たったら当たりだけ */
@@ -496,3 +497,12 @@
   #scr-gacha .manager-complete .manager-seal{font-size:18px;padding:5px 12px;margin-top:12px;}
 }
 @media (min-width:701px){ .bk-today{display:none;} }
+
+/* 月末ハドルの帯が出ている間は、下の盤の見出しを帯の分だけ下げる。速報の帯は催しの画面では出さない */
+@media (max-width:700px){
+  body:has(#huddle-bar.show) #event-panel{padding-top:44px;}
+  body:has(#huddle-bar.show) #gogai-bg{padding-top:40px;}
+  .gm-card b{width:96px;font-size:13px;letter-spacing:-.2px;}
+}
+/* 速報の帯は、催し・号外・中継・幕の上には出さない(机でも携帯でも) */
+body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-bg.show) .telop,body:has(#curtain-bg.show) .telop{display:none !important;}

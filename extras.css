@@ -85,4 +85,4 @@ h1,h2,h3,.gc-nm,.pc-nm,.ld-card-name,.home-content h2,.manager-heading h2,.c-tit
 /* 世界地図の演出は ceremony.css へ移動 */
 
 /* 扉の説明は文節で折る */
-#c-sub{line-break:strict;word-break:keep-all;overflow-wrap:anywhere;max-width:22em;margin-left:auto;margin-right:auto;}
+#c-sub{line-break:strict;word-break:normal;overflow-wrap:break-word;max-width:22em;margin-left:auto;margin-right:auto;}

@@ -408,6 +408,7 @@ function bindDraftFilter(){
 function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
+  $("modal-bg").classList.remove("show");   // 球団アイコンの選択が開いたままでも持ち越さない
   // 枠を組んでからチームを作る(newTeamがSP_KEYSを写し取るため順序が大事)
   const gachaOn = $("opt-gacha") ? $("opt-gacha").checked : false;
   if(gachaOn) applyRoster(5, 5, 6);   // ガチャは27人固定: 野手15・投手11・監督1
@@ -1027,10 +1028,11 @@ function gachaDraw(t, d, minTier){
 // 球場の「格」。癖の強さで決める。MLBの名球場と極端な球場ほど上
 function parkRank(pk){
   const edge = Math.abs((pk.hr || 1) - 1) + Math.abs((pk.run || 1) - 1);
+  if(pk.cat === "草野球") return "C";                       // 町の球場は癖が強くても格は上がらない
+  if(pk.cat === "地方") return edge >= 0.12 ? "A" : "B";
   if(pk.cat === "MLB" && edge >= 0.18) return "SS";
   if(pk.cat === "MLB" || edge >= 0.22) return "S";
   if(edge >= 0.12) return "A";
-  if(pk.cat === "草野球") return "C";
   return "B";
 }
 function gachaPull(auto){
@@ -2188,6 +2190,8 @@ function startBidRound(part, teamIdxs){
 }
 // skipLabel を渡すと「見送る」側のボタンが出る(押すと閉じるだけ)
 function curtain(title, sub, btnLabel, cb, skipLabel, skipCb){
+  const kick = document.querySelector("#curtain .c-kicker");
+  if(kick) kick.textContent = state.gacha ? "球団結成" : state.campCtx ? "開幕編成" : (document.body.dataset.scr === "scr-season" ? "ペナントレース" : "ドラフト会議");
   $("c-title").textContent = title;
   $("c-sub").innerHTML = sub;
   const b = $("c-btn");
@@ -3215,7 +3219,7 @@ function renderSaihai(){
   const s = standingsSorted();
   const rank = s.indexOf(t) + 1;
   const gb = rank === 1 ? "首位" : "首位と" + gameBehind(s[0], t) + "ゲーム差";
-  const left = state.schedule.length - state.day;
+  const left = Math.max(0, Math.round(state.gamesPer || 144) - (t.W + t.L + (t.T || 0)));
 
   if(c.done){
     const d = c.done;
@@ -3569,6 +3573,8 @@ function creditGame(A, B, rA, rB, seen){
 // ============================================================
 // 打者と投手の力関係から、その打席の結果の確率を作る
 function paProbs(bat, pit, park){
+  // 名選手だけのリーグなので、登録成績をそのまま使うと1試合8点・リーグ打率.330の打高になる。
+  // 打率・本塁打は「平均に寄せた上で差だけ残す」形に直し、1試合4.9点・打率.280前後に較正(2026-09-08、300試合の試算)
   const bo = bat.ovr || 78;
   const po = pit ? (pit.ovr || 78) : 74;
   const edge = (bo - po) * 0.006;              // 打者有利ならプラス
@@ -3576,18 +3582,15 @@ function paProbs(bat, pit, park){
   const runF = park ? park.run : 1;
 
   // 四球: 出塁能力の高い打者ほど多い
-  let bb = clamp(0.082 + (bo - 80) * 0.0022 + edge * 0.35, 0.035, 0.165);
+  let bb = clamp(0.078 + (bo - 80) * 0.0018 + edge * 0.3, 0.035, 0.14);
   // 三振: 奪三振の多い投手ほど多く、巧打者ほど少ない
   const k9 = pit && pit.so ? clamp(pit.so / 22, 4, 11) : 7;
-  let so = clamp(0.165 + (k9 - 7) * 0.019 - (bat.avg - 0.285) * 0.55 - edge * 0.5, 0.05, 0.36);
+  let so = clamp(0.19 + (k9 - 7) * 0.02 - (bat.avg - 0.285) * 0.4 - edge * 0.4, 0.06, 0.36);
   // 本塁打: 登録本塁打と球場から
-  let hr = clamp(((bat.hr || 8) / 620) * hrF * (1 + edge * 1.6), 0.004, 0.085);
-  // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す。
-  // ここを打席あたりのまま扱うとリーグ打率が.190台まで落ちる
+  let hr = clamp(((bat.hr || 8) / 1150) * hrF * (1 + edge * 1.4), 0.004, 0.06);
+  // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す
   const abShare = 1 - bb - 0.008;
-  // 得点は打率に対して非線形に増えるので、パークファクターをそのまま打率に足すと
-  // 効きが倍以上に膨らむ。実測で得点比がPF比に一致するところまで落としてある
-  const avg = clamp(bat.avg + edge * 0.85 + (runF - 1) * 0.105, 0.170, 0.420);
+  const avg = clamp(0.262 + (bat.avg - 0.300) * 0.5 + edge * 0.6 + (runF - 1) * 0.08, 0.170, 0.360);
   let hit = avg * abShare - hr;                // 本塁打ぶんを差し引いた単打・長打
   if(hit < 0.04) hit = 0.04;
 
@@ -3871,9 +3874,9 @@ function finishDay(rolled){
       const cyc = f.A.cycle || f.B.cycle;
       if(!flash && cyc){ const ct = f.A.cycle ? A : B; flash = `【サイクル安打】${cyc.name}（${ct.name}）がサイクルヒット達成！`; record("サイクル安打", cyc, ct, ct === A ? B : A, flash); }
       const h3 = f.A.hr3 || f.B.hr3;
-      if(!flash && h3){ const ht = f.A.hr3 ? A : B; flash = `【1試合${h3.hr}発】${h3.p.name}（${ht.name}）が1試合${h3.hr}本塁打の固め打ち！`; record("1試合" + h3.hr + "本塁打", h3.p, ht, ht === A ? B : A, flash); }
+      if(!flash && h3){ const ht = f.A.hr3 ? A : B; flash = `【1試合${h3.hr}発】${h3.p.name}（${ht.name}）が1試合${h3.hr}本塁打の固め打ち！`; if(h3.hr >= 4) record("1試合" + h3.hr + "本塁打", h3.p, ht, ht === A ? B : A, flash); }
       const kb = (f.A.kBest && f.B.kBest) ? (f.A.kBest.so >= f.B.kBest.so ? f.A.kBest : f.B.kBest) : (f.A.kBest || f.B.kBest);
-      if(!flash && kb && kb.so >= 14){ const kt = f.A.kBest === kb ? A : B; flash = `【${kb.so}奪三振】${kb.p.name}（${kt.name}）が${kb.so}奪三振の快投！`; record(kb.so + "奪三振", kb.p, kt, kt === A ? B : A, flash); }
+      if(!flash && kb && kb.so >= 15){ const kt = f.A.kBest === kb ? A : B; flash = `【${kb.so}奪三振】${kb.p.name}（${kt.name}）が${kb.so}奪三振の快投！`; record(kb.so + "奪三振", kb.p, kt, kt === A ? B : A, flash); }
       if(!flash && diff > 0 && (g.rA === 0 || g.rB === 0) && winSp && rnd() < 0.5){ flash = `${winSp.name}（${win.name}）が${lose.name}を完封！`; }
     }
     if(!flash && diff>0 && [8,10,12,15].includes(win.stk||0)){
@@ -3960,7 +3963,7 @@ function buildMonthGogai(m){
       const diff = t.hist[d] - t.hist[d-1];
       if(diff > 0){ run++; if(run > mx) mx = run; } else if(diff < 0) run = 0;
     }
-    if(!best || mw > best.mw) best = {t, mw, ml};
+    if(!best || mw > best.mw || (mw === best.mw && ml < best.ml)) best = {t, mw, ml};
     return {t, rank:i+1, mw, ml, mx, gap: i === 0 ? 0 : ((lead.W-lead.L)-(t.W-t.L))/2};
   });
   const bigRun = rows.slice().sort((a,b)=>b.mx-a.mx)[0];
@@ -3996,7 +3999,9 @@ function buildMonthGogai(m){
   }else{
     head = `${MONTHS[m]}の主役`; sub = `${best.t.name}が月間${best.mw}勝${best.ml}敗。首位は${lead.name}`;
   }
-  // 来月に向けて区切りを置き直す
+  // 来月に向けて区切りを置き直す。番記者予想の答え合わせ用に今月の最多勝を残す
+  state.lastMonthBest = best ? best.t : null;
+  state.lastMonthBestRec = best ? best.mw + "勝" + best.ml + "敗" : "";
   state.parts.forEach(t => { t.mW0 = t.W; t.mL0 = t.L; });
   state.monthLeader0 = lead;
   state.monthStartDay = state.day;
@@ -4644,7 +4649,7 @@ function powerCardHtml(t){
 }
 // 開幕の幕に出す下馬評
 function oddsLine(){
-  return powerOdds().map(x => esc(x.t.name) + ' ' + Math.round(x.p*100) + '%').join('　');
+  return powerOdds().map(x => esc(x.t.name) + ' ' + (x.p < 0.005 ? '1%未満' : Math.round(x.p*100) + '%')).join('　');
 }
 // ガチャで集めた選手を、力の順に並べ直す。レギュラーの枠に強い選手、控えに弱い選手。
 // 守れる位置の少ない枠(捕手・遊撃…)から先に決めていく
@@ -5245,10 +5250,10 @@ function gmNext(){
 // 先月の予想と「勝負の月」の答え合わせ
 function gmResolve(t){
   const c = state.eventCtx; c.report = [];
-  const lead = standingsSorted()[0];
+  const bestT = state.lastMonthBest;
   if(t.pred){
-    if(t.pred === lead){ addPts(t, 2, "番記者予想 的中"); c.report.push({ok:true, txt:"先月の首位予想「" + t.pred.name + "」が的中！ +2点"}); }
-    else c.report.push({ok:false, txt:"先月の首位予想「" + t.pred.name + "」は外れ。首位は" + lead.name});
+    if(bestT && t.pred === bestT){ addPts(t, 2, "番記者予想 的中"); c.report.push({ok:true, txt:"「今月いちばん勝つのは" + t.pred.name + "」が的中！（" + state.lastMonthBestRec + "）+2点"}); }
+    else c.report.push({ok:false, txt:"「今月いちばん勝つのは" + t.pred.name + "」は外れ。最多勝は" + (bestT ? bestT.name + "（" + state.lastMonthBestRec + "）" : "―")});
     t.pred = null;
   }
   if(t.gamble){
@@ -5272,7 +5277,7 @@ function gmRender(){
     }
     const cands = lineupOf(t).concat(rotKeys(t).map(function(k){ return t.slots[k]; }).filter(Boolean));
     return '<div class="gm-sec"><div class="gm-h">推し選手を宣言<small>この選手の活躍が自分の得点になる。一人だけ、変えられません</small></div><div class="gm-teams gm-oshi-list">' +
-      cands.map(function(p){ return '<button type="button" class="gm-team' + (c.oshi === p ? " on" : "") + '" onclick="gmOshi(' + p.id + ')">' + faceThumb(p, 20, 26) + '<b>' + esc(p.name) + '</b></button>'; }).join("") + '</div></div>';
+      cands.map(function(p){ return '<button type="button" class="gm-team' + (c.oshi === p ? " on" : "") + '" onclick="gmOshi(&quot;' + String(p.id).replace(/"/g,'') + '&quot;)">' + faceThumb(p, 20, 26) + '<b>' + esc(p.name) + '</b></button>'; }).join("") + '</div></div>';
   })();
   const rivalHtml = t.rival
     ? (function(){ const r = (t.h2h||{})[t.rival.name] || {w:0,l:0}; return '<div class="gm-rival"><span class="gm-lb">宿敵</span>' + teamEmblem(t.rival, 18) + '<b>' + esc(t.rival.name) + '</b><span class="gm-h2h">直接対決 <i>' + r.w + '</i>勝<i>' + r.l + '</i>敗</span><small>勝ち越して終えれば+3点</small></div>'; })()
@@ -5288,14 +5293,14 @@ function gmRender(){
     (c.report.length ? '<div class="gm-report">' + c.report.map(r => '<div class="' + (r.ok ? "ok" : "ng") + '">' + esc(r.txt) + '</div>').join("") + '</div>' : '') +
     (state.opts.points === false ? '' : oshiHtml + rivalHtml) +
     '<div class="gm-sec"><div class="gm-h">今月の施策<small>一つだけ。必ず得と損が抱き合わせ</small></div><div class="gm-cards">' + cards + '</div></div>' +
-    (state.opts.points === false ? '' : '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月末の首位は？ 的中で+2点</small></div><div class="gm-teams">' + preds + '</div></div>') +
+    (state.opts.points === false ? '' : '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月、いちばん勝つ球団は？ 的中で+2点（首位当てより難しい）</small></div><div class="gm-teams">' + preds + '</div></div>') +
     '<div class="gm-foot"><span>' + (c.idx+1) + ' / ' + c.queue.length + '球団</span><button class="btn rl-go" ' + (ready ? '' : 'disabled') + ' onclick="gmCommit()">決定</button></div>' +
     '</div>';
 }
 function gmPick(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pick = i; seTap(); gmRender(); }
 function gmPred(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pred = i; seTap(); gmRender(); }
 function gmRival(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.rival = state.parts[i]; seTap(); gmRender(); }
-function gmOshi(id){ const c = state.eventCtx; if(!c || c.type !== "gm") return; const t = c.queue[c.idx]; c.oshi = lineupOf(t).concat(pitchersOf(t)).find(function(p){ return p.id === id; }) || null; seTap(); gmRender(); }
+function gmOshi(id){ const c = state.eventCtx; if(!c || c.type !== "gm") return; const t = c.queue[c.idx]; c.oshi = lineupOf(t).concat(pitchersOf(t)).find(function(p){ return String(p.id) === String(id); }) || null; seTap(); gmRender(); }
 function gmCommit(){
   const c = state.eventCtx;
   if(!c || c.type !== "gm" || c.pick === null) return;
@@ -5414,10 +5419,13 @@ function endEventPhase(){
     $("event-bg").classList.add("show");
     return;
   }
-  $("s-play").disabled = false;
-  if(!state.finished) $("s-skip").disabled = false;
   renderNews();
   renderStandings("standings");
+  // 同じ月末に催しが残っていれば、日を進めずに続ける(GMの決断→ルーレット→球宴…)
+  const nextEv = dueEvent();
+  if(nextEv && !state.finished){ nextEv.done = true; startEvent(nextEv.type, nextEv); return; }
+  $("s-play").disabled = false;
+  if(!state.finished) $("s-skip").disabled = false;
   if(state.resumeAfterEvent && state.day < state.schedule.length){
     state.resumeAfterEvent = false;
     startTimer();

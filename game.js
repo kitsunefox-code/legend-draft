@@ -873,6 +873,7 @@ function renderParkDraft(){
             '<b>' + (pv.run >= 1.06 ? "打高" : pv.run <= 0.96 ? "投高" : "標準") + '</b>') +
           row("向く", esc(pv.good)) +
           row("不向き", esc(pv.bad)) +
+          row("個性", parkTraitChips(pv)) +
         '</div>' +
       '</div>' +
       '<div class="pv-note">' + esc(pv.note) + '</div>' +
@@ -2459,6 +2460,11 @@ function rollForms(){
       if(!p) continue;
       const r = rnd();
       p.form = r<0.08 ? 2 : r<0.30 ? 1 : r<0.70 ? 0 : r<0.92 ? -1 : -2;
+      const tr = parkTraits(t.park);
+      if(tr.crowd >= 1.15 && rnd() < 0.15) p.form = Math.min(2, p.form + 1);        // 満員の後押し
+      if(tr.crowd <= 0.7 && rnd() < 0.15) p.form = Math.max(-2, p.form - 1);        // 客が少なく気が入らない
+      if(tr.fatigue >= 1.3 && state.schedule && state.day > state.schedule.length * 0.55 && rnd() < 0.18)
+        p.form = Math.max(-2, p.form - 1);                                           // 長距離移動の疲れが出る
     }
   }
 }
@@ -2714,7 +2720,7 @@ function rollInjury(){
   if(!state.opts.injury) return;
   if(state.day < 4) return;
   if(rnd() > 0.055) return;
-  const t = pick1(state.parts);
+  const t = pickFatigue(state.parts);
   const cands = [...lineupOf(t), ...pitchersOf(t)].filter(p=>!isOut(p));
   if(cands.length < 12) return;                        // 手薄なチームは狙わない
   const p = pick1(cands);
@@ -2735,6 +2741,63 @@ function playRate(p){
 // ============================================================
 // run は実際のパークファクター(NPBは2025年時点の5年平均、MLBは近年の得点指数)を
 // そのまま使う。hr は各球場の寸法と癖から起こした値。1.00が平均
+// 球場固有の出来事。ホームゲームの一部で起き、その試合だけ球場の癖が変わる。
+// note は元ネタ(史実)。本文に実名を出すのは逸話(称える話)だけ
+const PARK_EVENTS = {
+  kusanagi: [{t:"西日が強く、打者が球を見失う。{H}の先発が奪三振の山を築いた", run:0.72, hr:0.8,
+    note:"1934年11月20日、草薙球場。全日本の沢村栄治(17歳)が全米チーム相手にゲーリンジャー、ルース、ゲーリッグ、フォックスから連続奪三振を含む9奪三振。ゲーリッグの本塁打による1失点で0-1"},
+    {t:"沢村栄治の伝説が残る草薙。今日も投手戦になった", run:0.85}],
+  koshien: [{t:"甲子園の浜風が右翼への打球を押し戻す。大飛球が次々とフェンス手前で落ちた", hr:0.75,
+    note:"甲子園の浜風は一塁側(右翼)方向へ吹き、右打者の引っ張った打球が失速すると言われる"},
+    {t:"満員の甲子園、六甲おろしの大合唱。{H}の選手たちの目の色が変わった", run:1.05}],
+  tokyodome: [{t:"東京ドーム名物の「ドームラン」。天井付近の気流に乗った打球が次々とスタンドへ", hr:1.3,
+    note:"東京ドームは空調の気流で打球が伸びるという俗説から「ドームラン」と呼ばれる本塁打がある"}],
+  zozo: [{t:"マリンの強風。フライがぐんぐん流され、外野手が右往左往", hr:0.7, run:0.92,
+    note:"ZOZOマリンは海風が強く、外野フライが大きく流されることで知られる"}],
+  jingu: [{t:"神宮の夜風と打ち上げ花火。打球が伸びて本塁打の応酬に", hr:1.2,
+    note:"神宮球場では夏の夜に花火が打ち上がる日があり、また夜風で打球が伸びると言われる"}],
+  hama: [{t:"狭いハマスタで乱打戦。両軍合わせて二桁の長打", run:1.2}],
+  kyocera: [{t:"大飛球がドームの天井に当たり、記録は二塁打。判定に場内がざわめく", hr:0.9,
+    note:"京セラドーム大阪では天井に当たった打球の扱いが特別ルールで定められている"}],
+  escon: [{t:"開閉屋根が開き、北海道の乾いた風。打球がよく飛ぶ日になった", hr:1.15}],
+  mazda: [{t:"真っ赤に染まったスタンドの大声援。{H}の選手が押されるように攻めた", run:1.05}],
+  rakuten: [{t:"花火とスモークショーで球場が沸く。攻撃の手が止まらない", run:1.05}],
+  korakuen: [{t:"後楽園のラッキーゾーンへ、次々と打球が飛び込む", hr:1.3,
+    note:"後楽園球場には1959年から本塁打を増やすためのラッキーゾーンが設けられていた"}],
+  kawasaki: [{t:"川崎の狭い球場。場外へ消える打球まで出た", hr:1.2}],
+  nishinomiya: [{t:"西宮の広い外野。長打が少なく、走塁が試合を決めた", hr:0.85}],
+  heiwadai: [{t:"平和台の熱気。九州の地鳴りのような応援が続いた", run:1.05}],
+  coors: [{t:"標高1マイル、クアーズの薄い空気。打球が止まらない", hr:1.3,
+    note:"クアーズ・フィールドは標高約1600mにあり、空気が薄く打球が飛ぶ。2002年からボールを加湿保管して抑えている"}],
+  wrigley: [{t:"リグレーの風が外野へ吹き抜ける。凡フライがスタンドへ", hr:1.3,
+    note:"リグレー・フィールドはミシガン湖からの風向きで打球の飛距離が大きく変わることで有名"},
+    {t:"リグレーの風が内野へ吹き込む。大飛球が失速して外野手の正面に", hr:0.7}],
+  fenway: [{t:"グリーンモンスターに当たる打球が二塁打の山を作った", run:1.1,
+    note:"フェンウェイ・パークの左翼フェンス「グリーンモンスター」は高さ約11m。本塁打になる打球が二塁打になり、単打になる打球が二塁打になる"}],
+  petco: [{t:"海霧が球場を包み、打球が死ぬ。投手の日", hr:0.75,
+    note:"ペトコ・パークは海沿いの湿った空気で打球が飛びにくいことで知られる"}],
+  yankee: [{t:"右翼の短いポーチへ、左打者の打球が次々と飛び込む", hr:1.15,
+    note:"ヤンキー・スタジアムの右翼は距離が短く、左打者に有利と言われる"}],
+  polo: [{t:"中堅150mの怪物球場。外野手が延々と走らされた", hr:0.8,
+    note:"ポロ・グラウンズは中堅までが約147mあり、当時のMLBで最も深い球場だった"}],
+  _地方: [{t:"地方球場の照明が暗く、打者が球を追いきれない", run:0.9},
+    {t:"地元の子どもたちがスタンドを埋めた。{H}の選手が一人ひとりにサインをして帰った", run:1.0}],
+  _草野球: [{t:"荒れたグラウンドでイレギュラーが続出。守備がめちゃくちゃ", run:1.15},
+    {t:"隣のグラウンドの少年野球の声が響く。のどかな一日", run:1.0}],
+  _MLB: [{t:"時差と長距離移動の疲れが抜けない。{H}の打線が重い", run:0.92}],
+};
+const PARK_EVENT_RATE = 0.06;   // ホームゲームごとに起きる確率
+function rollParkEvent(B, A){
+  const pk = B.park;
+  if(!pk || rnd() > PARK_EVENT_RATE) return;
+  const list = PARK_EVENTS[pk.id] || PARK_EVENTS["_" + pk.cat];
+  if(!list || !list.length) return;
+  const e = list[Math.floor(rnd() * list.length)];
+  B.parkTmp = Object.assign({}, pk, {hr: pk.hr * (e.hr || 1), run: pk.run * (e.run || 1)});
+  const txt = "【" + parkShort(pk) + "】" + e.t.replace(/\{H\}/g, B.name).replace(/\{A\}/g, A.name);
+  state.news.unshift({mo: dateLabel(state.day), txt, note: e.note || null});
+  if(rnd() < 0.5) telop(txt);
+}
 const PARKS = [
   // ---- NPB 現行 ----
   {id:"escon", cat:"NPB", name:"エスコンフィールド北海道", type:"開閉屋根・天然芝", hr:1.14, run:1.15,
@@ -2884,7 +2947,50 @@ const PARKS = [
    note:"ときわ公園の中にある町営の球場。両翼94mに対して中堅がわずか108mという浅さで、平凡な当たりが柵を越える。夜間照明あり、3時間2,000円。使えるのは雪の消える4月下旬から10月まで",
    good:"打線全般", bad:"中堅手の心臓"},
 ];
-function parkOf(t){ return t.park || PARKS[0]; }
+// その試合だけ球場の癖が変わる(球場イベント)ときは parkTmp を見る
+function parkOf(t){ return t.parkTmp || t.park || PARKS[0]; }
+// 球場の個性。集客(士気)・スキャンダル(記者の多さ)・疲労(移動と環境)。1.0 が標準
+const PARK_TRAIT_BY_CAT = {
+  NPB:   {crowd:1.0, scandal:1.0, fatigue:1.0},
+  歴史:   {crowd:0.9, scandal:0.9, fatigue:0.95},
+  MLB:   {crowd:1.25, scandal:1.6, fatigue:1.5},
+  地方:   {crowd:0.6, scandal:0.5, fatigue:0.8},
+  草野球:  {crowd:0.4, scandal:0.3, fatigue:0.7},
+};
+const PARK_TRAIT_OVERRIDE = {
+  koshien:{crowd:1.3, scandal:1.3}, tokyodome:{crowd:1.2, scandal:1.2}, yankee:{crowd:1.3, scandal:1.9},
+  dodger:{crowd:1.3}, wrigley:{crowd:1.2}, fenway:{crowd:1.2, scandal:1.7}, korakuen:{crowd:1.15, scandal:1.2},
+  kusanagi:{crowd:0.7}, escon:{crowd:1.1}, mazda:{crowd:1.15},
+};
+function parkTraits(pk){
+  const base = PARK_TRAIT_BY_CAT[(pk && pk.cat) || "NPB"] || PARK_TRAIT_BY_CAT.NPB;
+  return Object.assign({}, base, (pk && PARK_TRAIT_OVERRIDE[pk.id]) || {});
+}
+function traitWord(v, up, mid, down){ return v >= 1.15 ? up : v <= 0.85 ? down : mid; }
+// 一覧に出す3つの札
+function parkTraitChips(pk){
+  const tr = parkTraits(pk);
+  const chip = (k, v, up, mid, down, goodIsUp) => {
+    const cls = v >= 1.15 ? (goodIsUp ? "good" : "bad") : v <= 0.85 ? (goodIsUp ? "bad" : "good") : "mid";
+    return '<span class="pk-trait ' + cls + '"><i>' + k + '</i>' + traitWord(v, up, mid, down) + '</span>';
+  };
+  return '<div class="pk-traits">' +
+    chip("集客", tr.crowd, "満員・士気高い", "標準", "少ない・士気↓", true) +
+    chip("記者", tr.scandal, "多い・不祥事↑", "標準", "少ない・穏やか", false) +
+    chip("疲労", tr.fatigue, "たまりやすい", "標準", "たまりにくい", false) +
+  '</div>';
+}
+// 重み付きの球団選び。不祥事は記者の多い本拠地へ、怪我は移動の多い本拠地へ寄る
+function pickW(list, wf){
+  if(!list || !list.length) return null;
+  const ws = list.map(x => Math.max(0.05, wf(x)));
+  let r = rnd() * ws.reduce((a,b)=>a+b, 0);
+  for(let i = 0; i < list.length; i++){ r -= ws[i]; if(r <= 0) return list[i]; }
+  return list[list.length-1];
+}
+function pickScandal(list){ return pickW(list, t => parkTraits(t.park).scandal); }
+function pickFatigue(list){ return pickW(list, t => parkTraits(t.park).fatigue); }
+function pickCrowd(list){ return pickW(list, t => parkTraits(t.park).crowd); }
 // ホーム球場の係数。ビジター側にも同じ条件がかかる
 function parkRunFactor(home){ return parkOf(home).run; }
 function parkHrFactor(home){ return parkOf(home).hr; }
@@ -3519,7 +3625,9 @@ function playDay(){
   // まずその日の全カードの出目を作る(この時点では成績に反映しない)
   const rolled = games.map(([ai,bi])=>{
     const A = state.parts[ai], B = state.parts[bi];
+    rollParkEvent(B, A);                 // 本拠地の出来事(その試合だけ球場の癖が変わる)
     const g = rollGame(A, B, true);
+    B.parkTmp = null;
     return {A, B, rA:g.rA, rB:g.rB};
   });
   // 勝負どころがあれば、確定させる前に本人へ委ねる
@@ -6490,7 +6598,7 @@ function isForeignName(name){
 }
 // ---- 汎用ヘルパー ----
 const pick1 = arr => arr[Math.floor(rnd()*arr.length)];
-function anyTeam(){ return pick1(state.parts); }
+function anyTeam(){ return pickScandal(state.parts); }
 function orderKeys(t){
   // 打順が壊れていても必ず9枠そろえる(補強や交代で欠けることがある)
   const o = (t.order || []).filter(k => LINEUP_KEYS.includes(k));
@@ -6567,24 +6675,24 @@ const PARTY_EVENTS = [
   // ── 離脱・緊急補強系 ─────────────────────────
   { id:"scandal", w:7,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
-    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+    run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
       startEmergency(t, pick1(droppableDefs(t)).key, "写真週刊誌のスキャンダル直撃で無期限謹慎"); } },
   { id:"gaijin", w:5,
     need:()=>state.parts.some(t=>droppableDefs(t).some(d=>isForeignName(t.slots[d.key].name))),
-    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).some(d=>isForeignName(x.slots[d.key].name))));
+    run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).some(d=>isForeignName(x.slots[d.key].name))));
       const ds = droppableDefs(t).filter(d=>isForeignName(t.slots[d.key].name));
       startEmergency(t, pick1(ds).key, "家庭の事情により電撃帰国"); } },
   { id:"kega", w:7,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
-    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+    run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
       startEmergency(t, pick1(droppableDefs(t)).key, pick1(["死球で右手を骨折し全治3か月","走塁中に肉離れを起こし戦線離脱","アキレス腱を痛めて今季絶望"])); } },
   { id:"monge", w:4,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
-    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+    run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
       startEmergency(t, pick1(droppableDefs(t)).key, "門限破りが発覚し無期限の出場停止処分"); } },
   { id:"kaigai", w:3,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
-    run(){ const t = pick1(state.parts.filter(x=>droppableDefs(x).length));
+    run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
       startEmergency(t, pick1(droppableDefs(t)).key, "海外移籍を電撃表明しチームを去った"); } },
 
   // ── 監督系 ───────────────────────────────
@@ -6601,17 +6709,17 @@ const PARTY_EVENTS = [
     run(){ const t = anyTeam(); if(!t.slots.MGR) return;
       partyNews("退","warn",`【退場処分】${t.slots.MGR.name}監督（${t.name}）が判定を巡って猛抗議、一発退場。スタンドは騒然`); } },
   { id:"kakushitsu", w:5, need:()=>state.parts.some(moodFree),
-    run(){ const t = pick1(state.parts.filter(moodFree)); if(!t.slots.MGR) return;
+    run(){ const t = pickScandal(state.parts.filter(moodFree)); if(!t.slots.MGR) return;
       const p = pick1(lineupOf(t)); moodSet(t, -1.4, 18, "監督と確執");
       partyNews("確","bad",`【確執】${t.slots.MGR.name}監督が${p.name}（${t.name}）の起用法を巡って対立。ロッカーに重い空気が流れる`); } },
   { id:"kiai", w:5, need:()=>state.parts.some(moodFree),
-    run(){ const t = pick1(state.parts.filter(moodFree)); if(!t.slots.MGR) return;
+    run(){ const t = pickScandal(state.parts.filter(moodFree)); if(!t.slots.MGR) return;
       moodSet(t, 1.5, 18, "監督の檄");
       partyNews("檄","good",`【一喝】${t.slots.MGR.name}監督（${t.name}）が臨時ミーティングでナインに大喝。チームの目の色が変わった`); } },
 
   // ── チーム士気系 ─────────────────────────
   { id:"kenka", w:7, need:()=>state.parts.some(moodFree),
-    run(){ const t = pick1(state.parts.filter(moodFree)); const ps = lineupOf(t);
+    run(){ const t = pickScandal(state.parts.filter(moodFree)); const ps = lineupOf(t);
       const a = pick1(ps); const b = ps[(ps.indexOf(a)+1+Math.floor(rnd()*(ps.length-1)))%ps.length];
       moodSet(t, -1.4, 15, "チーム内不和");
       partyNews("乱","bad",`【不穏】${a.name}と${b.name}（${t.name}）がベンチ裏で衝突。しばらくチームの空気は最悪…`); } },
@@ -6627,10 +6735,10 @@ const PARTY_EVENTS = [
     run(){ const t = anyTeam(); formShift([...lineupOf(t)], -1);
       partyNews("暑","warn",`【猛暑】記録的な酷暑で${t.name}打線がバテ気味。ベンチには氷嚢の山が築かれた`); renderRosterLive(); } },
   { id:"manin", w:5, need:()=>state.parts.some(moodFree),
-    run(){ const t = pick1(state.parts.filter(moodFree)); moodSet(t, 1.3, 16, "本拠地の大声援");
+    run(){ const t = pickCrowd(state.parts.filter(moodFree)); moodSet(t, 1.3, 16, "本拠地の大声援");
       partyNews("満","good",`【満員御礼】${t.name}の本拠地が超満員。地鳴りのような大声援がナインを後押しする`); } },
   { id:"renpai", w:5, need:()=>state.parts.some(t=>moodFree(t) && (t.stk===0) && (t.W-t.L) < -5),
-    run(){ const t = pick1(state.parts.filter(x=>moodFree(x) && x.stk===0 && (x.W-x.L) < -5));
+    run(){ const t = pickScandal(state.parts.filter(x=>moodFree(x) && x.stk===0 && (x.W-x.L) < -5));
       moodSet(t, -1.3, 14, "連敗で重い空気");
       partyNews("闇","bad",`【泥沼】${t.name}が出口の見えない連敗地獄。ベンチからは笑顔が消えた`); } },
   { id:"magic", w:4, need:()=>{ const s=standingsSorted(); return state.day > state.schedule.length*0.6 && s[0] && (s[0].W-s[1].W) >= 8; },

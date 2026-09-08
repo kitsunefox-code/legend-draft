@@ -32,3 +32,15 @@
 .mode-tile.on .mt-k{color:var(--navy);}
 .mode-tile.on::after{content:"選択中";position:absolute;right:10px;top:10px;font:700 10px/1 var(--display);color:#fff;background:var(--navy);padding:3px 7px;border-radius:4px;}
 @media (max-width:700px){ .mode-tile{min-height:0;padding:10px;} .mode-tile .mt-d{font-size:10.5px;} }
+
+/* 球場の個性の札 */
+.pk-traits{display:flex;gap:5px;flex-wrap:wrap;}
+.pk-trait{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;padding:2px 7px;border-radius:5px;border:1px solid var(--rule2);background:#fff;color:var(--ink2);}
+.pk-trait i{font-style:normal;font-weight:800;color:var(--ink);}
+.pk-trait.good{border-color:var(--green);color:var(--green);}
+.pk-trait.bad{border-color:var(--red);color:var(--red);}
+.home-traits .pk-trait{background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.35);color:#e8eefb;}
+.home-traits .pk-trait i{color:#ffe9a8;}
+.home-traits .pk-trait.good{border-color:#7fd39a;color:#bff0cc;}
+.home-traits .pk-trait.bad{border-color:#ff9d8a;color:#ffc9bd;}
+.home-traits{margin:6px 0 4px;}

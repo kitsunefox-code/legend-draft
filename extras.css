@@ -19,3 +19,16 @@
 .manager-signature strong{font-size:1.15em;}
 .home-tagline{font:700 15px/1.5 "Noto Sans JP",sans-serif;color:#f2e6c9;letter-spacing:.06em;margin:4px 0 8px;text-shadow:0 1px 6px rgba(0,0,0,.8);}
 .home-grade{margin-left:8px;font:700 10px/1 "Oswald",sans-serif;letter-spacing:.2em;color:#111;background:#e2bd63;padding:2px 7px;border-radius:3px;vertical-align:middle;}
+
+/* 球団の作り方(ルール)の選択 ── 明るい盤面に合わせる */
+.mode-panel{padding-bottom:14px;}
+.mode-pick{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+.mode-tile{position:relative;text-align:left;border:1.5px solid var(--rule2);border-radius:12px;background:#fff;color:var(--ink);padding:12px;cursor:pointer;min-height:118px;display:flex;flex-direction:column;gap:4px;transition:transform .1s,border-color .15s,box-shadow .15s;}
+.mode-tile:active{transform:scale(.98);}
+.mode-tile .mt-k{font:600 10px/1 "Oswald",sans-serif;letter-spacing:.3em;color:var(--ink2);}
+.mode-tile .mt-t{font:900 17px/1.2 var(--display);color:var(--ink);}
+.mode-tile .mt-d{font-size:11px;line-height:1.55;color:var(--ink2);}
+.mode-tile.on{border-color:var(--navy);background:linear-gradient(180deg,#f3f7ff,#e8f0ff);box-shadow:0 0 0 2px var(--navy),0 10px 24px -14px rgba(36,87,184,.6);}
+.mode-tile.on .mt-k{color:var(--navy);}
+.mode-tile.on::after{content:"選択中";position:absolute;right:10px;top:10px;font:700 10px/1 var(--display);color:#fff;background:var(--navy);padding:3px 7px;border-radius:4px;}
+@media (max-width:700px){ .mode-tile{min-height:0;padding:10px;} .mode-tile .mt-d{font-size:10.5px;} }

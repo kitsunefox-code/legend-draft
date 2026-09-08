@@ -232,10 +232,19 @@ function foldPanel(el){
 function foldSummary(){
   const ev = $("ev-cnt");
   if(ev){
-    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-cpu","opt-mlbonly","opt-gacha"];
+    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-cpu","opt-mlbonly"];
     const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
     ev.textContent = n + "件";
   }
+}
+// 球団の作り方(ルール)。ドラフト会議かガチャか。中身は隠した opt-gacha に持たせる
+function setMode(m){
+  const cb = $("opt-gacha");
+  if(cb) cb.checked = (m === "gacha");
+  document.querySelectorAll(".mode-tile").forEach(function(b){ b.classList.toggle("on", b.dataset.mode === m); });
+  foldSummary();
+  if(typeof ldSyncSetup === "function") ldSyncSetup();
+  seTap();
 }
 function goSetup(){
   show("scr-setup");

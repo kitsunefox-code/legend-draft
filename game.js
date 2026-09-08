@@ -2621,8 +2621,10 @@ function startSeason(){
   state.playing = false; state.timer = null; state.finished = false;
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
-  state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; });
+  state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; });
   state.eventQueue = [];
+  // 月末のGMの決断(人間の球団だけ)。月報のすぐ後に来るよう、ルーレットより先に積む
+  [0,1,2,3,4].forEach(function(m){ state.eventQueue.push({after:m, type:"gm", no:m}); });
   initEngagement();
   state.scored = false; state.scoreBoard = null; state.predicted = false;
   // 月例ルーレット(毎月末)
@@ -2665,7 +2667,7 @@ function startTimer(){
 function stopTimer(){
   if(state.timer) clearInterval(state.timer);
   state.timer = null; state.playing = false;
-  $("s-play").textContent = state.finished ? (state.seriesDone ? "結果発表へ" : "日本シリーズへ") : "再開";
+  $("s-play").textContent = state.finished ? (state.seriesDone ? "結果発表へ" : "ポストシーズンへ") : "再開";
 }
 function changeSpeed(){ if(state.playing) startTimer(); }
 function togglePlay(){
@@ -3259,7 +3261,7 @@ function saihaiChoose(i){
   partyNews(ok ? "采" : "無", ok ? "good" : "warn",
     "【采配】" + t.name + "、" + c.card.title + "で" + o.label + "。" +
     (ok ? o.win + "、値千金の逆転勝ち" : o.lose + "。一歩及ばず"), null, t);
-  if(ok) seWin(); else seMiss();
+  if(ok){ seWin(); addPts(t, 1, "采配成功"); } else seMiss();
   renderSaihai();
 }
 function saihaiPass(){
@@ -3401,12 +3403,24 @@ function finishSeason(){
   if(state.finished) return;
   state.finished = true;
   stopTimer();
-  $("s-play").textContent = "日本シリーズへ";
+  $("s-play").textContent = "ポストシーズンへ";
   $("s-skip").disabled = true;
   $("s-date").textContent = "シーズン終了";
   const s = standingsSorted();
-  $("s-note").textContent = `全${Math.round(state.gamesPer)}試合を完走。1位${s[0].name}と2位${s[1].name}が日本シリーズで激突！`;
-  telop(`レギュラーシーズン終了 ―― 日本シリーズは ${s[0].name} 対 ${s[1].name}`);
+  const RANK_PTS = [10, 6, 4, 2, 2, 2];
+  s.forEach(function(t, i){ addPts(t, RANK_PTS[i] || 1, (i+1) + "位"); });
+  state.parts.forEach(function(t){
+    if(!t.rival) return;
+    const r = (t.h2h || {})[t.rival.name] || {w:0, l:0};
+    if(r.w > r.l) addPts(t, 3, "宿敵" + t.rival.name + "に勝ち越し " + r.w + "勝" + r.l + "敗");
+  });
+  if(s.length >= 3){
+    $("s-note").textContent = `全${Math.round(state.gamesPer)}試合を完走。クライマックスシリーズは2位${s[1].name}と3位${s[2].name}から。勝者が1位${s[0].name}に挑む`;
+    telop(`レギュラーシーズン終了 ―― CSは ${s[1].name} 対 ${s[2].name} から`);
+  }else{
+    $("s-note").textContent = `全${Math.round(state.gamesPer)}試合を完走。1位${s[0].name}と2位${s[1].name}が日本シリーズで激突！`;
+    telop(`レギュラーシーズン終了 ―― 日本シリーズは ${s[0].name} 対 ${s[1].name}`);
+  }
   // 最終月の月報。日送りの輪の外で終わるので、ここで出す
   if(state.monthGogai){ const mg = state.monthGogai; state.monthGogai = null; showMonthGogai(mg, null); }
 }
@@ -3745,8 +3759,20 @@ function gameFacts(snap){
   };
   return {A: side(snap.A), B: side(snap.B)};
 }
+function h2hAdd(win, lose){
+  win.h2h = win.h2h || {}; lose.h2h = lose.h2h || {};
+  win.h2h[lose.name] = win.h2h[lose.name] || {w:0, l:0}; lose.h2h[win.name] = lose.h2h[win.name] || {w:0, l:0};
+  win.h2h[lose.name].w++; lose.h2h[win.name].l++;
+}
+// パーティー得点。順位のほかに、予想・采配・快挙・宿敵で稼げる
+function addPts(t, v, why){
+  if(!t || !v) return;
+  t.pts = (t.pts || 0) + v;
+  (t.ptsLog = t.ptsLog || []).push({v, why, d: state.schedule ? dateLabel(Math.max(0, state.day - 1)) : ""});
+}
 function applyGame(A, B, rA, rB){
   A.RS+=rA; A.RA+=rB; B.RS+=rB; B.RA+=rA;
+  if(rA !== rB) h2hAdd(rA > rB ? A : B, rA > rB ? B : A);
   if(rA>rB){A.W++;B.L++; A.stk=(A.stk||0)+1; B.stk=0;}
   else if(rB>rA){B.W++;A.L++; B.stk=(B.stk||0)+1; A.stk=0;}
   else {A.T++;B.T++;}
@@ -3807,6 +3833,7 @@ function finishDay(rolled){
     const record = function(kind, p, t, opp, txt){
       state.recordGogai = state.recordGogai || [];
       state.recordGogai.push({kind, p, t, opp, score: (t === A ? g.rA + "-" + g.rB : g.rB + "-" + g.rA), txt, date: dl});
+      addPts(t, 1, "快挙 " + kind);
     };
     if(f){
       const winSp = win === A ? spA : spB, winF = win === A ? f.A : f.B, loseF = win === A ? f.B : f.A;
@@ -3930,6 +3957,7 @@ function buildMonthGogai(m){
     }
     s.m0 = {h:s.h||0, hr:s.hr||0, rbi:s.rbi||0, ab:s.ab||0, w:s.w||0, so:s.so||0, ip:s.ip||0, er:s.er||0, sv:s.sv||0};
   });
+  if(mvp) addPts(mvp.t, 1, "月間MVP " + mvp.p.name);
   let head, sub;
   if(state.monthLeader0 && state.monthLeader0 !== lead){
     head = "首位交代"; sub = `${lead.name}が${state.monthLeader0.name}をかわし、${MONTHS[m]}を首位で終える`;
@@ -5073,6 +5101,7 @@ function startEvent(type, ev){
   $("s-play").disabled = true; $("s-skip").disabled = true;
   if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="allstar"){ startAllStar(); return; }
+  if(type==="gm"){ startGm(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="trade"){
     if(!state.parts.filter(t=>!t.cpu).length){ endEventPhase(); return; }
     state.eventCtx = {type, mode:"table", sel:{a:"", b:"", pa:"", pb:""}, done:[]};
@@ -5085,6 +5114,110 @@ function startEvent(type, ev){
     advanceMlb();
   }
 }
+// ============================================================
+// GMの決断 ── 月末に人間の球団だけが、施策を一つ選び、来月の首位を予想する。
+// 施策は必ず得と損が抱き合わせ。予想は当たれば得点。宿敵は最初の月に選ぶ
+// ============================================================
+const GM_POLICIES = [
+  {id:"wakate", label:"若手抜擢", eff:"控えで最も力のある野手の能力+3。主力一人の調子が落ちる",
+   need: t => benchOf(t).length > 0,
+   run(t){ const b = benchOf(t).slice().sort((a,c)=>c.ovr-a.ovr)[0]; b.ovr = Math.min(99, b.ovr+3); const s = pick1(lineupOf(t)); if(s) s.form = clamp((s.form||0)-1, -2, 2); return b.name + "を抜擢。能力+3"; }},
+  {id:"train", label:"猛練習", eff:"打線全員の調子が上がる。投手2人に疲れが残る",
+   run(t){ formShift(lineupOf(t), 1); formShift(pitchersOf(t).slice().sort(()=>rnd()-.5).slice(0,2), -1); return "打線の調子が上向いた"; }},
+  {id:"rest", label:"投手陣温存", eff:"投手全員の調子が上がる。打線の調子が少し落ちる",
+   run(t){ formShift(pitchersOf(t), 1); formShift(lineupOf(t), -1); return "投手陣が息を吹き返した"; }},
+  {id:"saihai", label:"采配権を補充", eff:"采配カード+1(上限5)。首脳陣の締め付けで士気が10日下がる",
+   need: t => (t.saihai||0) < 5,
+   run(t){ t.saihai = Math.min(5, (t.saihai||0)+1); moodSet(t, -1, 10, "首脳陣の締め付け"); return "采配権+1"; }},
+  {id:"fan", label:"ファン感謝デー", eff:"士気が14日上がる。主力一人がイベント疲れ",
+   run(t){ moodSet(t, 1, 14, "ファン感謝"); const s = pick1(lineupOf(t)); if(s) s.form = clamp((s.form||0)-1, -2, 2); return "球場が沸いた。士気アップ"; }},
+  {id:"mental", label:"メンタル指導", eff:"不調の選手を全員ふつうに戻す",
+   need: t => lineupOf(t).concat(pitchersOf(t)).some(p => (p.form||0) < 0),
+   run(t){ let n = 0; lineupOf(t).concat(pitchersOf(t)).forEach(p => { if((p.form||0) < 0){ p.form = 0; n++; } }); return n + "人の不調を立て直した"; }},
+  {id:"gamble", label:"勝負の月", eff:"来月勝ち越せば得点+2と采配権+1。負け越せば士気が20日下がる",
+   run(t){ t.gamble = {W:t.W, L:t.L}; return "来月に全てを懸ける"; }},
+  {id:"bullpen", label:"救援強化", eff:"中継ぎ・抑えで最も力の低い投手の能力+2",
+   need: t => RP_KEYS.concat(["CL"]).some(k => t.slots[k]),
+   run(t){ const c = RP_KEYS.concat(["CL"]).map(k => t.slots[k]).filter(Boolean).sort((a,b)=>a.ovr-b.ovr)[0]; c.ovr = Math.min(99, c.ovr+2); return c.name + "を鍛え直した。能力+2"; }},
+];
+function startGm(no){
+  const humans = state.parts.filter(t => !t.cpu);
+  if(!humans.length){ endEventPhase(); return; }
+  state.eventCtx = {type:"gm", queue:humans, idx:0, no};
+  gmNext();
+}
+function gmNext(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "gm") return;
+  if(c.idx >= c.queue.length){ endEventPhase(); return; }
+  const t = c.queue[c.idx];
+  c.cards = GM_POLICIES.filter(p => !p.need || p.need(t)).sort(()=>rnd()-.5).slice(0, 3);
+  c.pick = null; c.pred = null;
+  gmResolve(t);
+  $("event-bg").classList.remove("show");
+  curtain(t.name + " の番 ── GMの決断",
+    "他の人に見えないように端末を受け取ってください。<br>今月の施策を一つ選び、来月末の首位を予想します。",
+    "決断する", function(){ gmRender(); $("event-bg").classList.add("show"); });
+}
+// 先月の予想と「勝負の月」の答え合わせ
+function gmResolve(t){
+  const c = state.eventCtx; c.report = [];
+  const lead = standingsSorted()[0];
+  if(t.pred){
+    if(t.pred === lead){ addPts(t, 2, "番記者予想 的中"); c.report.push({ok:true, txt:"先月の首位予想「" + t.pred.name + "」が的中！ +2点"}); }
+    else c.report.push({ok:false, txt:"先月の首位予想「" + t.pred.name + "」は外れ。首位は" + lead.name});
+    t.pred = null;
+  }
+  if(t.gamble){
+    const w = t.W - t.gamble.W, l = t.L - t.gamble.L;
+    if(w > l){ addPts(t, 2, "勝負の月 勝ち越し"); t.saihai = Math.min(5, (t.saihai||0)+1); c.report.push({ok:true, txt:"勝負の月: " + w + "勝" + l + "敗で勝ち越し！ +2点・采配権+1"}); }
+    else { moodSet(t, -1, 20, "勝負の月の反動"); c.report.push({ok:false, txt:"勝負の月: " + w + "勝" + l + "敗… 士気が20日下がる"}); }
+    t.gamble = null;
+  }
+}
+function gmRender(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "gm") return;
+  const t = c.queue[c.idx];
+  const s = standingsSorted(), rank = s.indexOf(t) + 1, stk = streakOf(t);
+  const others = state.parts.filter(x => x !== t);
+  const rivalHtml = t.rival
+    ? (function(){ const r = (t.h2h||{})[t.rival.name] || {w:0,l:0}; return '<div class="gm-rival"><span class="gm-lb">宿敵</span>' + teamEmblem(t.rival, 18) + '<b>' + esc(t.rival.name) + '</b><span class="gm-h2h">直接対決 <i>' + r.w + '</i>勝<i>' + r.l + '</i>敗</span><small>勝ち越して終えれば+3点</small></div>'; })()
+    : '<div class="gm-sec"><div class="gm-h">宿敵を選ぶ<small>今季の直接対決を勝ち越せば+3点。相手は変えられません</small></div><div class="gm-teams">' +
+      others.map(x => '<button type="button" class="gm-team' + (c.rival === x ? " on" : "") + '" onclick="gmRival(' + state.parts.indexOf(x) + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b>' + (x.cpu ? '<small>CPU</small>' : '') + '</button>').join("") + '</div></div>';
+  const cards = c.cards.map((p, i) => '<button type="button" class="gm-card' + (c.pick === i ? " on" : "") + '" onclick="gmPick(' + i + ')"><b>' + esc(p.label) + '</b><span>' + esc(p.eff) + '</span></button>').join("");
+  const preds = state.parts.map((x, i) => '<button type="button" class="gm-team' + (c.pred === i ? " on" : "") + '" onclick="gmPred(' + i + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b><small>' + (s.indexOf(x)+1) + '位</small></button>').join("");
+  const ready = c.pick !== null && c.pred !== null && (t.rival || c.rival);
+  $("event-panel").innerHTML =
+    '<div class="gm-wrap">' +
+    '<h2><span class="kicker">' + (MONTH_LABEL[c.no] || "") + '末</span>GMの決断</h2>' +
+    '<div class="gm-team-line">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b><span>' + rank + '位　' + t.W + '勝' + t.L + '敗' + (stk ? '　' + (stk > 0 ? stk + '連勝中' : (-stk) + '連敗中') : '') + '</span><span class="gm-pts">総合 <i>' + (t.pts||0) + '</i>点</span></div>' +
+    (c.report.length ? '<div class="gm-report">' + c.report.map(r => '<div class="' + (r.ok ? "ok" : "ng") + '">' + esc(r.txt) + '</div>').join("") + '</div>' : '') +
+    rivalHtml +
+    '<div class="gm-sec"><div class="gm-h">今月の施策<small>一つだけ。必ず得と損が抱き合わせ</small></div><div class="gm-cards">' + cards + '</div></div>' +
+    '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月末の首位は？ 的中で+2点</small></div><div class="gm-teams">' + preds + '</div></div>' +
+    '<div class="gm-foot"><span>' + (c.idx+1) + ' / ' + c.queue.length + '球団</span><button class="btn rl-go" ' + (ready ? '' : 'disabled') + ' onclick="gmCommit()">決定</button></div>' +
+    '</div>';
+}
+function gmPick(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pick = i; seTap(); gmRender(); }
+function gmPred(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pred = i; seTap(); gmRender(); }
+function gmRival(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.rival = state.parts[i]; seTap(); gmRender(); }
+function gmCommit(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "gm" || c.pick === null || c.pred === null) return;
+  const t = c.queue[c.idx];
+  if(!t.rival && c.rival) t.rival = c.rival;
+  const card = c.cards[c.pick];
+  const msg = card.run(t) || "";
+  t.pred = state.parts[c.pred];
+  const txt = "【GM】" + t.name + "が「" + card.label + "」を実行。" + msg;
+  state.news.unshift({mo: (MONTH_LABEL[c.no] || "") + "末", txt}); telop(txt);
+  seWin();
+  renderRosterLive(); renderTeamStrip();
+  c.idx++;
+  gmNext();
+}
+
 // ============================================================
 // オールスターゲーム ── 前半戦が終わった夜、全球団の精鋭を東西に分けて一夜限りの球宴
 // ============================================================
@@ -5646,11 +5779,11 @@ function renderTimeline(){
   }).join("");
 }
 // 結果画面も面で分ける。積むと11画面ぶんになる
-const R_PANES = [["rrank","順位と表彰"], ["rchron","年表"], ["rteam","各球団"]];
+const R_PANES = [["rparty","総合得点"], ["rrank","順位と表彰"], ["rchron","年表"], ["rteam","各球団"]];
 function renderResultTabs(){
   const box = $("r-tabs");
   if(!box) return;
-  if(!state.rPane) state.rPane = "rrank";
+  if(!state.rPane) state.rPane = "rparty";
   box.innerHTML = R_PANES.map(function(x){
     return '<button class="s-tab' + (state.rPane === x[0] ? " on" : "") +
       '" onclick="resultPane(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>';
@@ -5677,12 +5810,13 @@ function showResult(){
   if(state.seriesWinner){
     const rank = s.indexOf(champ)+1;
     $("r-champlabel").textContent = sn + "日　本　一";
-    $("r-record").textContent = `リーグ${rank}位（${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct}）から日本シリーズを${state.seriesScore}で制覇！`;
+    $("r-record").textContent = `リーグ${rank}位（${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct}）から${(state.series&&state.series.label)||"日本シリーズ"}を${state.seriesScore}で制覇！`;
   }else{
     $("r-champlabel").textContent = sn + "優　勝";
     $("r-record").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}（勝率${pct}）で優勝！`;
   }
   renderStandings("r-standings");
+  renderPartyScore();
   const titles = computeTitles();
   $("r-titles").innerHTML = titles.map(t=>`
     <div class="title-card">
@@ -5705,6 +5839,21 @@ function showResult(){
   confetti();
   seFanfare();
   showGogai(champ);
+}
+// パーティー総合得点。順位だけでなく、予想・采配・快挙・宿敵・日本一で稼いだ点を並べる
+function renderPartyScore(){
+  const el = $("r-party");
+  if(!el) return;
+  const rows = state.parts.slice().sort((a,b)=>(b.pts||0)-(a.pts||0));
+  const top = rows[0];
+  el.innerHTML = rows.map(function(t, i){
+    const agg = {};
+    (t.ptsLog||[]).forEach(function(x){ const k = x.why.replace(/ .*$/, ""); agg[k] = (agg[k]||0) + x.v; });
+    const chips = Object.keys(agg).map(function(k){ return '<span class="rp-chip">' + esc(k) + ' <b>+' + agg[k] + '</b></span>'; }).join("");
+    return '<div class="rp-row' + (i === 0 ? " top" : "") + '"><span class="rp-rk">' + (i+1) + '</span>' + teamEmblem(t, 22) +
+      '<div class="rp-main"><b>' + esc(t.name) + (t.cpu ? ' <small>CPU</small>' : '') + '</b><div class="rp-chips">' + (chips || '<span class="rp-chip">—</span>') + '</div></div>' +
+      '<span class="rp-pts">' + (t.pts||0) + '<small>点</small></span></div>';
+  }).join("") + (top ? '<div class="rp-note">総合優勝は <b>' + esc(top.name) + '</b>。順位点(1位10・2位6・3位4・以下2)に、予想的中+2・采配成功+1・快挙+1・月間MVP+1・宿敵に勝ち越し+3・CS突破+2・日本一+5を加えた得点です。</div>' : '');
 }
 function confetti(){
   const cols=["#a72c18","#22456b","#2c5c34","#9a7714","#e2b13c","#faf6ec"];
@@ -6350,7 +6499,7 @@ function showGogai(champ){
   const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
   if(state.seriesWinner){
     $("gg-v").textContent = "日本一";
-    $("gg-sub").textContent = `日本シリーズを${state.seriesScore}で制覇（リーグ戦${champ.W}勝${champ.L}敗）―― 歓喜の胴上げ`;
+    $("gg-sub").textContent = `${(state.series&&state.series.label)||"日本シリーズ"}を${state.seriesScore}で制覇（リーグ戦${champ.W}勝${champ.L}敗）―― 歓喜の胴上げ`;
   }else{
     $("gg-v").textContent = "優　勝";
     $("gg-sub").textContent = `${champ.W}勝${champ.L}敗${champ.T?champ.T+"分":""}・勝率${pct} ―― 歓喜の胴上げ`;
@@ -6836,13 +6985,23 @@ function simSeriesGame(A, B){
   if(g.rA === g.rB){ if(rnd() < 0.5) g.rA++; else g.rB++; }
   return g;
 }
+// ポストシーズン。3球団以上ならクライマックスシリーズ(2位×3位 → 勝者×1位。1位に1勝のアドバンテージ)、
+// 2球団なら1位×2位の日本シリーズ
 function startSeries(){
   const s = standingsSorted();
-  state.series = {A:s[0], B:s[1], w:[0,0], g:1, games:[]};
-  const txt = `日本シリーズ開幕 ―― ${s[0].name}(1位) 対 ${s[1].name}(2位)`;
+  if(s.length >= 3){
+    beginSeries({A:s[1], B:s[2], adv:0, need:2, label:"CSファーストステージ", sub:["リーグ2位","リーグ3位"], final:false,
+      next: function(win){ beginSeries({A:s[0], B:win, adv:1, need:4, label:"CSファイナルステージ", sub:["リーグ1位","1stステージ勝者"], final:true}); }});
+  }else{
+    beginSeries({A:s[0], B:s[1], adv:0, need:4, label:"日本シリーズ", sub:["リーグ1位","リーグ2位"], final:true});
+  }
+}
+function beginSeries(cfg){
+  state.series = Object.assign({w:[cfg.adv||0, 0], g:1, games:[]}, cfg);
+  const txt = `${cfg.label}開幕 ―― ${cfg.A.name}(${cfg.sub[0]}) 対 ${cfg.B.name}(${cfg.sub[1]})` + (cfg.adv ? `　※${cfg.A.name}に1勝のアドバンテージ` : "");
   state.news.unshift({mo:"10月", txt});
   telop(txt);
-  $("s-date").textContent = "日本シリーズ";
+  $("s-date").textContent = cfg.label;
   showSeriesBoard();
 }
 // シリーズの経過を1枚に。中継が7試合続けて流れるだけだと、
@@ -6850,9 +7009,11 @@ function startSeries(){
 function showSeriesBoard(){
   const S = state.series;
   if(!S) return;
-  const done = S.w[0] >= 4 || S.w[1] >= 4;
+  const need = S.need || 4;
+  const done = S.w[0] >= need || S.w[1] >= need;
   const slots = [];
-  for(let i = 0; i < 7; i++){
+  const total = need * 2 - 1 - (S.adv || 0);
+  for(let i = 0; i < total; i++){
     const gm = S.games[i];
     if(gm){
       const winA = gm.rA > gm.rB;
@@ -6869,23 +7030,24 @@ function showSeriesBoard(){
     }
   }
   const lead = S.w[0] === S.w[1] ? "五分" :
-    (S.w[0] > S.w[1] ? S.A.name : S.B.name) + "が王手をかける手前";
+    (Math.max(S.w[0], S.w[1]) === need - 1 ? (S.w[0] > S.w[1] ? S.A.name : S.B.name) + "が王手" : (S.w[0] > S.w[1] ? S.A.name : S.B.name) + "がリード");
+  const winner = done ? (S.w[0] >= need ? S.A : S.B) : null;
   $("series-panel").innerHTML =
-    '<h2><span class="kicker">十月</span>日本シリーズ</h2>' +
+    '<h2><span class="kicker">十月</span>' + esc(S.label || "日本シリーズ") + '</h2>' +
+    (S.adv ? '<div class="sub">' + esc(S.A.name) + 'は1勝のアドバンテージ付きで登場</div>' : '') +
     '<div class="sr-head">' +
       '<div class="sr-team">' + teamEmblem(S.A, 30) + '<b>' + esc(S.A.name) + '</b>' +
-        '<span>リーグ1位</span></div>' +
+        '<span>' + esc(S.sub ? S.sub[0] : "リーグ1位") + '</span></div>' +
       '<div class="sr-w"><span class="' + (S.w[0]>S.w[1]?"lead":"") + '">' + S.w[0] + '</span>' +
         '<i>勝</i><span class="' + (S.w[1]>S.w[0]?"lead":"") + '">' + S.w[1] + '</span></div>' +
-      '<div class="sr-team r"><span>リーグ2位</span><b>' + esc(S.B.name) + '</b>' +
+      '<div class="sr-team r"><span>' + esc(S.sub ? S.sub[1] : "リーグ2位") + '</span><b>' + esc(S.B.name) + '</b>' +
         teamEmblem(S.B, 30) + '</div>' +
     '</div>' +
     '<div class="sr-grid">' + slots.join("") + '</div>' +
     (done
-      ? '<div class="sr-foot"><span class="sr-lead">' +
-          esc(state.seriesWinner ? state.seriesWinner.name : "") + 'が4勝に到達</span>' +
-          '<button class="btn" onclick="closeSeriesBoard()">結果発表へ</button></div>'
-      : '<div class="sr-foot"><span class="sr-lead">4勝先取　' + esc(lead) + '</span>' +
+      ? '<div class="sr-foot"><span class="sr-lead">' + esc(winner ? winner.name : "") + 'が' + need + '勝に到達</span>' +
+          '<button class="btn" onclick="closeSeriesBoard()">' + (S.final ? '結果発表へ' : 'ファイナルステージへ') + '</button></div>'
+      : '<div class="sr-foot"><span class="sr-lead">' + need + '勝先取　' + esc(lead) + '</span>' +
           '<button class="btn" onclick="closeSeriesBoard()">第' + S.g + '戦を見る</button></div>');
   $("series-bg").classList.add("show");
 }
@@ -6893,12 +7055,19 @@ function closeSeriesBoard(){
   $("series-bg").classList.remove("show");
   const S = state.series;
   if(!S) return;
-  if(S.w[0] >= 4 || S.w[1] >= 4){ showResult(); return; }
+  const need = S.need || 4;
+  if(S.w[0] >= need || S.w[1] >= need){
+    if(S.final){ showResult(); return; }
+    const win = S.w[0] >= need ? S.A : S.B;
+    if(S.next) S.next(win);
+    return;
+  }
   nextSeriesGame();
 }
 function nextSeriesGame(){
   const S = state.series;
-  const label = `日本シリーズ 第${S.g}戦`;
+  const need = S.need || 4;
+  const label = `${S.label || "日本シリーズ"} 第${S.g}戦`;
   // 短期決戦でも先発は回る。同じ投手が毎試合投げてしまうのを避ける
   const spA = starterOf(S.A), spB = starterOf(S.B);
   S.A.rotIdx = ((S.A.rotIdx||0) + 1) % rotKeys(S.A).length;
@@ -6907,13 +7076,20 @@ function nextSeriesGame(){
   if(r.rA > r.rB) S.w[0]++; else S.w[1]++;
   S.games.push({rA:r.rA, rB:r.rB});
   showLiveGame(label, {A:S.A, B:S.B, rA:r.rA, rB:r.rB, spA, spB}, ()=>{
-    state.news.unshift({mo:"日S", txt:`第${S.g}戦 ${S.A.name} ${r.rA}-${r.rB} ${S.B.name}（${S.w[0]}勝${S.w[1]}敗）`});
+    state.news.unshift({mo:S.final ? "決戦" : "CS", txt:`${S.label} 第${S.g}戦 ${S.A.name} ${r.rA}-${r.rB} ${S.B.name}（${S.w[0]}勝${S.w[1]}敗）`});
     renderNews();
-    if(S.w[0] >= 4 || S.w[1] >= 4){
-      state.seriesDone = true;
-      state.seriesWinner = S.w[0] > S.w[1] ? S.A : S.B;
-      state.seriesScore = `4勝${Math.min(S.w[0], S.w[1])}敗`;
-      state.news.unshift({mo:"日S", txt:`【日本一】${state.seriesWinner.name}が日本シリーズを${state.seriesScore}で制覇！`});
+    if(S.w[0] >= need || S.w[1] >= need){
+      const win = S.w[0] >= need ? S.A : S.B;
+      if(S.final){
+        state.seriesDone = true;
+        state.seriesWinner = win;
+        state.seriesScore = `${need}勝${Math.min(S.w[0], S.w[1])}敗`;
+        addPts(win, 5, "日本一");
+        state.news.unshift({mo:"決戦", txt:`【日本一】${win.name}が${S.label}を${state.seriesScore}で制覇！`});
+      }else{
+        addPts(win, 2, S.label + "突破");
+        state.news.unshift({mo:"CS", txt:`【CS突破】${win.name}が${S.label}を制し、ファイナルへ`});
+      }
       showSeriesBoard();
     }else{
       S.g++;

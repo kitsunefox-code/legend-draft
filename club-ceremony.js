@@ -24,11 +24,28 @@ function ldParkTagline(pk){
   if(pk.run <= 0.96) return '一点の重みが違う、守りの城。';
   return '勝負を分けるのは、ここで過ごす一年。';
 }
+const MAP_MS = 2800;   // 世界地図からその場所へ飛ぶ時間
+// 世界地図。ピンの位置を基点に拡大し、街へ降りていく
+function ldWorldMap(pk){
+  const xy = parkMapXY(pk);
+  if(!xy) return '';
+  const g = PARK_GEO[pk.id], lat = g[0], lng = g[1];
+  const region = lng < 0 ? 'アメリカ' : lat < 27 ? '日本・沖縄' : lng < 131.5 ? '日本・九州' : lng < 134.5 ? '日本・中国／四国' : lng < 136.5 ? '日本・関西' : lng < 138.5 ? '日本・中部' : lat < 37.5 ? '日本・関東' : lat < 41 ? '日本・東北' : '日本・北海道';
+  return '<div class="gc-map" style="--px:'+xy.x.toFixed(2)+'%;--py:'+xy.y.toFixed(2)+'%">' +
+    '<div class="gc-map-box"><img class="gc-map-img" src="worldmap.webp" alt="" decoding="async">' +
+      '<div class="gc-map-grid"></div>' +
+      '<div class="gc-map-pin"><i></i><i class="r2"></i><b></b></div>' +
+    '</div>' +
+    '<div class="gc-map-cap"><small>'+esc(region)+'</small><b>'+esc(pk.name)+'</b><span>へ向かう……</span></div>' +
+    '<div class="gc-map-credit">地図: NASA Blue Marble (Public domain)</div>' +
+  '</div>';
+}
 function ldParkPhoto(pk){const source=PARK_PHOTO[pk.id];return source?ldPlayerPhoto({pu:source.u}).src:'';}
 function ldParkStage(x){
   const G=state.gacha,done=!!x?.open,phase=done?'complete':G.ceremony||'idle',pk=x?.park;
   const photo=pk&&ldParkPhoto(pk),credit=pk&&PARK_PHOTO[pk.id];
-  return '<section class="home-ceremony home-'+phase+'" aria-label="本拠地の決定"><img class="home-panorama" src="'+(photo||'stadium.webp')+'" alt="'+(done&&photo?esc(pk.name):'')+'" onerror="this.src=\'stadium.webp\';this.onerror=null;this.closest(\'section\').classList.add(\'home-fallback\')"><img class="home-tunnel" src="stadium-entry.webp" alt=""><div class="home-shade"></div><div class="home-light" aria-hidden="true"></div><div class="home-lamps" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home-content">'+(done?'<span class="home-eyebrow">'+esc(gachaTeam().name)+' の本拠地　<b class="home-grade">球場の格 '+parkRank(pk)+'</b></span><h2>'+esc(pk.name)+'</h2><p class="home-tagline">'+ldParkTagline(pk)+'</p><p class="home-type">'+esc(pk.cat)+' / '+esc(pk.type)+'</p><div class="home-traits">'+parkTraitChips(pk)+'</div><div class="home-facts"><span><small>本塁打</small><b>'+(pk.hr>=1.12?'出やすい':pk.hr<=.9?'出にくい':'標準')+'</b></span><span><small>球場の傾向</small><b>'+(pk.run>=1.06?'打者有利':pk.run<=.96?'投手有利':'バランス型')+'</b></span></div><p class="home-note">'+esc(pk.note||'')+'</p>':'<span class="home-eyebrow">本拠地を決める</span><h2>'+(phase==='idle'?'ここから、<br>球団の歴史が始まる。':phase==='approach'?'スタンドの、その先へ。':'照明が、灯る。')+'</h2><p class="home-type">'+(phase==='idle'?'まだ誰もいない球場へ。':'まもなく、あなたのホームが決まります。')+'</p>')+'</div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'本拠地を確認して次へ':'タップして球場へ入る')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして別の球場へ':'タップして次へ'):phase==='idle'?'タップして球場に入る':'')+'</div>'+(done?'<div class="home-credit">'+(credit?'<a href="'+esc(credit.u)+'" target="_blank" rel="noopener">写真：'+esc(credit.a)+' / '+esc(credit.l)+'</a>':'<span>球場イメージ</span>')+'<span class="home-image-fallback">球場イメージ</span></div>':'')+'</section>';
+  const mapHtml = (pk && !done && !G.mapDone) ? ldWorldMap(pk) : '';
+  return '<section class="home-ceremony home-'+phase+(mapHtml?' home-mapping':'')+'" aria-label="本拠地の決定">'+mapHtml+'<img class="home-panorama" src="'+(photo||'stadium.webp')+'" alt="'+(done&&photo?esc(pk.name):'')+'" onerror="this.src=\'stadium.webp\';this.onerror=null;this.closest(\'section\').classList.add(\'home-fallback\')"><img class="home-tunnel" src="stadium-entry.webp" alt=""><div class="home-shade"></div><div class="home-light" aria-hidden="true"></div><div class="home-lamps" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home-content">'+(done?'<span class="home-eyebrow">'+esc(gachaTeam().name)+' の本拠地　<b class="home-grade">球場の格 '+parkRank(pk)+'</b></span><h2>'+esc(pk.name)+'</h2><p class="home-tagline">'+ldParkTagline(pk)+'</p><p class="home-type">'+esc(pk.cat)+' / '+esc(pk.type)+'</p><div class="home-traits">'+parkTraitChips(pk)+'</div><div class="home-facts"><span><small>本塁打</small><b>'+(pk.hr>=1.12?'出やすい':pk.hr<=.9?'出にくい':'標準')+'</b></span><span><small>球場の傾向</small><b>'+(pk.run>=1.06?'打者有利':pk.run<=.96?'投手有利':'バランス型')+'</b></span></div><p class="home-note">'+esc(pk.note||'')+'</p>':'<span class="home-eyebrow">本拠地を決める</span><h2>'+(phase==='idle'?'ここから、<br>球団の歴史が始まる。':phase==='approach'?'スタンドの、その先へ。':'照明が、灯る。')+'</h2><p class="home-type">'+(phase==='idle'?'まだ誰もいない球場へ。':'まもなく、あなたのホームが決まります。')+'</p>')+'</div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'本拠地を確認して次へ':'タップして球場へ入る')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして別の球場へ':'タップして次へ'):phase==='idle'?'タップして球場に入る':'')+'</div>'+(done?'<div class="home-credit">'+(credit?'<a href="'+esc(credit.u)+'" target="_blank" rel="noopener">写真：'+esc(credit.a)+' / '+esc(credit.l)+'</a>':'<span>球場イメージ</span>')+'<span class="home-image-fallback">球場イメージ</span></div>':'')+'</section>';
 }
 function ldManagerStage(x){
   const done=!!x?.open,p=x?.p,phase=done?'complete':state.gacha.ceremony||'idle';
@@ -69,7 +86,7 @@ ldActions=function(){
 };
 function ldCeremonyFinish(){
   const G=state.gacha,kind=gachaRound().k,x=G?.pulls?.[0];if(!x||x.open||(kind!=='K'&&kind!=='M'))return;
-  x.open=true;G.revealed=1;G.ceremony='complete';G.ceremonyDoneAt=Date.now();G.phase='caps';ldBusy=false;seRollStop();seFanfare();renderGacha();
+  x.open=true;G.revealed=1;G.ceremony='complete';G.ceremonyDoneAt=Date.now();G.phase='caps';G.mapDone=true;ldBusy=false;seRollStop();seFanfare();renderGacha();
   document.querySelector('.ceremony-tap-surface')?.focus();
 }
 gachaPull=function(auto){
@@ -77,8 +94,9 @@ gachaPull=function(auto){
   if(!G||G.pulls||ldBusy)return;
   G.ceremony='approach';ldOriginalPull();ldBusy=true;seRollStop();seWhoosh();
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:kind==='K'?1800:900);
-  ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:kind==='K'?3200:2500+Array.from(G.pulls[0].p.name).length*250);   // 署名は1文字0.25秒
+  if(kind==='K'&&!reduced){G.mapDone=false;ldDelay(()=>{if(state.gacha===G){G.mapDone=true;const m=document.querySelector('.gc-map');if(m)m.remove();const s=document.querySelector('.home-ceremony');if(s)s.classList.remove('home-mapping');}},MAP_MS);}else{G.mapDone=true;}
+  ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:kind==='K'?1800+MAP_MS:900);
+  ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:kind==='K'?3200+MAP_MS:2500+Array.from(G.pulls[0].p.name).length*250);   // 署名は1文字0.25秒
 };
 renderGacha=function(){
   const G=state.gacha;if(!G)return;

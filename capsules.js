@@ -10,7 +10,9 @@ const ldMlbColors={
   'マーリンズ':'#37b6d7','ナショナルズ':'#c5424d','ロッキーズ':'#8861bf','ブルージェイズ':'#3889d4',
   'ブルワーズ':'#c3a465','ブラウンズ':'#ad743a','レイズ':'#74b6dc'
 };
-function ldCapsuleColor(p){return p?(p.mlb?ldMlbColors[p.team]:FR_ACCENT[p.fr])||'#9caeba':'#9caeba';}
+// カプセルの色はランクだけで決める(球団色は分かりづらい)。金=SS 銀=S 赤=A 青=B 緑=C 黒=D
+const ldRankColor={SS:'#e0a600',S:'#c9d3e2',A:'#e4432c',B:'#2457b8',C:'#2a9a5b',D:'#15151a'};
+function ldCapsuleColor(p){const x=state.gacha&&state.gacha.pulls?state.gacha.pulls.find(y=>y.p===p):null;return ldRankColor[(x&&x.rank)||'B'];}
 gachaCapHtml=function(x,i,big){
   const G=state.gacha,ready=!!G.pulls&&G.phase!=='drop',pos=ldPositions[x.d.key]||x.d.label;
   const rank=G.pulls?x.rank:'B',special=rank==='S'||rank==='SS',club=G.pulls&&x.p?x.p.team:'';

@@ -22,6 +22,7 @@ const SS = [
   ["ジョージ・シスラー","en","George Sisler"], ["ロジャース・ホーンスビー","en","Rogers Hornsby"], ["アル・シモンズ","en","Al Simmons"],
   ["ハック・ウィルソン","en","Hack Wilson"], ["チャック・クライン","en","Chuck Klein"], ["ビル・テリー","en","Bill Terry"],
   ["エド・ウォルシュ","en","Ed Walsh"], ["バイダ・ブルー","en","Vida Blue"],
+  ["イチロー","ja","イチロー"], ["イチロー(MLB)","en","Ichiro Suzuki"],
 ];
 
 async function wikitext(lang, title){

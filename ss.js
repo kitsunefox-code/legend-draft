@@ -765,5 +765,43 @@ const SS_LORE = {
    "San Francisco Giants Wall of Fame"
   ],
   "src": "https://en.wikipedia.org/wiki/Vida_Blue"
+ },
+ "イチロー": {
+  "chron": [
+   "愛知工業大学名電高等学校",
+   "オリックス・ブルーウェーブ (1992 - 2000)",
+   "シアトル・マリナーズ (2001 - 2012)",
+   "ニューヨーク・ヤンキース (2012 - 2014)",
+   "マイアミ・マーリンズ (2015 - 2017)",
+   "シアトル・マリナーズ (2018 - 2019)"
+  ],
+  "awards": [],
+  "src": "https://ja.wikipedia.org/wiki/%E3%82%A4%E3%83%81%E3%83%AD%E3%83%BC"
+ },
+ "イチロー(MLB)": {
+  "chron": [
+   "Orix BlueWave (1992–2000)",
+   "Seattle Mariners (2001–2012)",
+   "New York Yankees (2012–2014)",
+   "Miami Marlins (2015–2017)",
+   "Seattle Mariners (2018–2019)"
+  ],
+  "awards": [
+   "オールスター 7回 (1994–2000)",
+   "日本シリーズ制覇 (1996)",
+   "3× パ・リーグ MVP (1994–1996)",
+   "7× Golden Glove Award (1994–2000)",
+   "7× ベストナイン (1994–2000)",
+   "2× Matsutaro Shoriki Award (1994, 1995)",
+   "7× パ・リーグ batting champion (1994–2000)",
+   "パ・リーグ RBI leader (1995)",
+   "パ・リーグ stolen base leader (1995)",
+   "Japanese Baseball 野球殿堂入り",
+   "オールスター 10回 (2001–2010)",
+   "リーグMVP (2001)",
+   "新人王 (2001)",
+   "ゴールドグラブ賞 10回 (2001–2010)"
+  ],
+  "src": "https://en.wikipedia.org/wiki/Ichiro_Suzuki"
  }
 };

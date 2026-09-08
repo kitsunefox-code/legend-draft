@@ -65,11 +65,11 @@ run('ssNext();ssNext();');assert.equal(run('storyDone'),1);
 console.log('PASS: SS rewind, chronological steps, stale-timer protection, awards/records, card skip and exactly-once acquisition.');
 vm.runInContext(fs.readFileSync('capsules.js','utf8'),ctx,{filename:'capsules.js'});
 run('ldCancel();ldTrial(2);gachaPull(true);');
-assert.notEqual(run('ldCapsuleColor({mlb:true,team:"ドジャース"})'),run('ldCapsuleColor({mlb:true,team:"レッドソックス"})'));
+assert.notEqual(run('ldRankColor.SS'),run('ldRankColor.C'));   // 色はランクで変わる(球団色はやめた)
 assert.equal(run('POOL.filter(p=>p.mlb).every(p=>/^#[0-9a-f]{6}$/i.test(ldCapsuleColor(p)))'),true);
 const shell=run('gachaCapHtml({...state.gacha.pulls[0],rank:"SS"},0,false)');assert(shell.includes('cap-SS'));assert(shell.includes('伝説の輝き'));
 assert(!shell.includes(run('state.gacha.pulls[0].p.name')),'Capsule must not expose the player name');
-console.log('PASS: club palettes, SS capsule cues and player-name concealment.');
+console.log('PASS: rank palettes, SS capsule cues and player-name concealment.');
 vm.runInContext(fs.readFileSync('club-ceremony.js','utf8'),ctx,{filename:'club-ceremony.js'});
 for(const round of [0,1]){
   run('ldCancel();ldTrial('+round+');');assert(!nodes.get('gc-stage').innerHTML.includes('ld-machine-stage'));

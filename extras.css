@@ -44,3 +44,40 @@
 .home-traits .pk-trait.good{border-color:#7fd39a;color:#bff0cc;}
 .home-traits .pk-trait.bad{border-color:#ff9d8a;color:#ffc9bd;}
 .home-traits{margin:6px 0 4px;}
+
+/* ---- 改行の作法: 数字と単位、札の文字は途中で折らない。長文は禁則に従う ---- */
+body{line-break:strict;overflow-wrap:anywhere;text-wrap:pretty;}
+h1,h2,h3,.gc-nm,.pc-nm,.ld-card-name,.home-content h2,.manager-heading h2,.c-title{text-wrap:balance;}
+.btn,.tag,.seal,.chip,.pl-cat,.pk-cat,.s-tab,.rs-tab,.od-tab,.mode-tile .mt-t,.od-h,.gc-stp,#ld-tabs button,.pc-st,.pc-nm,.pc-pos,
+.home-facts span,.manager-record span,.ld-card-stats span,.ld-card-career span,.pk-trait,.gc-sum-r,.od-n,.od-pos,.od-st,.pl-tile-f,.pk-tile-n,.pl-tile-n,
+.ts-rec,.ps-table td,.ps-table th,.dm-mt,.ln-k,.rl-chip,.ld-rank,.pn-cnt,.mt-k{word-break:keep-all;white-space:nowrap;}
+.ld-card-stats span b,.pw-m > b,.gc-prog b{white-space:nowrap;}
+.sub,.desc,.ss-desc,.cp-desc,.pv-note,.od-note,.gc-hint,.ld-machine-title p,.home-content p,.manager-clause,.mt-d{word-break:normal;}
+/* ---- 監督の封筒: 輝いて待つ ---- */
+.manager-idle .mail-closed,.manager-ceremony.manager-idle .mail-closed{animation:mailGlow 1.8s ease-in-out infinite;filter:drop-shadow(0 0 18px rgba(255,214,120,.55));}
+@keyframes mailGlow{0%,100%{filter:drop-shadow(0 0 10px rgba(255,214,120,.35)) brightness(1);transform:translateY(0);}50%{filter:drop-shadow(0 0 30px rgba(255,214,120,.95)) brightness(1.12);transform:translateY(-4px);}}
+.manager-idle .manager-mail::after{content:"";position:absolute;left:50%;top:50%;width:70%;height:60%;transform:translate(-50%,-50%);pointer-events:none;border-radius:50%;
+  background:radial-gradient(circle,rgba(255,214,120,.35),rgba(255,214,120,0) 70%);animation:mailAura 1.8s ease-in-out infinite;}
+@keyframes mailAura{0%,100%{opacity:.4;transform:translate(-50%,-50%) scale(.9);}50%{opacity:1;transform:translate(-50%,-50%) scale(1.1);}}
+/* ---- 回したらボールが各ポジションへばらまかれる ---- */
+#scr-gacha .gc-at .ld-capsule,#scr-gacha .ld-bench .ld-capsule,#scr-gacha .gc-pen .ld-capsule{
+  animation:ldScatter .95s cubic-bezier(.2,1.5,.35,1) both !important;
+}
+@keyframes ldScatter{0%{transform:translateY(60vh) scale(.35) rotate(-540deg);opacity:0;}45%{opacity:1;}70%{transform:translateY(-10px) scale(1.08) rotate(20deg);}100%{transform:none;}}
+#scr-gacha .gc-at:nth-child(1) .ld-capsule{animation-delay:.05s !important;} #scr-gacha .gc-at:nth-child(2) .ld-capsule{animation-delay:.13s !important;}
+#scr-gacha .gc-at:nth-child(3) .ld-capsule{animation-delay:.21s !important;} #scr-gacha .gc-at:nth-child(4) .ld-capsule{animation-delay:.29s !important;}
+#scr-gacha .gc-at:nth-child(5) .ld-capsule{animation-delay:.37s !important;} #scr-gacha .gc-at:nth-child(6) .ld-capsule{animation-delay:.45s !important;}
+#scr-gacha .gc-at:nth-child(7) .ld-capsule{animation-delay:.53s !important;} #scr-gacha .gc-at:nth-child(8) .ld-capsule{animation-delay:.61s !important;}
+#scr-gacha .gc-at:nth-child(9) .ld-capsule{animation-delay:.69s !important;} #scr-gacha .gc-at:nth-child(10) .ld-capsule{animation-delay:.77s !important;}
+#scr-gacha .gc-at:nth-child(11) .ld-capsule{animation-delay:.85s !important;} #scr-gacha .gc-at:nth-child(12) .ld-capsule{animation-delay:.93s !important;}
+#scr-gacha .gc-at:nth-child(13) .ld-capsule{animation-delay:1.01s !important;}
+#scr-gacha .gc-spot:nth-child(1) .ld-capsule{animation-delay:.9s !important;} #scr-gacha .gc-spot:nth-child(2) .ld-capsule{animation-delay:.98s !important;}
+#scr-gacha .gc-spot:nth-child(3) .ld-capsule{animation-delay:1.06s !important;} #scr-gacha .gc-spot:nth-child(4) .ld-capsule{animation-delay:1.14s !important;}
+#scr-gacha .gc-spot:nth-child(5) .ld-capsule{animation-delay:1.22s !important;} #scr-gacha .gc-spot:nth-child(6) .ld-capsule{animation-delay:1.3s !important;}
+@media (prefers-reduced-motion:reduce){ #scr-gacha .ld-capsule{animation:none !important;} .manager-idle .mail-closed{animation:none;} }
+/* ---- SSの異名 ---- */
+.pc-epithet{position:absolute;left:0;right:0;bottom:66px;padding:0 8px;color:#ffe9a8;font:700 11px/1.3 var(--display);letter-spacing:.08em;text-shadow:0 1px 3px rgba(0,0,0,.9);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc.sz-l .pc-epithet{bottom:98px;font-size:13px;padding:0 12px;}
+.ld-epithet{font:700 11px/1.3 "Noto Sans JP",sans-serif;letter-spacing:.1em;color:#f2ce78;text-shadow:0 1px 3px rgba(0,0,0,.8);margin-bottom:2px;}
+.ld-epithet::before{content:"— ";} .ld-epithet::after{content:" —";}
+.sz-s .ld-epithet{display:none;}

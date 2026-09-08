@@ -109,9 +109,9 @@ cardHtml=function(p,rank,opt={}){
       <div class="ld-card-shade"></div><div class="ld-card-foil"></div><div class="ld-card-prism"></div><div class="ld-card-etch"></div>
       <div class="ld-card-top"><span>${esc(opt.pos||roleLabel(p))}</span><b>${p.year}<small>SEASON</small></b></div>
       <div class="ld-card-edition">${edition}</div>
-      <div class="ld-card-rank">${rankIcon(rating,size==='l'?64:size==='m'?42:27)}<small>${rank==='SS'?'LEGEND':rank==='S'?'SUPER STAR':'RANK'}</small></div>
+      <div class="ld-card-rank">${p.danger?dokuroSvg(size==='l'?64:size==='m'?42:27):rankIcon(rating,size==='l'?64:size==='m'?42:27)}<small>${rank==='SS'?'LEGEND':rank==='S'?'SUPER STAR':rank==='D'?'DANGER':'RANK'}</small></div>
       <div class="ld-card-bottom"><div class="ld-card-club"><i></i><span>${esc(p.team)}</span>${p.mlb?'<b>MLB</b>':''}</div>
-        <div class="ld-card-name ${p.name.length>9?'ld-name-long':''}">${esc(p.name)}</div>
+        ${rank==='SS'&&ssEpithet(p)?`<div class="ld-epithet">${esc(ssEpithet(p))}</div>`:''}<div class="ld-card-name ${p.name.length>9?'ld-name-long':''}">${esc(p.name)}</div>
         ${size!=='s'?`<div class="ld-card-stats ${p.cat==='B'?'ld-batting-stats':''}">${stats.map(([k,v])=>`<span><small>${k}</small><b>${v??'—'}</b></span>`).join('')}</div>${p.cat==='B'?`<div class="ld-card-career"><span>通算安打 <b>${p.car?.h??'—'}</b></span><span>通算盗塁 <b>${p.car?.sb??'—'}</b></span></div>`:''}<div class="ld-card-series"><span>${edition}</span><b><small>OVR</small> ${rating}</b></div>`:''}
       </div>
     </div></div>`;

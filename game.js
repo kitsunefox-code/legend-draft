@@ -108,6 +108,35 @@ function devStars(m){
   return d>=1.3?"★★★":d>=1.1?"★★":d>=0.9?"★":"─";
 }
 
+const LEGEND_MIN_OVR = {"イチロー":94, "イチロー(MLB)":94};
+// SSの異名。カードと見せ場に添える
+const SS_EPITHET = {
+  "小鶴誠":"水爆打線の主砲", "落合博満":"オレ流、三冠王三度", "藤本英雄":"完全試合の名匠", "金田正一":"400勝の怪腕",
+  "杉浦忠":"四連投四連勝の鉄腕", "稲尾和久":"神様、仏様、稲尾様", "権藤博":"権藤、権藤、雨、権藤", "江夏豊":"401奪三振の左腕",
+  "ダルビッシュ有":"日本の至宝", "田中将大":"24勝0敗の神の子", "山本由伸":"三年連続沢村賞", "野口二郎":"延長28回完投の鉄腕",
+  "イチロー":"210安打の天才", "イチロー(MLB)":"262安打、安打製造機",
+  "ベーブ・ルース":"野球の神様", "テッド・ウィリアムズ":"最後の四割打者", "バリー・ボンズ":"762本の本塁打王",
+  "大谷翔平(MLB)":"二刀流の怪物", "ウォルター・ジョンソン":"ビッグ・トレイン", "サンディ・コーファックス":"左腕の神",
+  "ペドロ・マルティネス":"支配者", "クレイトン・カーショウ":"現代のコーファックス", "スタン・ミュージアル":"スタン・ザ・マン",
+  "ジミー・フォックス":"ザ・ビースト", "ロナルド・アクーニャJr.":"40本70盗塁の男", "スティーブ・カールトン":"レフティ",
+  "ドワイト・グッデン":"ドクターK", "トッド・ヘルトン":"ロッキーズの顔", "ラリー・ウォーカー":"カナダの英雄",
+  "クリスティ・マシューソン":"ビッグ・シックス", "タイ・カッブ":"ジョージアの桃", "ナップ・ラジョイ":"打率.426の男",
+  "ジョージ・シスラー":"257安打の男", "ロジャース・ホーンスビー":"ラジャ", "アル・シモンズ":"バケットフット・アル",
+  "ハック・ウィルソン":"191打点の男", "チャック・クライン":"170打点の強打者", "ビル・テリー":"最後のナ・リーグ四割打者",
+  "エド・ウォルシュ":"464イニングの鉄人", "バイダ・ブルー":"20歳のMVP",
+};
+function ssEpithet(p){ return (p && SS_EPITHET[p.name]) || ""; }
+// 同じ人物は一人まで。監督として取られた人は選手として出ない(逆も)
+function baseName(n){ return String(n || "").replace(/\s*[（(][^）)]*[）)]\s*$/, ""); }
+function nameTaken(p){
+  const bn = baseName(p.name);
+  for(const t of state.parts){
+    for(const k in t.slots){ const q = t.slots[k]; if(q && q.id !== p.id && baseName(q.name) === bn) return true; }
+  }
+  return false;
+}
+// ランクの章。デンジャーは髑髏の警告印
+function rankMark(p, grp, size){ return p && p.danger ? dokuroSvg(size || 26) : rankIcon(ovrFor(p, grp), size); }
 function prepPlayer(p, idPrefix, i){
   p.id = idPrefix + i;
   p.decade = decadeOf(p.year);
@@ -120,6 +149,8 @@ function prepPlayer(p, idPrefix, i){
       p.ovr = Math.max(p.ovr, Math.round((p.ovr + p.pitOvr)/2) + 4); // 二刀流の総合価値
     }
   }
+  // 数字だけでは測れない伝説。下限を保証する
+  if(LEGEND_MIN_OVR[p.name]) p.ovr = Math.max(p.ovr, LEGEND_MIN_OVR[p.name]);
   p.cost = costOf(p.ovr, p.cat, !!p.mlb);
   return p;
 }
@@ -979,7 +1010,7 @@ function gachaDraw(t, d, minTier){
     const dg = DANGERS.filter(p => !state.taken.has(p.id) && eligibleGrp(p, d.grp));
     if(dg.length) return dg[Math.floor(rnd() * dg.length)];
   }
-  const cands = POOL.filter(p => !state.taken.has(p.id) && poolOK(p) && !p.twoWay && eligibleGrp(p, d.grp));
+  const cands = POOL.filter(p => !state.taken.has(p.id) && poolOK(p) && !p.twoWay && eligibleGrp(p, d.grp) && !nameTaken(p));
   if(!cands.length) return null;
   const byTier = {};
   cands.forEach(p => { const r = rankOf(ovrFor(p, d.grp)); (byTier[r] = byTier[r] || []).push(p); });
@@ -1293,7 +1324,8 @@ function cardHtml(p, rank, opt){
       '<div class="pc-ph">' + ph + '</div>' +
       '<div class="pc-sh"></div><div class="pc-holo"></div>' +
       (pos ? '<span class="pc-pos">' + esc(pos) + '</span>' : '') +
-      '<span class="pc-rk">' + rankIcon(ovrFor(p, grp), size === "l" ? 44 : size === "s" ? 20 : 26) + '</span>' +
+      '<span class="pc-rk">' + rankMark(p, grp, size === "l" ? 44 : size === "s" ? 20 : 26) + '</span>' +
+      (rank === "SS" && size !== "s" && ssEpithet(p) ? '<div class="pc-epithet">' + esc(ssEpithet(p)) + '</div>' : '') +
       (p.mlb ? '<span class="pc-mlb">MLB</span>' : '') +
       '<div class="pc-nm">' + esc(p.name) + (size !== "s" ? titleBadge(p) : '') + '</div>' +
       (size !== "s" ? '<div class="pc-st">' + esc(st) + '</div>' : '') +
@@ -1493,6 +1525,7 @@ function affordable(t,p){
 }
 function canTake(t,p,ignoreCost=false){
   if(state.taken.has(p.id)) return false;
+  if(nameTaken(p)) return false;
   if(state.reinforce) return reinforceCan(t, p, ignoreCost);
   if(!ignoreCost && !affordable(t,p)) return false;
   const ph = currentPhase();
@@ -2950,17 +2983,23 @@ const PARKS = [
 // その試合だけ球場の癖が変わる(球場イベント)ときは parkTmp を見る
 function parkOf(t){ return t.parkTmp || t.park || PARKS[0]; }
 // 球場の個性。集客(士気)・スキャンダル(記者の多さ)・疲労(移動と環境)。1.0 が標準
+// away = その球場へ遠征してきた相手球団の不祥事の起こりやすさ(繁華街が近い街ほど高い)
 const PARK_TRAIT_BY_CAT = {
-  NPB:   {crowd:1.0, scandal:1.0, fatigue:1.0},
-  歴史:   {crowd:0.9, scandal:0.9, fatigue:0.95},
-  MLB:   {crowd:1.25, scandal:1.6, fatigue:1.5},
-  地方:   {crowd:0.6, scandal:0.5, fatigue:0.8},
-  草野球:  {crowd:0.4, scandal:0.3, fatigue:0.7},
+  NPB:   {crowd:1.0, scandal:1.0, fatigue:1.0, away:1.0},
+  歴史:   {crowd:0.9, scandal:0.9, fatigue:0.95, away:1.0},
+  MLB:   {crowd:1.3, scandal:1.7, fatigue:1.7, away:1.3},
+  地方:   {crowd:0.5, scandal:0.4, fatigue:0.75, away:0.7},
+  草野球:  {crowd:0.3, scandal:0.25, fatigue:0.65, away:0.6},
 };
 const PARK_TRAIT_OVERRIDE = {
-  koshien:{crowd:1.3, scandal:1.3}, tokyodome:{crowd:1.2, scandal:1.2}, yankee:{crowd:1.3, scandal:1.9},
-  dodger:{crowd:1.3}, wrigley:{crowd:1.2}, fenway:{crowd:1.2, scandal:1.7}, korakuen:{crowd:1.15, scandal:1.2},
-  kusanagi:{crowd:0.7}, escon:{crowd:1.1}, mazda:{crowd:1.15},
+  escon:{crowd:1.1, away:1.9},        // 試合後はすすきの
+  paypay:{crowd:1.15, away:1.8},      // 中洲
+  tokyodome:{crowd:1.2, scandal:1.3, away:1.5},
+  jingu:{away:1.5}, hama:{away:1.3}, kyocera:{away:1.3}, koshien:{crowd:1.35, scandal:1.3, away:1.3},
+  mazda:{crowd:1.2}, rakuten:{crowd:1.05},
+  yankee:{crowd:1.35, scandal:2.0, away:1.7}, dodger:{crowd:1.3, away:1.5}, wrigley:{crowd:1.25, away:1.4},
+  fenway:{crowd:1.25, scandal:1.8, away:1.4}, korakuen:{crowd:1.15, scandal:1.2, away:1.3},
+  kusanagi:{crowd:0.7}, bocchan:{crowd:0.55},
 };
 function parkTraits(pk){
   const base = PARK_TRAIT_BY_CAT[(pk && pk.cat) || "NPB"] || PARK_TRAIT_BY_CAT.NPB;
@@ -2978,6 +3017,7 @@ function parkTraitChips(pk){
     chip("集客", tr.crowd, "満員・士気高い", "標準", "少ない・士気↓", true) +
     chip("記者", tr.scandal, "多い・不祥事↑", "標準", "少ない・穏やか", false) +
     chip("疲労", tr.fatigue, "たまりやすい", "標準", "たまりにくい", false) +
+    (tr.away >= 1.3 ? '<span class="pk-trait bad"><i>夜の街</i>敵の不祥事↑</span>' : '') +
   '</div>';
 }
 // 重み付きの球団選び。不祥事は記者の多い本拠地へ、怪我は移動の多い本拠地へ寄る
@@ -2988,7 +3028,9 @@ function pickW(list, wf){
   for(let i = 0; i < list.length; i++){ r -= ws[i]; if(r <= 0) return list[i]; }
   return list[list.length-1];
 }
-function pickScandal(list){ return pickW(list, t => parkTraits(t.park).scandal); }
+function pickScandal(list){
+  return pickW(list, t => parkTraits(t.park).scandal * (t.lastAwayPark ? parkTraits(t.lastAwayPark).away : 1));
+}
 function pickFatigue(list){ return pickW(list, t => parkTraits(t.park).fatigue); }
 function pickCrowd(list){ return pickW(list, t => parkTraits(t.park).crowd); }
 // ホーム球場の係数。ビジター側にも同じ条件がかかる
@@ -3626,6 +3668,8 @@ function playDay(){
   const rolled = games.map(([ai,bi])=>{
     const A = state.parts[ai], B = state.parts[bi];
     rollParkEvent(B, A);                 // 本拠地の出来事(その試合だけ球場の癖が変わる)
+    A.lastAwayPark = B.park;             // 遠征先の街の誘惑は翌日の不祥事に響く
+    B.lastAwayPark = null;
     const g = rollGame(A, B, true);
     B.parkTmp = null;
     return {A, B, rA:g.rA, rB:g.rB};

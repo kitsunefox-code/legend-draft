@@ -4625,7 +4625,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 .setup-go .btn.lg,.gc-foot .btn.lg,.pl-foot .btn.lg,.pk-foot .btn.lg{border-radius:14px;}
 
 </style>
-<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"><link rel="stylesheet" href="compact.css?v=4"><link rel="stylesheet" href="extras.css?v=4"></head>
+<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"><link rel="stylesheet" href="compact.css?v=4"><link rel="stylesheet" href="extras.css?v=5"></head>
 <body>
 <div class="wrap">
 
@@ -4691,6 +4691,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 
   <div class="panel mode-panel">
     <b>球団の作り方<span class="pn-cnt">ルール</span></b>
+    <input type="checkbox" id="opt-gacha" hidden onchange="foldSummary()">
     <div class="mode-pick">
       <button type="button" class="mode-tile on" data-mode="draft" onclick="setMode('draft')">
         <span class="mt-k">DRAFT</span><span class="mt-t">ドラフト会議</span>
@@ -4744,12 +4745,6 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">交渉テーブル<span class="ot-tag">卓上</span></span>
         <span class="ot-d">6月末に自動停止。全球団の「穴」と「出せる選手」が並ぶので、あとは卓上で口頭で交渉。話がついた分だけ何件でも成立させられる</span></span>
-      </label>
-      <label class="opt-tile gacha" hidden>
-        <input type="checkbox" id="opt-gacha" onchange="foldSummary()">
-        <span class="ot-box"></span>
-        <span class="ot-main"><span class="ot-t">ガチャモード<span class="ot-tag">NEW</span></span>
-        <span class="ot-d">ドラフトの代わりに、球場・監督・野手15人・投手11人を順番に獲得。守備位置のカプセルを開封して球団を作ります。コストは不要です</span></span>
       </label>
       <label class="opt-tile mlbonly">
         <input type="checkbox" id="opt-mlbonly" onchange="foldSummary()">
@@ -5254,12 +5249,12 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   </div>
 </div>
 
-<script src="qrcode.js?v=202609061700"></script>
-<script src="players.js?v=202609061700"></script>
-<script src="danger.js?v=202609061700"></script>
+<script src="qrcode.js?v=202609070900"></script>
+<script src="players.js?v=202609070900"></script>
+<script src="danger.js?v=202609070900"></script>
 <script src="data-fixes.js?v=1"></script>
-<script src="party.js?v=202609061700"></script>
-<script src="ss.js?v=202609061700"></script>
-<script src="game.js?v=202609061700"></script>
-<script src="premium.js?v=13"></script><script src="pull.js?v=10"></script><script src="ss-story.js?v=13"></script><script src="capsules.js?v=13"></script><script src="club-ceremony.js?v=14"></script><script src="tap-first.js?v=12"></script><script src="extras.js?v=1"></script></body>
+<script src="party.js?v=202609070900"></script>
+<script src="ss.js?v=202609070900"></script>
+<script src="game.js?v=202609070900"></script>
+<script src="premium.js?v=13"></script><script src="pull.js?v=10"></script><script src="ss-story.js?v=13"></script><script src="capsules.js?v=13"></script><script src="club-ceremony.js?v=14"></script><script src="tap-first.js?v=12"></script><script src="extras.js?v=2"></script></body>
 </html>

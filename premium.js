@@ -43,6 +43,11 @@ function ldSyncSetup(){
 }
 function ldRank(rank){return '<span class="ld-rank '+rank+'">'+rank+'</span>';}
 function ldButton(text,call,cls=''){return '<button type="button" class="ld-btn '+cls+'" onclick="'+call+'">'+text+'</button>';}
+// 小さな札は手元の写真(速い)。拡大・SSの大判だけ Commons の高解像度を使う
+function ldLocalPhoto(p){
+  if(p.ph!==undefined) return {src:'assets/face/'+p.ph+'.jpg',fallback:'',hi:false};
+  return ldPlayerPhoto(p);
+}
 function ldPlayerPhoto(p){
   const fallback=p.ph!==undefined?'assets/face/'+p.ph+'.jpg':'';
   try{
@@ -91,7 +96,7 @@ function ldSidebar(){
 }
 gachaCapHtml=function(x,i,big){const G=state.gacha,ready=!!G.pulls&&G.phase!=='drop';return '<button type="button" class="gc-cap ld-capsule '+(big?'big':'')+'" aria-label="'+esc(ldPositions[x.d.key]||x.d.label)+(ready?'のカプセルを開封':'のガチャを開始')+'" onclick="'+(ready?'gachaReveal('+i+')':'gachaPull()')+'"><img src="capsule.webp" alt="" draggable="false"><span class="ld-cap-number">'+String(i+1).padStart(2,'0')+'</span><span class="gc-cap-l">'+esc(ldPositions[x.d.key]||x.d.label)+'</span><small>'+(ready?'TAP TO OPEN':'READY')+'</small></button>';};
 cardHtml=function(p,rank,opt={}){
-  const size=opt.size||'m',grp=opt.grp||(p.cat==='P'?p.role:'B'),photo=ldPlayerPhoto(p),rating=ovrFor(p,grp);
+  const size=opt.size||'m',grp=opt.grp||(p.cat==='P'?p.role:'B'),photo=(size==='l'?ldPlayerPhoto(p):ldLocalPhoto(p)),rating=ovrFor(p,grp);
   const stats=p.cat==='M'?[['リーグ優勝',p.pennants||0],['日本一',p.japan||0],['通算勝利',p.wins||0]]:p.cat==='P'?[['防御率',Number(p.era).toFixed(2)],['奪三振',p.so],['勝利',p.w]]:[['打率',avg3(p.avg)],['本塁打',p.hr],['打点',p.rbi],['盗塁',p.sb]];
   const attr=s=>esc(s).replace(/"/g,'&quot;');
   const club=FR_ACCENT[p.mlb?'MLB':p.fr]||'#416883';

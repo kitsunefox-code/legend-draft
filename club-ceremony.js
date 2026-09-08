@@ -53,8 +53,8 @@ gachaPull=function(auto){
   if(!G||G.pulls||ldBusy)return;
   G.ceremony='approach';ldOriginalPull();ldBusy=true;seRollStop();seWhoosh();
   const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:kind==='K'?2400:1050);
-  ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:kind==='K'?4300:4000+Array.from(G.pulls[0].p.name).length*400);
+  ldDelay(()=>ldCeremonyPhase(G,'lights'),reduced?60:kind==='K'?1800:900);
+  ldDelay(()=>{if(state.gacha===G)ldCeremonyFinish();},reduced?160:kind==='K'?3200:2500+Array.from(G.pulls[0].p.name).length*250);   // 署名は1文字0.25秒
 };
 renderGacha=function(){
   const G=state.gacha;if(!G)return;

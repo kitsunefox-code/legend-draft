@@ -9,7 +9,7 @@
 @keyframes homeFinalLandscape{from{filter:brightness(1.5);transform:scale(1.035)}to{filter:brightness(.95);transform:scale(1)}}
 @keyframes homeFinalLight{0%{opacity:.7}100%{opacity:0}}
 .manager-signature .ink-signature{font-family:'Yu Mincho','Hiragino Mincho ProN',serif;font-style:italic;font-weight:600;color:#1d2835;letter-spacing:.05em}
-.ink-signature>span{display:inline-block;white-space:pre;clip-path:inset(0 100% 0 0);animation:signatureStroke .55s ease-out forwards;animation-delay:calc(var(--stroke)*.4s)}
+.ink-signature>span{display:inline-block;white-space:pre;clip-path:inset(0 100% 0 0);animation:signatureStroke .4s ease-out forwards;animation-delay:calc(var(--stroke)*.25s)}
 .manager-lights .manager-signature{position:relative}.manager-lights .manager-signature:after{content:'';position:absolute;left:0;bottom:0;height:1px;background:#243141;width:100%;transform-origin:left;animation:signatureUnderline 1s 1.6s ease-out both}
 @keyframes signatureStroke{to{clip-path:inset(0 0 0 0)}}@keyframes signatureUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 .archive-screen{background:linear-gradient(100deg,#080d14,#17212b 60%,#080d14)}

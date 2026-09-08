@@ -1,0 +1,52 @@
+/* ガチャ画面を一画面に収める(狭い画面)。帯・見出し・タブを畳み、演出本体に場所を渡す */
+@media (max-width:700px){
+  #scr-gacha .gc-head{padding:6px 12px !important;display:flex;align-items:center;gap:8px;}
+  #scr-gacha .ld-brand b{font-size:18px !important;}
+  #scr-gacha .ld-brand small{display:none !important;}
+  #scr-gacha .ld-header-right{margin-left:auto;display:flex;gap:6px;align-items:center;}
+  #scr-gacha .ld-header-right .ld-mode{display:none;}
+  #scr-gacha .ld-header-right .ld-btn{padding:5px 8px !important;font-size:10px !important;}
+  #scr-gacha #ld-intro{padding:8px 0 6px !important;gap:8px !important;}
+  #scr-gacha #ld-intro .ld-eyebrow{display:none;}
+  #scr-gacha #ld-intro h1{font-size:17px !important;line-height:1.2 !important;}
+  #scr-gacha #ld-intro p{display:none !important;}
+  #scr-gacha #ld-intro .ld-team small{display:none;}
+  #scr-gacha #ld-intro .ld-team b{font-size:12px;}
+  #scr-gacha #ld-intro .ld-team span{font-size:10px;}
+  #scr-gacha #ld-tabs{margin-bottom:8px !important;}
+  #scr-gacha #ld-tabs button{padding:7px 4px !important;font-size:10px !important;text-align:center !important;}
+  #scr-gacha #ld-tabs button small,#scr-gacha #ld-tabs button>span{display:none !important;}
+  #scr-gacha .ld-bullpen{min-height:0 !important;padding:10px !important;}
+  #scr-gacha .ld-shell{gap:10px !important;}
+
+  /* 脇のパネル(獲得状況)は狭い画面では畳む。筐体は縮めて一画面に */
+  #scr-gacha #ld-side{display:none !important;}
+  #scr-gacha .ld-shell{display:block !important;}
+  #scr-gacha .ld-machine-stage{min-height:0 !important;padding:8px 10px 6px !important;}
+  #scr-gacha .ld-machine-title{padding:0 !important;margin:0 0 4px !important;}
+  #scr-gacha .ld-machine-title small{font-size:10px !important;}
+  #scr-gacha .ld-machine-title h2{font-size:24px !important;margin:2px 0 !important;line-height:1.2 !important;}
+  #scr-gacha .ld-machine-title p{font-size:11px !important;margin:2px 0 0 !important;padding:2px 10px !important;}
+  #scr-gacha .ld-machine-scene{height:min(46vh,360px) !important;}
+  #scr-gacha .ld-machine-visual{height:100% !important;}
+  #scr-gacha .gc-hint{font-size:11px !important;padding:4px 0 !important;}
+  #scr-gacha .gc-foot{padding:6px 12px calc(6px + env(safe-area-inset-bottom,0px)) !important;}
+  #scr-gacha .ld-bottom-note{display:none !important;}
+
+  /* 監督の封筒: 高さの下限を外し、余白を詰める */
+  #scr-gacha .manager-ceremony{min-height:0 !important;padding:14px 12px !important;gap:12px !important;}
+  #scr-gacha .manager-ceremony img{max-height:34vh !important;object-fit:contain;}
+  #scr-gacha .home-ceremony{min-height:0 !important;}
+
+  /* 野手の盤: 控えの段を一列に詰め、見出しの一行を畳む */
+  #scr-gacha .ld-field-caption{display:none !important;}
+  #scr-gacha .ld-bench{padding:6px 6px !important;}
+  #scr-gacha .ld-bench-label{margin-bottom:2px !important;}
+  #scr-gacha .ld-bench-label small{display:none !important;}
+  #scr-gacha .ld-bench .gc-spot{height:auto !important;}
+  #scr-gacha .ld-bench .ld-capsule{height:66px !important;}
+  #scr-gacha .ld-bench .ld-capsule img{height:68% !important;}
+  #scr-gacha .ld-bench .ld-capsule small,#scr-gacha .ld-bench .ld-cap-number{display:none !important;}
+  #scr-gacha .ld-bench .gc-cap-l{font-size:9px !important;padding:0 4px !important;}
+  #scr-gacha .ld-bench .pc.sz-s{width:100% !important;}
+}

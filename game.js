@@ -2646,6 +2646,7 @@ function startSeason(){
   state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; });
   awardYaku();   // 開幕オーダーの役
   state.eventQueue = [];
+  state.weekTarget = null; state.weekNo = 0; state.weekSnapData = null; state.huddle = null;
   // 月末のGMの決断(人間の球団だけ)。月報のすぐ後に来るよう、ルーレットより先に積む
   [0,1,2,3,4].forEach(function(m){ state.eventQueue.push({after:m, type:"gm", no:m}); });
   initEngagement();
@@ -3109,11 +3110,11 @@ function findSaihai(rolled){
       const my = side === "A" ? r.rA : r.rB;
       const op = side === "A" ? r.rB : r.rA;
       if(op - my !== 1) continue;              // 1点差の負けのみ
-      if(t.saihaiCool && state.day < t.saihaiCool) continue;   // 同じ球団には7日おき。一気進行中は半分の確率
+      if(t.saihaiCool && state.day < t.saihaiCool) continue;   // 同じ球団には2週間おき。一気進行中は半分の確率
       if(rnd() > (state.skipping ? 0.18 : 0.32)) continue;
       const card = pickSaihaiCard(t);
       if(!card) continue;
-      t.saihaiCool = state.day + 7;
+      t.saihaiCool = state.day + 14;
       return {game:r, side, t, card};
     }
   }
@@ -3315,6 +3316,32 @@ function tick(){
   renderLive();
   afterDay();
 }
+// 月末ハドル。月報とその月の催しを一連の流れとして、上に小さな帯で進み具合を示す
+const EVENT_LABEL = {gm:"GMの決断", roulette:"ルーレット", allstar:"球宴", trade:"トレード期限", mlb:"MLB補強"};
+function huddleStart(){
+  const due = state.eventQueue.filter(e => !e.done && e.after <= state.monthsCompleted);
+  const seen = new Set(); const steps = ["月報"];
+  due.forEach(e => { const l = EVENT_LABEL[e.type] || e.type; if(!seen.has(l)){ seen.add(l); steps.push(l); } });
+  state.huddle = {steps, i:0, month: state.monthsCompleted};
+  huddleRender();
+}
+function huddleStep(type){
+  const h = state.huddle; if(!h) return;
+  const l = EVENT_LABEL[type] || type;
+  const i = h.steps.indexOf(l);
+  if(i >= 0) h.i = i;
+  huddleRender();
+}
+function huddleEnd(){ state.huddle = null; huddleRender(); }
+function huddleRender(){
+  let bar = $("huddle-bar");
+  if(!bar){ bar = document.createElement("div"); bar.id = "huddle-bar"; document.body.appendChild(bar); }
+  const h = state.huddle;
+  if(!h || h.steps.length < 2){ bar.classList.remove("show"); return; }
+  bar.innerHTML = '<span class="hd-k">' + esc((MONTHS[h.month] || "") + "末ハドル") + '</span>' +
+    h.steps.map(function(s, i){ return '<span class="hd-s' + (i < h.i ? " done" : i === h.i ? " now" : "") + '">' + esc(s) + '</span>'; }).join('<i></i>');
+  bar.classList.add("show");
+}
 // その日の試合が終わったあとの見せ場。快挙の号外 → 月報 → 生中継 → 月末の催し
 function afterDay(){
   if(state.recordGogai && state.recordGogai.length){
@@ -3327,9 +3354,11 @@ function afterDay(){
   if(state.monthGogai){
     const mg = state.monthGogai; state.monthGogai = null;
     stopTimer();
+    huddleStart();
     showMonthGogai(mg, function(){
       const ev = dueEvent();
       if(ev){ ev.done = true; state.resumeAfterEvent = true; startEvent(ev.type, ev); return; }
+      huddleEnd();
       if(state.day >= state.schedule.length){ finishSeason(); return; }
       startTimer();
     });
@@ -3395,6 +3424,136 @@ function afterDay(){
   const ev = dueEvent();
   if(ev){ stopTimer(); ev.done = true; state.resumeAfterEvent = true; startEvent(ev.type, ev); return; }
   if(state.day >= state.schedule.length) finishSeason();
+}
+// 終盤モード。残り2週間、または首位と2ゲーム差以内で残り30試合を切ったら、1日ずつ進める
+function isClimax(){
+  if(!state.schedule) return false;
+  const rem = state.schedule.length - state.day;
+  if(rem <= 14) return true;
+  const s = standingsSorted();
+  if(s.length < 2 || rem > 30) return false;
+  const gb = ((s[0].W - s[1].W) + (s[1].L - s[0].L)) / 2;
+  return gb <= 2;
+}
+function skipLabel(){
+  if(!state.schedule || state.finished) return "1週進める";
+  return isClimax() ? "1日進める（終盤）" : "1週進める";
+}
+// 週の始まりに写しておく数字。週報で「何が動いたか」を出すため
+function weekSnap(){
+  const s = standingsSorted();
+  const rank = {}; s.forEach(function(t, i){ rank[t.name] = i + 1; });
+  const rec = {}; state.parts.forEach(function(t){ rec[t.name] = {W:t.W, L:t.L, h2h: JSON.parse(JSON.stringify(t.h2h || {}))}; });
+  const st = {};
+  (state.seasonStats || []).forEach(function(x){ st[x.p.id + "@" + x.t.name] = {h:x.h||0, hr:x.hr||0, rbi:x.rbi||0, ab:x.ab||0, w:x.w||0, so:x.so||0, ip:x.ip||0, er:x.er||0, sv:x.sv||0}; });
+  return {day: state.day, rank, rec, st, no: (state.weekNo || 0) + 1};
+}
+function skipWeek(){
+  stopTimer();
+  state.skipping = true;
+  state.openingShown = true;
+  const climax = isClimax();
+  if(state.weekTarget === null || state.weekTarget === undefined){
+    state.weekSnapData = weekSnap();
+    state.weekTarget = Math.min(state.schedule.length, state.day + (climax ? 1 : 7));
+  }
+  let guard = 40;
+  while(state.day < state.weekTarget && guard-- > 0){
+    if(playDay() === false){ renderLive(); return; }   // 采配の入力待ち(答えたら再開して続く)
+    if(state.recordGogai && state.recordGogai.length){
+      const rg = state.recordGogai.shift();
+      renderLive();
+      showRecordGogai(rg, function(){ skipWeek(); });
+      return;
+    }
+    const cl = checkClinch();
+    if(cl){ renderLive(); showDoage(cl, function(){ skipWeek(); }); return; }
+    if(state.monthGogai){
+      // 月末は週報の代わりに月報とハドル。週の区切りもここで打ち直す
+      const mg = state.monthGogai; state.monthGogai = null;
+      state.weekTarget = null; state.weekNo = (state.weekNo || 0) + 1;
+      renderLive();
+      huddleStart();
+      showMonthGogai(mg, function(){
+        const ev = dueEvent();
+        if(ev){ ev.done = true; state.resumeAfterEvent = false; startEvent(ev.type, ev); return; }
+        huddleEnd();
+      });
+      return;
+    }
+    const ev = dueEvent();
+    if(ev){ renderLive(); state.weekTarget = null; ev.done = true; state.resumeAfterEvent = false; startEvent(ev.type, ev); return; }
+  }
+  renderLive();
+  state.weekTarget = null;
+  if(state.day >= state.schedule.length){ finishSeason(); return; }
+  if(climax){ climaxTelop(); return; }
+  state.weekNo = (state.weekNo || 0) + 1;
+  showWeekReport(state.weekSnapData);
+}
+// 終盤: その日の首位争いを一行で
+function climaxTelop(){
+  const s = standingsSorted();
+  if(s.length < 2) return;
+  const rem = state.schedule.length - state.day;
+  const gb = ((s[0].W - s[1].W) + (s[1].L - s[0].L)) / 2;
+  const m = magicNumber();
+  const line = `【終盤】残り${rem}日　首位${s[0].name}　2位${s[1].name}と${gb === 0 ? "同率" : gb + "ゲーム差"}` + (m ? `　優勝マジック${m}` : "");
+  telop(line);
+  const note = $("s-note"); if(note) note.textContent = line.replace("【終盤】", "");
+}
+// 週報。順位の動き、各球団の週の勝敗、宿敵戦、週間MVP、来週の注目カード
+function showWeekReport(snap){
+  if(!snap) return;
+  const s = standingsSorted();
+  const rows = s.map(function(t, i){
+    const prev = snap.rank[t.name] || (i + 1), mv = prev - (i + 1);
+    const r0 = snap.rec[t.name] || {W:t.W, L:t.L, h2h:{}};
+    const w = t.W - r0.W, l = t.L - r0.L;
+    let riv = "";
+    if(t.rival){
+      const a = (t.h2h || {})[t.rival.name] || {w:0,l:0}, b = (r0.h2h || {})[t.rival.name] || {w:0,l:0};
+      const dw = a.w - b.w, dl = a.l - b.l;
+      if(dw + dl > 0) riv = '<span class="wk-riv">宿敵戦 ' + dw + '勝' + dl + '敗</span>';
+    }
+    return '<div class="wk-row' + (i === 0 ? " top" : "") + (t.cpu ? "" : " human") + '"><span class="wk-rk">' + (i+1) + '</span>' +
+      '<span class="wk-mv ' + (mv > 0 ? "up" : mv < 0 ? "down" : "") + '">' + (mv > 0 ? "▲" + mv : mv < 0 ? "▼" + (-mv) : "―") + '</span>' +
+      teamEmblem(t, 16) + '<span class="wk-nm">' + esc(t.name) + '</span>' +
+      '<span class="wk-week">今週 <b>' + w + '</b>勝<b>' + l + '</b>敗</span>' + riv +
+      '<span class="wk-tot">' + t.W + '-' + t.L + '</span></div>';
+  }).join("");
+  // 週間MVP
+  let mvp = null;
+  (state.seasonStats || []).forEach(function(x){
+    const z = snap.st[x.p.id + "@" + x.t.name] || {};
+    if(x.kind === "B"){
+      const h = (x.h||0)-(z.h||0), hr = (x.hr||0)-(z.hr||0), rbi = (x.rbi||0)-(z.rbi||0), ab = (x.ab||0)-(z.ab||0);
+      if(ab >= 12){ const sc = hr*4 + rbi*1.2 + h; if(!mvp || sc > mvp.sc) mvp = {sc, p:x.p, t:x.t, line: avg3(h/ab) + "・" + hr + "本・" + rbi + "打点"}; }
+    }else{
+      const w = (x.w||0)-(z.w||0), so = (x.so||0)-(z.so||0), ip = (x.ip||0)-(z.ip||0), er = (x.er||0)-(z.er||0), sv = (x.sv||0)-(z.sv||0);
+      if(ip >= 6 || sv >= 2){ const era = ip ? er*9/ip : 9; const sc = w*5 + sv*4 + so*0.4 + Math.max(0, 4.5-era)*3; if(!mvp || sc > mvp.sc) mvp = {sc, p:x.p, t:x.t, line: w + "勝" + (sv ? sv + "S" : "") + "・防御率" + era.toFixed(2) + "・" + so + "K"}; }
+    }
+  });
+  // 来週の注目カード: 首位攻防 > 人間同士 > 首位の試合
+  let watch = "";
+  for(let d = state.day; d < Math.min(state.day + 7, state.schedule.length) && !watch; d++){
+    const games = state.schedule[d] || [];
+    const top = games.find(function(g){ const A = state.parts[g[0]], B = state.parts[g[1]]; return (A === s[0] && B === s[1]) || (A === s[1] && B === s[0]); });
+    const hum = games.find(function(g){ return !state.parts[g[0]].cpu && !state.parts[g[1]].cpu; });
+    const pick = top || hum;
+    if(pick){ const A = state.parts[pick[0]], B = state.parts[pick[1]]; watch = dateLabel(d) + "　" + A.name + " × " + B.name + (top ? "（首位攻防）" : "（直接対決）"); }
+  }
+  state.gogaiAfter = null;
+  $("gg-go").textContent = "週報";
+  $("gogai").classList.add("gg-month", "gg-week"); $("gogai").classList.remove("gg-record");
+  $("gg-k").textContent = "球史編纂所 ── " + dateLabel(snap.day) + "〜" + dateLabel(Math.max(snap.day, state.day - 1));
+  $("gg-team").textContent = "第" + snap.no + "週";
+  $("gg-v").textContent = "首位 " + s[0].name + "　" + (isClimax() ? "終盤戦へ" : "残り" + Math.max(0, Math.round((state.gamesPer || 144)) - (s[0].W + s[0].L + (s[0].T||0))) + "試合");
+  $("gg-sub").innerHTML = '<div class="wk-tbl">' + rows + '</div>' +
+    (mvp ? '<div class="gg-mvp"><div class="gg-mvp-face">' + faceThumb(mvp.p, 40, 50) + '</div><div class="gg-mvp-t"><small>週間MVP</small><b>' + esc(mvp.p.name) + '</b><span>' + esc(mvp.t.name) + '　' + esc(mvp.line) + '</span></div></div>' : '') +
+    (watch ? '<div class="wk-watch"><small>来週の注目</small>' + esc(watch) + '</div>' : '');
+  $("gogai-bg").classList.add("show");
+  seTap();
 }
 function skipAhead(){
   stopTimer();
@@ -4014,7 +4173,7 @@ function buildMonthGogai(m){
 function showMonthGogai(mg, after){
   state.gogaiAfter = after || null;
   $("gg-go").textContent = "月報";
-  $("gogai").classList.remove("gg-record");
+  $("gogai").classList.remove("gg-record", "gg-week");
   $("gg-k").textContent = "球史編纂所 ── " + MONTHS[mg.m] + "の記";
   $("gg-team").textContent = mg.head;
   $("gg-v").textContent = MONTHS[mg.m] + "終了時点";
@@ -4035,7 +4194,7 @@ function showMonthGogai(mg, after){
 function showRecordGogai(rg, after){
   state.gogaiAfter = after || null;
   $("gg-go").textContent = "快挙";
-  $("gogai").classList.add("gg-month", "gg-record");
+  $("gogai").classList.add("gg-month", "gg-record"); $("gogai").classList.remove("gg-week");
   $("gg-k").textContent = "球史編纂所 ── " + (rg.date || dateLabel(state.day-1)) + "の記";
   $("gg-team").textContent = rg.kind;
   $("gg-v").textContent = rg.t.name + "　" + rg.score + "　" + rg.opp.name;
@@ -4044,6 +4203,10 @@ function showRecordGogai(rg, after){
       '<div class="gg-hero-t"><small>' + esc(rg.t.name) + '</small><b>' + esc(rg.p.name) + '</b><span>' + esc(rg.txt.replace(/^【[^】]+】/, "")) + '</span></div></div>';
   $("gogai-bg").classList.add("show");
   seFanfare();
+  // 手を止めない。見せたら自分で閉じる
+  const token = {};
+  state.gogaiToken = token;
+  setTimeout(function(){ if(state.gogaiToken === token && $("gogai-bg").classList.contains("show")) closeGogai(); }, 4500);
 }
 // 胴上げ。優勝が決まった夜、監督が宙に舞う
 function showDoage(t, after){
@@ -4127,6 +4290,7 @@ function renderDayScores(){
 }
 
 function renderLive(){
+  const sk = $("s-skip"); if(sk) sk.textContent = skipLabel();
   $("s-date").textContent = dateLabel(state.day-1);
   renderDayScores();
   const lead = standingsSorted()[0];
@@ -5191,6 +5355,7 @@ function tradablePlayers(t){
 }
 function startEvent(type, ev){
   $("s-play").disabled = true; $("s-skip").disabled = true;
+  huddleStep(type);
   if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="allstar"){ startAllStar(); return; }
   if(type==="gm"){ startGm(ev && ev.no !== undefined ? ev.no : 0); return; }
@@ -5428,6 +5593,7 @@ function endEventPhase(){
   // 同じ月末に催しが残っていれば、日を進めずに続ける(GMの決断→ルーレット→球宴…)
   const nextEv = dueEvent();
   if(nextEv && !state.finished){ nextEv.done = true; startEvent(nextEv.type, nextEv); return; }
+  huddleEnd();
   $("s-play").disabled = false;
   if(!state.finished) $("s-skip").disabled = false;
   if(state.resumeAfterEvent && state.day < state.schedule.length){
@@ -6602,7 +6768,7 @@ function seFanfare(){
 function showGogai(champ){
   state.gogaiAfter = null;
   $("gg-go").textContent = "特筆";
-  $("gogai").classList.remove("gg-month", "gg-record");
+  $("gogai").classList.remove("gg-month", "gg-record", "gg-week");
   $("gg-k").textContent = "球史編纂所 ── 優勝の記";
   $("gg-team").textContent = champ.name;
   const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");
@@ -6626,6 +6792,7 @@ function showGogai(champ){
   }
 }
 function closeGogai(){
+  state.gogaiToken = null;
   $("gogai-bg").classList.remove("show");
   const a = state.gogaiAfter; state.gogaiAfter = null;
   if(a) a();

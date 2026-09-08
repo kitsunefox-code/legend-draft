@@ -2627,7 +2627,8 @@ function startSeason(){
   state.scored = false; state.scoreBoard = null; state.predicted = false;
   // 月例ルーレット(毎月末)
   [0,2,4].forEach(function(m){ state.eventQueue.push({after:m, type:"roulette", no:m}); });  // 2か月に1回
-  if(state.opts.trade) state.eventQueue.push({after:2, type:"trade"});
+  state.eventQueue.push({after:2, type:"allstar"});                    // 前半戦終了。球宴
+  if(state.opts.trade) state.eventQueue.push({after:3, type:"trade"});  // トレード期限日(7月末)
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
   const wokeCount = rollAwakenings();
   initSeasonStats();
@@ -2673,6 +2674,19 @@ function togglePlay(){
     showResult(); return;
   }
   if(state.playing) stopTimer(); else startTimer();
+}
+// 優勝マジック。首位と2位のゲーム差と残り試合から。20以下になったら点灯
+function magicNumber(){
+  if(state.clinchedTeam) return 0;
+  if(!state.schedule || state.day < state.schedule.length * 0.55) return null;
+  const s = standingsSorted();
+  if(s.length < 2) return null;
+  const rem = state.schedule.length - state.day;
+  const gb = ((s[0].W - s[1].W) + (s[1].L - s[0].L)) / 2;
+  if(gb <= 0) return null;
+  const m = Math.ceil(rem + 1 - gb);
+  if(m > 20) return null;
+  return Math.max(0, m);
 }
 function checkClinch(){
   if(state.clinchedTeam || state.day < state.schedule.length*0.4) return null;
@@ -3271,6 +3285,16 @@ function tick(){
   if(state.day >= state.schedule.length){ finishSeason(); return; }
   if(playDay() === false){ renderLive(); return; }   // 采配の入力待ち
   renderLive();
+  afterDay();
+}
+// その日の試合が終わったあとの見せ場。快挙の号外 → 月報 → 生中継 → 月末の催し
+function afterDay(){
+  if(state.recordGogai && state.recordGogai.length){
+    const rg = state.recordGogai.shift();
+    stopTimer();
+    showRecordGogai(rg, function(){ afterDay(); });
+    return;
+  }
   // 月末は順位表を止めて号外。閉じたら月末の催しへ、なければ再開
   if(state.monthGogai){
     const mg = state.monthGogai; state.monthGogai = null;
@@ -3297,22 +3321,47 @@ function tick(){
   const clincher = checkClinch();
   if(clincher && state.lastGames){
     const g = state.lastGames.find(x=>x.A===clincher || x.B===clincher);
-    if(g) broadcast = {label:"優勝決定試合 生中継", g};
+    if(g) broadcast = {label:"優勝決定試合 生中継", g, clinch:clincher};
   }
+  // 終盤の首位攻防戦。残り30試合を切り、3ゲーム差以内の1位と2位が当たった日は中継する
+  if(!broadcast && !clincher && state.lastGames && state.lastGames.length){
+    const s = standingsSorted();
+    const rem = state.schedule.length - state.day;
+    if(rem <= 30 && s.length >= 2){
+      const gb = ((s[0].W - s[1].W) + (s[1].L - s[0].L)) / 2;
+      const g = state.lastGames.find(x => (x.A === s[0] && x.B === s[1]) || (x.A === s[1] && x.B === s[0]));
+      if(g && gb <= 3 && state.day - (state.lastTopDay || -99) > 3){
+        state.lastTopDay = state.day;
+        broadcast = {label:"首位攻防戦 生中継", g, top:true};
+      }
+    }
+  }
+  const afterLive = ()=>{
+    const ev = dueEvent();
+    if(ev){ ev.done = true; state.resumeAfterEvent = state.resumeAfterLive; state.resumeAfterLive=false; startEvent(ev.type, ev); return; }
+    if(state.day >= state.schedule.length){ finishSeason(); return; }
+    if(state.resumeAfterLive){ state.resumeAfterLive=false; startTimer(); }
+  };
   if(broadcast){
     stopTimer();
     state.resumeAfterLive = true;
-    const afterLive = ()=>{
-      const ev = dueEvent();
-      if(ev){ ev.done = true; state.resumeAfterEvent = state.resumeAfterLive; state.resumeAfterLive=false; startEvent(ev.type, ev); return; }
-      if(state.day >= state.schedule.length){ finishSeason(); return; }
-      if(state.resumeAfterLive){ state.resumeAfterLive=false; startTimer(); }
-    };
     showLiveGame(broadcast.label, broadcast.g, ()=>{
       // 開幕日は中継したカード以外も戦われている。全結果を「開幕の記」として出す
-      if(broadcast.opening && broadcast.opening.length) showOpeningGogai(broadcast.opening, broadcast.g, afterLive);
-      else afterLive();
+      if(broadcast.opening && broadcast.opening.length){ showOpeningGogai(broadcast.opening, broadcast.g, afterLive); return; }
+      if(broadcast.top){
+        const gg = broadcast.g, lose = gg.rA > gg.rB ? gg.B : gg.rB > gg.rA ? gg.A : null;
+        if(lose){ const txt = `【痛恨】${lose.name}、首位攻防戦を落とす`; state.news.unshift({mo:dateLabel(state.day-1), txt}); telop(txt); }
+      }
+      if(broadcast.clinch){ showDoage(broadcast.clinch, afterLive); return; }
+      afterLive();
     });
+    return;
+  }
+  if(clincher){
+    // 移動日などで中継する試合がないときも、胴上げは見せる
+    stopTimer();
+    state.resumeAfterLive = true;
+    showDoage(clincher, afterLive);
     return;
   }
   const ev = dueEvent();
@@ -3325,7 +3374,14 @@ function skipAhead(){
   let guard = 2000;
   while(state.day < state.schedule.length && guard-->0){
     if(playDay() === false){ renderLive(); return; }   // 采配の入力待ち
-    checkClinch();
+    if(state.recordGogai && state.recordGogai.length){
+      const rg = state.recordGogai.shift();
+      renderLive();
+      showRecordGogai(rg, function(){ skipAhead(); });
+      return;
+    }
+    const cl = checkClinch();
+    if(cl){ renderLive(); showDoage(cl, function(){ skipAhead(); }); return; }
     if(state.monthGogai){
       const mg = state.monthGogai; state.monthGogai = null;
       renderLive();
@@ -3636,6 +3692,7 @@ function rollGame(A, B, keep){
   const seen = keep ? {bat:new Set(), pit:new Set()} : null;
   const recA = keep ? makeRecorder(A, B, seen.bat, seen.pit) : null;   // Aの攻撃
   const recB = keep ? makeRecorder(B, A, seen.bat, seen.pit) : null;   // Bの攻撃
+  const snap = keep ? gameSnap(A, B) : null;                            // 試合前の数字(快挙の判定用)
   let rA = 0, rB = 0, ia = 0, ib = 0;
   const spA = starterOf(A), spB = starterOf(B);
   for(let inn = 1; inn <= 9; inn++){
@@ -3657,8 +3714,36 @@ function rollGame(A, B, keep){
     const rb = playHalf(ob, ib, pA, park, recB, B);
     rB += rb.runs; ib = rb.idx;
   }
-  if(keep) creditGame(A, B, rA, rB, seen);
+  if(keep){ creditGame(A, B, rA, rB, seen); return {rA, rB, facts: gameFacts(snap)}; }
   return {rA, rB};
+}
+// 試合前に打者・投手の数字を写しておき、終わったあとの差で「その試合に何が起きたか」を知る
+function gameSnap(A, B){
+  const take = function(t){
+    const bats = lineupOf(t).concat(BENCH_KEYS.map(k => t.slots[k]).filter(Boolean));
+    const pits = SP_KEYS.concat(RP_KEYS, ["CL"]).map(k => t.slots[k]).filter(Boolean);
+    return {t,
+      bat: bats.map(p => { const s = lineOf(t, p); return s ? {p, s, h:s.h, d2:s.d2, d3:s.d3, hr:s.hr, bb:s.bb} : null; }).filter(Boolean),
+      pit: pits.map(p => { const s = lineOf(t, p); return s ? {p, s, so:s.so, outs:s.outs||0} : null; }).filter(Boolean)};
+  };
+  return {A: take(A), B: take(B)};
+}
+function gameFacts(snap){
+  const side = function(x){
+    let hits = 0, bb = 0, cycle = null, hr3 = null, kBest = null;
+    x.bat.forEach(function(b){
+      const s = b.s, h = s.h - b.h, d2 = s.d2 - b.d2, d3 = s.d3 - b.d3, hr = s.hr - b.hr, sing = h - d2 - d3 - hr;
+      hits += h; bb += s.bb - b.bb;
+      if(sing >= 1 && d2 >= 1 && d3 >= 1 && hr >= 1) cycle = b.p;
+      if(hr >= 3 && (!hr3 || hr > hr3.hr)) hr3 = {p:b.p, hr};
+    });
+    x.pit.forEach(function(q){
+      const so = q.s.so - q.so;
+      if(so >= 12 && (!kBest || so > kBest.so)) kBest = {p:q.p, so};
+    });
+    return {t:x.t, hits, bb, cycle, hr3, kBest};
+  };
+  return {A: side(snap.A), B: side(snap.B)};
 }
 function applyGame(A, B, rA, rB){
   A.RS+=rA; A.RA+=rB; B.RS+=rB; B.RA+=rA;
@@ -3690,7 +3775,7 @@ function playDay(){
     B.lastAwayPark = null;
     const g = rollGame(A, B, true);
     B.parkTmp = null;
-    return {A, B, rA:g.rA, rB:g.rB};
+    return {A, B, rA:g.rA, rB:g.rB, facts:g.facts};
   });
   // 勝負どころがあれば、確定させる前に本人へ委ねる
   const cand = state.opts.saihai ? findSaihai(rolled) : null;
@@ -3717,16 +3802,25 @@ function finishDay(rolled){
     let flash = null;
     const hero = LINEUP_KEYS.map(k=>win.slots[k]).sort((x,y)=>y.ovr-x.ovr)[Math.floor(rnd()*3)];
     const ace = SP_KEYS.map(k=>win.slots[k]).sort((x,y)=>ovrFor(y,"SP")-ovrFor(x,"SP"))[Math.floor(rnd()*2)];
-    if(diff>0 && (g.rA===0||g.rB===0)){
-      const r = rnd();
-      if(r<0.008){ flash = `【完全試合】${ace.name}（${win.name}）が完全試合を達成！ 球史に残る一夜`; }
-      else if(r<0.05){ flash = `【ノーヒットノーラン】${ace.name}（${win.name}）が${lose.name}を無安打無得点に封じた！`; }
-      else if(r<0.16){ flash = `${ace.name}（${win.name}）が${lose.name}を完封！`; }
-    }
-    if(!flash && Math.max(g.rA,g.rB)>=6){
-      const r2 = rnd();
-      if(r2<0.015){ flash = `【サイクル安打】${hero.name}（${win.name}）がサイクルヒット達成！`; }
-      else if(r2<0.04){ flash = `【1試合3発】${hero.name}（${win.name}）が1試合3本塁打の固め打ち！`; }
+    // 快挙は実際に起きたことだけ(積み上げの差で判定)。号外の列に積み、日送りを止めて見せる
+    const f = r.facts;
+    const record = function(kind, p, t, opp, txt){
+      state.recordGogai = state.recordGogai || [];
+      state.recordGogai.push({kind, p, t, opp, score: (t === A ? g.rA + "-" + g.rB : g.rB + "-" + g.rA), txt, date: dl});
+    };
+    if(f){
+      const winSp = win === A ? spA : spB, winF = win === A ? f.A : f.B, loseF = win === A ? f.B : f.A;
+      if(diff > 0 && loseF.hits === 0 && winSp){
+        if(loseF.bb === 0){ flash = `【完全試合】${winSp.name}（${win.name}）が完全試合を達成！ 球史に残る一夜`; record("完全試合", winSp, win, lose, flash); }
+        else { flash = `【ノーヒットノーラン】${winSp.name}（${win.name}）が${lose.name}を無安打に封じた！`; record("ノーヒットノーラン", winSp, win, lose, flash); }
+      }
+      const cyc = f.A.cycle || f.B.cycle;
+      if(!flash && cyc){ const ct = f.A.cycle ? A : B; flash = `【サイクル安打】${cyc.name}（${ct.name}）がサイクルヒット達成！`; record("サイクル安打", cyc, ct, ct === A ? B : A, flash); }
+      const h3 = f.A.hr3 || f.B.hr3;
+      if(!flash && h3){ const ht = f.A.hr3 ? A : B; flash = `【1試合${h3.hr}発】${h3.p.name}（${ht.name}）が1試合${h3.hr}本塁打の固め打ち！`; record("1試合" + h3.hr + "本塁打", h3.p, ht, ht === A ? B : A, flash); }
+      const kb = (f.A.kBest && f.B.kBest) ? (f.A.kBest.so >= f.B.kBest.so ? f.A.kBest : f.B.kBest) : (f.A.kBest || f.B.kBest);
+      if(!flash && kb && kb.so >= 14){ const kt = f.A.kBest === kb ? A : B; flash = `【${kb.so}奪三振】${kb.p.name}（${kt.name}）が${kb.so}奪三振の快投！`; record(kb.so + "奪三振", kb.p, kt, kt === A ? B : A, flash); }
+      if(!flash && diff > 0 && (g.rA === 0 || g.rB === 0) && winSp && rnd() < 0.5){ flash = `${winSp.name}（${win.name}）が${lose.name}を完封！`; }
     }
     if(!flash && diff>0 && [8,10,12,15].includes(win.stk||0)){
       flash = `【${win.stk}連勝】${win.name}、破竹の${win.stk}連勝で球界を席巻！`;
@@ -3755,6 +3849,17 @@ function finishDay(rolled){
       if(s === 5 || s === 8 || s === 10 || s === 12 || s === 15){ const txt = `${t.name}が${s}連勝！ 止まらない`; state.news.unshift({mo:dl, txt}); telop(txt); }
       if(s === -5 || s === -8 || s === -10){ const txt = `${t.name}、${-s}連敗…… 本拠地に重い空気`; state.news.unshift({mo:dl, txt}); telop(txt); }
     }
+  }
+  // 優勝マジック。点灯した日に速報し、あとは球団の札で減っていく
+  {
+    const m = magicNumber();
+    if(m !== null && !state.magicLit){
+      state.magicLit = true;
+      const lead = standingsSorted()[0];
+      const txt = `【マジック点灯】${lead.name}に優勝マジック${m}が点灯！`;
+      state.news.unshift({mo:dl, txt}); telop(txt);
+    }
+    if(m === null) state.magicLit = false;
   }
   rollInjury();
   state.lastScores = scores;
@@ -3842,6 +3947,7 @@ function buildMonthGogai(m){
 function showMonthGogai(mg, after){
   state.gogaiAfter = after || null;
   $("gg-go").textContent = "月報";
+  $("gogai").classList.remove("gg-record");
   $("gg-k").textContent = "球史編纂所 ── " + MONTHS[mg.m] + "の記";
   $("gg-team").textContent = mg.head;
   $("gg-v").textContent = MONTHS[mg.m] + "終了時点";
@@ -3857,6 +3963,56 @@ function showMonthGogai(mg, after){
     ).join("") + '</div>';
   $("gogai-bg").classList.add("show");
   seWin();
+}
+// 快挙の号外。月報と同じ暗い一枚に、選手の顔を大きく
+function showRecordGogai(rg, after){
+  state.gogaiAfter = after || null;
+  $("gg-go").textContent = "快挙";
+  $("gogai").classList.add("gg-month", "gg-record");
+  $("gg-k").textContent = "球史編纂所 ── " + (rg.date || dateLabel(state.day-1)) + "の記";
+  $("gg-team").textContent = rg.kind;
+  $("gg-v").textContent = rg.t.name + "　" + rg.score + "　" + rg.opp.name;
+  $("gg-sub").innerHTML =
+    '<div class="gg-hero">' + faceThumb(rg.p, 84, 106) +
+      '<div class="gg-hero-t"><small>' + esc(rg.t.name) + '</small><b>' + esc(rg.p.name) + '</b><span>' + esc(rg.txt.replace(/^【[^】]+】/, "")) + '</span></div></div>';
+  $("gogai-bg").classList.add("show");
+  seFanfare();
+}
+// 胴上げ。優勝が決まった夜、監督が宙に舞う
+function showDoage(t, after){
+  let bg = $("doage-bg");
+  if(!bg){
+    bg = document.createElement("div"); bg.id = "doage-bg";
+    document.body.appendChild(bg);
+  }
+  const mgr = t.slots && t.slots.MGR;
+  bg.style.setProperty("--tc", t.color || "#e0a600");
+  bg.innerHTML =
+    '<div class="dg-sky"></div>' +
+    '<div class="dg-crowd">' + Array.from({length:14}, function(_, i){ return '<i style="--i:' + i + '"></i>'; }).join("") + '</div>' +
+    '<div class="dg-body">' +
+      '<div class="dg-k">' + teamEmblem(t, 26) + '<span>リーグ優勝</span></div>' +
+      '<div class="dg-team">' + esc(t.name) + '</div>' +
+      '<div class="dg-mgr">' + (mgr ? faceThumb(mgr, 96, 120) : '<span class="f-th f-none"></span>') + '</div>' +
+      '<div class="dg-name">' + (mgr ? esc(mgr.name) + '監督' : '監督') + '　胴上げ</div>' +
+      '<div class="dg-count" id="dg-count">&nbsp;</div>' +
+      '<div class="dg-tap">タップして続ける</div>' +
+    '</div>';
+  bg.classList.add("show");
+  bg.onclick = null;
+  seFanfare();
+  const cnt = $("dg-count");
+  let n = 0;
+  const toss = function(){
+    n++;
+    if(!bg.classList.contains("show")) return;
+    bg.classList.remove("toss"); void bg.offsetWidth; bg.classList.add("toss");
+    if(cnt) cnt.textContent = n + "回目！";
+    seWin();
+    if(n < 3) setTimeout(toss, 900);
+    else setTimeout(function(){ if(cnt) cnt.textContent = "3度、宙に舞った"; confetti(); bg.onclick = function(){ bg.classList.remove("show"); bg.onclick = null; if(after) after(); }; }, 700);
+  };
+  setTimeout(toss, 900);
 }
 // 開幕号外(全カードの結果を一枚に)
 function showOpeningGogai(games, liveG, after){
@@ -3933,7 +4089,9 @@ function renderTeamStrip(){
     const avgF = forms.reduce((a,p)=>a+(p.form||0),0)/(forms.length||1);
     const fIcon = avgF > 0.45 ? `<span class="form f2">▲▲</span>` : avgF > 0.15 ? `<span class="form f1">▲</span>`
       : avgF < -0.45 ? `<span class="form fm2">▽▽</span>` : avgF < -0.15 ? `<span class="form fm1">▽</span>` : `<span class="form f0">─</span>`;
-    const badges = (t.saihai ? `<span class="ts-b sai">采配${t.saihai}</span>` : "")
+    const magic = i === 0 ? magicNumber() : null;
+    const badges = (state.clinchedTeam === t ? `<span class="ts-b magic">優勝</span>` : magic !== null && magic > 0 ? `<span class="ts-b magic">M${magic}</span>` : "")
+      + (t.saihai ? `<span class="ts-b sai">采配${t.saihai}</span>` : "")
       + (t.mgrRest ? `<span class="ts-b bad">監督休養</span>` : "")
       + (t.mood && state.day < t.mood.until ? `<span class="ts-b ${t.mood.val>0?"good":"bad"}">${esc(t.mood.label)}</span>` : "");
     return `<div class="ts-card ${i===0?"lead":""}" style="--tc:${t.color}" onclick="state.rosterTab=${state.parts.indexOf(t)};renderRosterLive();document.getElementById('roster-live').scrollIntoView({behavior:'smooth',block:'center'})">
@@ -4914,6 +5072,7 @@ function tradablePlayers(t){
 function startEvent(type, ev){
   $("s-play").disabled = true; $("s-skip").disabled = true;
   if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
+  if(type==="allstar"){ startAllStar(); return; }
   if(type==="trade"){
     if(!state.parts.filter(t=>!t.cpu).length){ endEventPhase(); return; }
     state.eventCtx = {type, mode:"table", sel:{a:"", b:"", pa:"", pb:""}, done:[]};
@@ -4925,6 +5084,84 @@ function startEvent(type, ev){
       pool:mlbOffer(state.parts.length+4), star:null};
     advanceMlb();
   }
+}
+// ============================================================
+// オールスターゲーム ── 前半戦が終わった夜、全球団の精鋭を東西に分けて一夜限りの球宴
+// ============================================================
+function buildAllStarTeam(teams, name, color){
+  const t = newTeam(name, "", true, color, teams[0].emblem);
+  t.from = {};
+  const used = new Set();
+  for(const d of SLOT_DEFS){
+    if(d.key === "MGR") continue;
+    let best = null, bo = -1, src = null;
+    for(const tm of teams){
+      const p = tm.slots[d.key];
+      if(!p || used.has(p.id) || p.inj) continue;
+      const o = ovrFor(p, d.grp);
+      if(o > bo){ bo = o; best = p; src = tm; }
+    }
+    if(best){ t.slots[d.key] = best; used.add(best.id); t.from[best.id] = src; }
+  }
+  t.slots.MGR = teams[0].slots.MGR;
+  t.park = teams[0].park;
+  t.color = color;
+  autoOrderFor(t);
+  return t;
+}
+function startAllStar(){
+  const s = standingsSorted();
+  const east = s.filter(function(_, i){ return i % 2 === 0; }), west = s.filter(function(_, i){ return i % 2 === 1; });
+  if(!west.length){ endEventPhase(); return; }
+  const E = buildAllStarTeam(east, "東軍", "#e4432c"), W = buildAllStarTeam(west, "西軍", "#2457b8");
+  state.eventCtx = {type:"allstar", E, W, east, west};
+  renderAllStar();
+  $("event-bg").classList.add("show");
+}
+function renderAllStar(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "allstar") return;
+  const col = function(t, teams){
+    const rows = orderKeys(t).map(function(k, i){
+      const p = t.slots[k]; if(!p) return "";
+      const d = SLOT_DEFS.find(function(x){ return x.key === k; });
+      const src = t.from[p.id];
+      return '<div class="as-row">' + '<span class="as-n">' + (i+1) + '</span>' + faceThumb(p, 26, 34) +
+        '<span class="as-pos">' + (d ? d.label : "") + '</span><span class="as-nm">' + esc(p.name) + '</span>' +
+        (src ? '<span class="as-from">' + teamEmblem(src, 14) + '</span>' : '') + '</div>';
+    }).join("");
+    const sp = starterOf(t);
+    return '<div class="as-col" style="--tc:' + t.color + '"><div class="as-h">' + esc(t.name) +
+      '<small>' + teams.map(function(x){ return esc(x.name); }).join('・') + '</small></div>' + rows +
+      (sp ? '<div class="as-row as-sp"><span class="as-n">P</span>' + faceThumb(sp, 26, 34) + '<span class="as-pos">先発</span><span class="as-nm">' + esc(sp.name) + '</span>' + (t.from[sp.id] ? '<span class="as-from">' + teamEmblem(t.from[sp.id], 14) + '</span>' : '') + '</div>' : '') +
+      '</div>';
+  };
+  $("event-panel").innerHTML =
+    '<div class="as-wrap"><h2><span class="kicker">前半戦終了</span>オールスターゲーム</h2>' +
+    '<div class="sub">全球団の精鋭を東西に分けた一夜限りの球宴。成績には残らない、名誉だけの一戦。</div>' +
+    '<div class="as-cols">' + col(c.E, c.east) + '<div class="as-vs">VS</div>' + col(c.W, c.west) + '</div>' +
+    '<div class="as-foot"><button class="btn rl-go" onclick="allStarPlay()">プレイボール</button></div></div>';
+}
+function allStarPlay(){
+  const c = state.eventCtx;
+  if(!c || c.type !== "allstar") return;
+  const g = rollGame(c.E, c.W, false);
+  const game = {A:c.E, B:c.W, rA:g.rA, rB:g.rB, spA:starterOf(c.E), spB:starterOf(c.W)};
+  $("event-bg").classList.remove("show");
+  seFanfare();
+  showLiveGame("オールスターゲーム 生中継", game, function(){
+    const win = g.rA > g.rB ? c.E : g.rB > g.rA ? c.W : null;
+    let txt;
+    if(win){
+      const mvp = pick1(lineupOf(win).slice(0, 5));
+      const src = win.from[mvp.id];
+      txt = `【球宴】${win.name}が${Math.max(g.rA, g.rB)}-${Math.min(g.rA, g.rB)}で制す。MVPは${mvp.name}（${src ? src.name : ""}）`;
+    }else{
+      txt = `【球宴】東西譲らず${g.rA}-${g.rB}の引き分け`;
+    }
+    state.news.unshift({mo:"球宴", txt}); telop(txt);
+    endEventPhase();
+  });
 }
 function endEventPhase(){
   $("event-bg").classList.remove("show");
@@ -5006,7 +5243,7 @@ function renderTradeTable(){
       ctx.done.map(function(d){ return '<div class="ng-done-i">' + esc(d) + '</div>'; }).join("") + '</div>'
     : "";
   $("event-panel").innerHTML =
-    '<h2><span class="kicker">移籍情報</span>交渉テーブル ── 6月末</h2>' +
+    '<h2><span class="kicker">7月31日</span>トレード期限日 ── 駆け込み交渉</h2>' +
     '<div class="sub">画面はお互いの手の内だけを映します。<b>交渉は卓上で口頭で</b>。' +
     '話がついたら「成立させる」で入力してください。何件でも成立します。</div>' +
     '<div class="ng-grid">' + cards + '</div>' + done +
@@ -6107,7 +6344,7 @@ function seFanfare(){
 function showGogai(champ){
   state.gogaiAfter = null;
   $("gg-go").textContent = "特筆";
-  $("gogai").classList.remove("gg-month");
+  $("gogai").classList.remove("gg-month", "gg-record");
   $("gg-k").textContent = "球史編纂所 ── 優勝の記";
   $("gg-team").textContent = champ.name;
   const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");

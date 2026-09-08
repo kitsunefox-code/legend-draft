@@ -476,7 +476,7 @@ function startDraft(){
   const decades=[...new Set(POOL.map(p=>p.decade))].sort();
   $("f-era").innerHTML = `<option value="">全年代</option>` + decades.map(d=>`<option>${d}</option>`).join("");
   if(state.opts.gacha){ startGacha(); return; }   // 本拠地は球場ガチャで決まる
-  if(state.opts.park){ startParkDraft(); return; }
+  if(state.opts.park){ show("scr-draft"); startParkDraft(); return; }   // 設定画面を消してから球場の入札を重ねる
   state.parts.forEach(t=>{ if(!t.park) t.park = PARKS.find(x=>x.id==="fujiidera"); });  // 球場なしなら癖のない球場
   show("scr-draft");
   nextTurn(true);

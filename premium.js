@@ -82,7 +82,7 @@ function ldField(){
 }
 renderGacha=function(){
   const G=state.gacha;if(!G)return;const R=gachaRound(),t=gachaTeam(),slots=ldSlots(),total=slots.length,all=!!G.pulls&&G.revealed>=total;
-  $('gc-head').innerHTML='<div class="ld-brand"><b>LEGEND<span>DRAFT</span></b><small>歴代最強ペナント</small></div><div class="ld-header-right"><span class="ld-mode">'+(ldDemo?'ガチャ体験':'球団編成')+'</span>'+ldButton(sndOn?'音 ON':'音 OFF','ldToggleSound(this)','quiet')+ldButton('本編をはじめる ↗','ldSetup()','quiet')+'</div>';
+  $('gc-head').innerHTML='<div class="ld-brand"><b>LEGEND<span>DRAFT</span></b><small>歴代最強ペナント</small></div><div class="ld-header-right"><span class="ld-mode">'+(ldDemo?'ガチャ体験':'球団編成')+'</span>'+ldButton(sndOn?'音 ON':'音 OFF','ldToggleSound(this)','quiet')+(ldDemo?ldButton('本編をはじめる ↗','ldSetup()','quiet'):'')+'</div>';
   $('ld-intro').innerHTML='<div><div class="ld-eyebrow">球団をつくる</div><h1>'+R.label.replace('ガチャ','')+'<span>ガチャ</span></h1><p>'+ (R.k==='B'?'9つの守備位置と6つの控え枠。カプセルの先に、あなたのベストナイン。':R.note)+'</p></div><div class="ld-team"><small>YOUR TEAM</small><b>'+esc(t.name)+'</b><span>'+ (ldDemo?'何度でも無料で体験':(G.ptr+1)+' / '+G.order.length+' 球団')+'</span></div>';
   $('ld-tabs').innerHTML=GACHA_ROUNDS.map((r,i)=>'<button type="button" '+(!ldDemo?'disabled':'')+' class="'+(i===G.round?'active':'')+'" onclick="ldTrial('+i+')"><small>0'+(i+1)+'</small>'+r.label+'<span>'+({K:'1',M:'1',B:'15',P:'11'})[r.k]+'</span></button>').join('');
   $('gc-stage').className='gc-stage'+(G.phase==='drop'?' ld-dropping':'');

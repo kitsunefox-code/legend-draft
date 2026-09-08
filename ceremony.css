@@ -146,3 +146,57 @@
   #scr-gacha .home-complete .home-content{padding-bottom:70px;}
   #scr-gacha .home-complete .home-content h2{margin:10px 0;font-size:28px;}
 }
+
+/* ============================================================
+   磨き: 球場の決定画面の階層、入口の明るさ、ガチャ画面の帯の整理
+   ============================================================ */
+/* 見出し: 球団名 ── 街 */
+.home-eyebrow i{font-style:normal;color:#cfd7e6;margin-left:10px;letter-spacing:.06em;}
+.home-eyebrow i::before{content:"──";margin-right:8px;color:#8a97ad;}
+/* 情報パネル: 半透明の板に、格・本塁打・傾向 → 形式 → 個性 → 注記 */
+.home-info{margin-top:12px;padding:12px 14px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(6,10,20,.55);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);max-width:640px;}
+.home-info .home-facts{display:flex;gap:0;border:0;margin:0;padding:0;}
+.home-info .home-facts span{flex:1;display:flex;flex-direction:column;gap:3px;padding:0 10px;border-left:1px solid rgba(255,255,255,.14);}
+.home-info .home-facts span:first-child{padding-left:0;border-left:0;}
+.home-info .home-facts small{font:600 10px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.2em;color:#a9b5c9;}
+.home-info .home-facts b{font:800 17px/1.2 "Noto Sans JP",sans-serif;color:#f4e6c2;}
+.home-info .home-facts b.home-grade{display:inline-block;margin:0;padding:2px 9px;border-radius:4px;background:var(--rk,#e2bd63);color:#111;font:800 15px/1.2 "Oswald",sans-serif;letter-spacing:.12em;width:max-content;}
+.home-info .home-type{margin:10px 0 0;font-size:12px;color:#c9d2e0;letter-spacing:.04em;}
+.home-info .home-traits{margin:6px 0 0;}
+.home-info .home-note{margin:8px 0 0;font-size:12px;line-height:1.7;color:#c3ccd2;max-width:none;}
+.home-complete .home-content{justify-content:flex-end;}
+/* 入口: 暗すぎたトンネルを少し明るく。タップの目印に輪 */
+.home-idle .home-tunnel{filter:brightness(.78) contrast(1.05);}
+.home-idle .ceremony-tap-note::before{content:"";display:block;width:46px;height:46px;margin:0 auto 10px;border:2px solid rgba(255,210,87,.9);border-radius:50%;box-shadow:0 0 18px rgba(255,210,87,.35),inset 0 0 12px rgba(255,210,87,.25);animation:tapRing 1.6s ease-out infinite;}
+@keyframes tapRing{0%{transform:scale(.8);opacity:.9;}100%{transform:scale(1.25);opacity:.2;}}
+/* 監督: 見出しを詰めて封筒に場所を渡す */
+.manager-heading span{font:600 10px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.3em;color:#d6bf86;}
+.manager-heading h2{margin:6px 0 4px;}
+.manager-heading p{font-size:13px;color:#a9b5c9;}
+
+/* 狭い画面: 重複する帯を消す(状態はタブと足元に一本化)。タブは進行ステップに */
+@media (max-width:700px){
+  #scr-gacha .gc-hint{display:none !important;}
+  #scr-gacha .ld-foot-info{display:none !important;}
+  #scr-gacha .gc-foot{justify-content:center !important;}
+  #scr-gacha .ld-foot-actions{width:100%;display:flex;justify-content:center;gap:8px;flex-wrap:wrap;}
+  #scr-gacha .ceremony-foot-hint{font-size:13px;letter-spacing:.06em;}
+  #scr-gacha #ld-tabs{border:0 !important;background:transparent !important;gap:6px !important;margin-bottom:8px !important;}
+  #scr-gacha #ld-tabs button{border:0 !important;border-radius:6px;background:rgba(255,255,255,.06);color:#d9c9a3 !important;padding:7px 4px !important;position:relative;}
+  #scr-gacha #ld-tabs button::before{content:"✓";display:inline-block;margin-right:4px;font-size:10px;color:#e0a600;}
+  #scr-gacha #ld-tabs button.active{background:linear-gradient(180deg,#2a3650,#1a2438);color:#fff !important;box-shadow:inset 0 -2px 0 #e0a600;}
+  #scr-gacha #ld-tabs button.active::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#e0a600;margin-right:6px;vertical-align:1px;box-shadow:0 0 8px #e0a600;}
+  #scr-gacha #ld-tabs button.active ~ button{color:#6f7a90 !important;background:rgba(255,255,255,.03);}
+  #scr-gacha #ld-tabs button.active ~ button::before{content:"";width:6px;height:6px;border-radius:50%;background:#3a4560;margin-right:6px;vertical-align:1px;}
+  #scr-gacha .home-content{padding:20px 18px 66px;}
+  #scr-gacha .home-complete .home-content{padding-bottom:64px;}
+  #scr-gacha .home-eyebrow{font-size:11px;}
+  #scr-gacha .home-eyebrow i{display:block;margin:4px 0 0;}
+  #scr-gacha .home-eyebrow i::before{display:none;}
+  #scr-gacha .home-info{padding:10px 12px;margin-top:8px;}
+  #scr-gacha .home-info .home-facts b{font-size:15px;}
+  #scr-gacha .home-complete .home-note{-webkit-line-clamp:2;margin-top:6px;}
+  #scr-gacha .home-complete .home-tagline{font-size:14px;margin:2px 0 4px;}
+  #scr-gacha .manager-heading h2{font-size:22px !important;}
+  #scr-gacha .manager-idle .manager-heading p,#scr-gacha .manager-approach .manager-heading p,#scr-gacha .manager-lights .manager-heading p{display:none;}
+}

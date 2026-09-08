@@ -44,7 +44,7 @@ function ldSyncSetup(){
 function ldRank(rank){return '<span class="ld-rank '+rank+'">'+rank+'</span>';}
 function ldButton(text,call,cls=''){return '<button type="button" class="ld-btn '+cls+'" onclick="'+call+'">'+text+'</button>';}
 function ldPlayerPhoto(p){
-  const fallback=p.ph!==undefined?'https://kusayakyu-navi.com/legend-draft/assets/face/'+p.ph+'.jpg':'';
+  const fallback=p.ph!==undefined?'assets/face/'+p.ph+'.jpg':'';
   try{
     const source=new URL(p.pu||''),mark='/wiki/File:',at=source.pathname.indexOf(mark);
     if(at>=0&&source.hostname.endsWith('wikimedia.org')){

@@ -59,3 +59,12 @@
 .pc.ld-card.sz-m .ld-card-yr small{font-size:5px;letter-spacing:1px;}
 .pc.ld-card.sz-s .ld-card-yr{display:none;}
 .pc.ld-card.sz-s .ld-card-rk{padding:1px 2px;}
+
+/* 印: 三冠・MVP・従軍。ランク紋の下に縦に並ぶ */
+.pc.ld-card .ld-card-left{display:flex;flex-direction:column;align-items:flex-start;gap:5px;}
+.pc.ld-card .ld-card-marks{display:flex;flex-direction:column;gap:3px;padding-left:2px;}
+.pc.ld-card .ld-card-marks .mk{display:block;filter:drop-shadow(0 1px 2px #000c);}
+.pc.ld-card.sz-m .ld-card-left{gap:3px;}
+.pc.ld-card.sz-m .ld-card-marks{gap:2px;}
+.pc.ld-card.sz-s .ld-card-left{gap:2px;}
+.pc.ld-card.sz-s .ld-card-marks{gap:1px;padding-left:1px;}

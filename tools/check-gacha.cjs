@@ -2,7 +2,7 @@ const fs=require('node:fs');const vm=require('node:vm');const assert=require('no
 const nodes=new Map();function node(id){return {id,innerHTML:'',textContent:'',children:[],style:{},dataset:{},classList:{add(){},remove(){},toggle(){},contains(){return false;}},setAttribute(){},appendChild(){},insertAdjacentHTML(){},querySelector(){return node('child');},querySelectorAll(){return[];},addEventListener(){},remove(){},focus(){}};}
 const document={getElementById(id){if(!nodes.has(id))nodes.set(id,node(id));return nodes.get(id);},querySelectorAll(){return[];},querySelector(){return null;},createElement:node,body:node('body'),addEventListener(){}};
 const tasks=[];const ctx=vm.createContext({console,document,window:{location:{hash:'',search:''},matchMedia(){return{matches:true}},addEventListener(){}},location:{hash:'',search:''},localStorage:{getItem(){return'0'},setItem(){}},navigator:{},URLSearchParams,Set,Map,Math,Date,setTimeout(fn){tasks.push(fn);return tasks.length},clearTimeout(){},setInterval(){},clearInterval(){},Image:function(){},requestAnimationFrame(){},AbortController});
-for(const f of ['players.js','danger.js','data-fixes.js','party.js','ss.js','game.js','premium.js']){let s=fs.readFileSync(''+f,'utf8');if(f==='game.js')s=s.replace(/^buildFrontPage\(\);/m,'');vm.runInContext(s,ctx,{filename:f});}
+for(const f of ['players.js','danger.js','marks.js','data-fixes.js','party.js','ss.js','game.js','premium.js']){let s=fs.readFileSync(''+f,'utf8');if(f==='game.js')s=s.replace(/^buildFrontPage\(\);/m,'');vm.runInContext(s,ctx,{filename:f});}
 const run=s=>vm.runInContext(s,ctx);
 run('ldTrial(2);');   // 読み込み時の自動起動を止めたので、ここで体験版を開く
 assert.equal(run('state.gacha.round'),2);assert.equal(run('ldSlots().length'),15);

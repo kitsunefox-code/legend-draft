@@ -3109,9 +3109,11 @@ function findSaihai(rolled){
       const my = side === "A" ? r.rA : r.rB;
       const op = side === "A" ? r.rB : r.rA;
       if(op - my !== 1) continue;              // 1点差の負けのみ
-      if(rnd() > 0.68) continue;               // 年10回前後。4回しか使えないので取捨が生まれる
+      if(t.saihaiCool && state.day < t.saihaiCool) continue;   // 同じ球団には7日おき。一気進行中は半分の確率
+      if(rnd() > (state.skipping ? 0.18 : 0.32)) continue;
       const card = pickSaihaiCard(t);
       if(!card) continue;
+      t.saihaiCool = state.day + 7;
       return {game:r, side, t, card};
     }
   }
@@ -3307,6 +3309,7 @@ function closeSaihai(){
 }
 
 function tick(){
+  state.skipping = false;
   if(state.day >= state.schedule.length){ finishSeason(); return; }
   if(playDay() === false){ renderLive(); return; }   // 采配の入力待ち
   renderLive();
@@ -3395,6 +3398,7 @@ function afterDay(){
 }
 function skipAhead(){
   stopTimer();
+  state.skipping = true;     // 采配の問いかけを控えめに
   state.openingShown = true; // 一気進行中は中継なし
   let guard = 2000;
   while(state.day < state.schedule.length && guard-->0){
@@ -3574,7 +3578,7 @@ function creditGame(A, B, rA, rB, seen){
 // 打者と投手の力関係から、その打席の結果の確率を作る
 function paProbs(bat, pit, park){
   // 名選手だけのリーグなので、登録成績をそのまま使うと1試合8点・リーグ打率.330の打高になる。
-  // 打率・本塁打は「平均に寄せた上で差だけ残す」形に直し、1試合4.9点・打率.280前後に較正(2026-09-08、300試合の試算)
+  // 打率・本塁打は「平均に寄せた上で差だけ残す」形に直し、1試合4.3点・打率.270前後に較正(2026-09-08、通しシーズンで確認)
   const bo = bat.ovr || 78;
   const po = pit ? (pit.ovr || 78) : 74;
   const edge = (bo - po) * 0.006;              // 打者有利ならプラス
@@ -3585,12 +3589,12 @@ function paProbs(bat, pit, park){
   let bb = clamp(0.078 + (bo - 80) * 0.0018 + edge * 0.3, 0.035, 0.14);
   // 三振: 奪三振の多い投手ほど多く、巧打者ほど少ない
   const k9 = pit && pit.so ? clamp(pit.so / 22, 4, 11) : 7;
-  let so = clamp(0.19 + (k9 - 7) * 0.02 - (bat.avg - 0.285) * 0.4 - edge * 0.4, 0.06, 0.36);
+  let so = clamp(0.21 + (k9 - 7) * 0.02 - (bat.avg - 0.285) * 0.4 - edge * 0.4, 0.06, 0.36);
   // 本塁打: 登録本塁打と球場から
-  let hr = clamp(((bat.hr || 8) / 1150) * hrF * (1 + edge * 1.4), 0.004, 0.06);
+  let hr = clamp(((bat.hr || 8) / 1250) * hrF * (1 + edge * 1.4), 0.004, 0.06);
   // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す
   const abShare = 1 - bb - 0.008;
-  const avg = clamp(0.262 + (bat.avg - 0.300) * 0.5 + edge * 0.6 + (runF - 1) * 0.08, 0.170, 0.360);
+  const avg = clamp(0.250 + (bat.avg - 0.300) * 0.45 + edge * 0.6 + (runF - 1) * 0.08, 0.170, 0.360);
   let hit = avg * abShare - hr;                // 本塁打ぶんを差し引いた単打・長打
   if(hit < 0.04) hit = 0.04;
 
@@ -3874,9 +3878,9 @@ function finishDay(rolled){
       const cyc = f.A.cycle || f.B.cycle;
       if(!flash && cyc){ const ct = f.A.cycle ? A : B; flash = `【サイクル安打】${cyc.name}（${ct.name}）がサイクルヒット達成！`; record("サイクル安打", cyc, ct, ct === A ? B : A, flash); }
       const h3 = f.A.hr3 || f.B.hr3;
-      if(!flash && h3){ const ht = f.A.hr3 ? A : B; flash = `【1試合${h3.hr}発】${h3.p.name}（${ht.name}）が1試合${h3.hr}本塁打の固め打ち！`; if(h3.hr >= 4) record("1試合" + h3.hr + "本塁打", h3.p, ht, ht === A ? B : A, flash); }
+      if(!flash && h3){ const ht = f.A.hr3 ? A : B; flash = `【1試合${h3.hr}発】${h3.p.name}（${ht.name}）が1試合${h3.hr}本塁打の固め打ち！`; record("1試合" + h3.hr + "本塁打", h3.p, ht, ht === A ? B : A, flash); }
       const kb = (f.A.kBest && f.B.kBest) ? (f.A.kBest.so >= f.B.kBest.so ? f.A.kBest : f.B.kBest) : (f.A.kBest || f.B.kBest);
-      if(!flash && kb && kb.so >= 15){ const kt = f.A.kBest === kb ? A : B; flash = `【${kb.so}奪三振】${kb.p.name}（${kt.name}）が${kb.so}奪三振の快投！`; record(kb.so + "奪三振", kb.p, kt, kt === A ? B : A, flash); }
+      if(!flash && kb && kb.so >= 13){ const kt = f.A.kBest === kb ? A : B; flash = `【${kb.so}奪三振】${kb.p.name}（${kt.name}）が${kb.so}奪三振の快投！`; record(kb.so + "奪三振", kb.p, kt, kt === A ? B : A, flash); }
       if(!flash && diff > 0 && (g.rA === 0 || g.rB === 0) && winSp && rnd() < 0.5){ flash = `${winSp.name}（${win.name}）が${lose.name}を完封！`; }
     }
     if(!flash && diff>0 && [8,10,12,15].includes(win.stk||0)){

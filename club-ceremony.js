@@ -1,15 +1,39 @@
 /* Home ground and manager appointments have their own ceremonies. */
 const ldPlayerField=ldField,ldPlayerActions=ldActions,ldPlayerPull=gachaPull,ldPlayerCard=gachaCardHtml,ldClubRender=renderGacha;
+// 監督の異名。寸評の「」があればそれを、なければ実績から
+function ldEpithet(p){
+  const m = (p.desc||'').match(/「([^」]{2,14})」/);
+  if(m) return esc(m[1]);
+  const pen = p.pennants||0, jp = p.japan||0;
+  if(jp >= 5) return (p.mlb?'世界一':'日本一') + jp + '回の名将';
+  if(pen >= 3) return 'リーグ制覇' + pen + '回の勝負師';
+  if(pen >= 1) return '優勝経験を持つ指揮官';
+  return '叩き上げの野球人';
+}
+function ldManagerHeadline(p){
+  const pen = p.pennants||0;
+  if(pen >= 5) return '名将、来る。';
+  if(pen >= 1) return '勝てる男が、来た。';
+  return '新監督、就任。';
+}
+// 球場の見出し。癖を一言で
+function ldParkTagline(pk){
+  if(pk.hr >= 1.12 && pk.run >= 1.06) return '打球が夜空に消える、打者の楽園。';
+  if(pk.hr <= 0.9 && pk.run <= 0.96) return '広い外野が打球を呑み込む、投手の要塞。';
+  if(pk.run >= 1.06) return '点の取り合いが日常になる、熱い箱。';
+  if(pk.run <= 0.96) return '一点の重みが違う、守りの城。';
+  return '勝負を分けるのは、ここで過ごす一年。';
+}
 function ldParkPhoto(pk){const source=PARK_PHOTO[pk.id];return source?ldPlayerPhoto({pu:source.u}).src:'';}
 function ldParkStage(x){
   const G=state.gacha,done=!!x?.open,phase=done?'complete':G.ceremony||'idle',pk=x?.park;
   const photo=pk&&ldParkPhoto(pk),credit=pk&&PARK_PHOTO[pk.id];
-  return '<section class="home-ceremony home-'+phase+'" aria-label="本拠地の決定"><img class="home-panorama" src="'+(photo||'stadium.webp')+'" alt="'+(done&&photo?esc(pk.name):'')+'" onerror="this.src=\'stadium.webp\';this.onerror=null;this.closest(\'section\').classList.add(\'home-fallback\')"><img class="home-tunnel" src="stadium-entry.webp" alt=""><div class="home-shade"></div><div class="home-light" aria-hidden="true"></div><div class="home-lamps" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home-content">'+(done?'<span class="home-eyebrow">'+esc(gachaTeam().name)+' の本拠地</span><h2>'+esc(pk.name)+'</h2><p class="home-type">'+esc(pk.cat)+' / '+esc(pk.type)+'</p><div class="home-facts"><span><small>本塁打</small><b>'+(pk.hr>=1.12?'出やすい':pk.hr<=.9?'出にくい':'標準')+'</b></span><span><small>球場の傾向</small><b>'+(pk.run>=1.06?'打者有利':pk.run<=.96?'投手有利':'バランス型')+'</b></span></div><p class="home-note">'+esc(pk.note||'')+'</p>':'<span class="home-eyebrow">本拠地を決める</span><h2>'+(phase==='idle'?'ここから、<br>球団の歴史が始まる。':phase==='approach'?'スタンドの、その先へ。':'照明が、灯る。')+'</h2><p class="home-type">'+(phase==='idle'?'まだ誰もいない球場へ。':'まもなく、あなたのホームが決まります。')+'</p>')+'</div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'本拠地を確認して次へ':'タップして球場へ入る')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして別の球場へ':'タップして次へ'):phase==='idle'?'タップして球場に入る':'')+'</div>'+(done?'<div class="home-credit">'+(credit?'<a href="'+esc(credit.u)+'" target="_blank" rel="noopener">写真：'+esc(credit.a)+' / '+esc(credit.l)+'</a>':'<span>球場イメージ</span>')+'<span class="home-image-fallback">球場イメージ</span></div>':'')+'</section>';
+  return '<section class="home-ceremony home-'+phase+'" aria-label="本拠地の決定"><img class="home-panorama" src="'+(photo||'stadium.webp')+'" alt="'+(done&&photo?esc(pk.name):'')+'" onerror="this.src=\'stadium.webp\';this.onerror=null;this.closest(\'section\').classList.add(\'home-fallback\')"><img class="home-tunnel" src="stadium-entry.webp" alt=""><div class="home-shade"></div><div class="home-light" aria-hidden="true"></div><div class="home-lamps" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="home-content">'+(done?'<span class="home-eyebrow">'+esc(gachaTeam().name)+' の本拠地　<b class="home-grade">球場の格 '+parkRank(pk)+'</b></span><h2>'+esc(pk.name)+'</h2><p class="home-tagline">'+ldParkTagline(pk)+'</p><p class="home-type">'+esc(pk.cat)+' / '+esc(pk.type)+'</p><div class="home-facts"><span><small>本塁打</small><b>'+(pk.hr>=1.12?'出やすい':pk.hr<=.9?'出にくい':'標準')+'</b></span><span><small>球場の傾向</small><b>'+(pk.run>=1.06?'打者有利':pk.run<=.96?'投手有利':'バランス型')+'</b></span></div><p class="home-note">'+esc(pk.note||'')+'</p>':'<span class="home-eyebrow">本拠地を決める</span><h2>'+(phase==='idle'?'ここから、<br>球団の歴史が始まる。':phase==='approach'?'スタンドの、その先へ。':'照明が、灯る。')+'</h2><p class="home-type">'+(phase==='idle'?'まだ誰もいない球場へ。':'まもなく、あなたのホームが決まります。')+'</p>')+'</div><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'本拠地を確認して次へ':'タップして球場へ入る')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして別の球場へ':'タップして次へ'):phase==='idle'?'タップして球場に入る':'')+'</div>'+(done?'<div class="home-credit">'+(credit?'<a href="'+esc(credit.u)+'" target="_blank" rel="noopener">写真：'+esc(credit.a)+' / '+esc(credit.l)+'</a>':'<span>球場イメージ</span>')+'<span class="home-image-fallback">球場イメージ</span></div>':'')+'</section>';
 }
 function ldManagerStage(x){
   const done=!!x?.open,p=x?.p,phase=done?'complete':state.gacha.ceremony||'idle';
-  const paper='<article class="manager-document"><header><span>監督就任に関する契約書</span><b>'+esc(gachaTeam().name)+'</b></header><p class="manager-clause">本球団は、次の監督にチームの指揮を委ねる。</p><div class="manager-signature"><small>就任監督</small><strong>'+(done?esc(p.name):'────────')+'</strong></div>'+(done?'<div class="manager-record"><span>通算勝利 <b>'+(p.wins??'—')+'</b></span><span>リーグ優勝 <b>'+(p.pennants??'—')+'</b></span><span>'+(p.mlb?'世界一':'日本一')+' <b>'+(p.japan??'—')+'</b></span></div><p>'+esc(p.desc||'')+'</p><div class="manager-seal">契約成立</div>':'<p class="manager-status">就任の署名を確認しています…</p>')+'<footer><span>契約先</span><b>'+esc(gachaTeam().name)+'</b></footer></article>';
-  return '<section class="manager-ceremony manager-'+phase+'"><div class="manager-heading"><span>球団人事</span><h2>'+(done?'新監督、就任。':'一通の封筒が、届いた。')+'</h2><p>'+esc(gachaTeam().name)+' の指揮を託す。</p></div><div class="manager-mail"><div class="manager-letter">'+paper+'</div><img class="mail-closed" src="envelope-closed.webp" alt=""><img class="mail-open" src="envelope-open.webp" alt=""><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'契約を確認して次へ':'封筒をタップして開封')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして次の契約へ':'タップして次へ'):phase==='idle'?'封筒をタップして開ける':'')+'</div></div>'+(done?'<div class="manager-appointed">'+cardHtml(p,x.rank,{size:'l',pos:'監督',onclick:'cardPop(0)'})+'</div>':'')+'</section>';
+  const paper='<article class="manager-document"><header><span>監督就任に関する契約書</span><b>'+esc(gachaTeam().name)+'</b></header><p class="manager-clause">本球団は、次の監督にチームの指揮を委ねる。</p><div class="manager-signature">'+(done?'<em class="manager-epithet">'+ldEpithet(p)+'</em>':'')+'<small>就任監督</small><strong>'+(done?esc(p.name):'────────')+'</strong></div>'+(done?'<div class="manager-record"><span>通算勝利 <b>'+(p.wins??'—')+'</b></span><span>リーグ優勝 <b>'+(p.pennants??'—')+'</b></span><span>'+(p.mlb?'世界一':'日本一')+' <b>'+(p.japan??'—')+'</b></span></div><p>'+esc(p.desc||'')+'</p><div class="manager-seal">契約成立</div>':'<p class="manager-status">就任の署名を確認しています…</p>')+'<footer><span>契約先</span><b>'+esc(gachaTeam().name)+'</b></footer></article>';
+  return '<section class="manager-ceremony manager-'+phase+'"><div class="manager-heading"><span>球団人事</span><h2>'+(done?ldManagerHeadline(p):'一通の封筒が、届いた。')+'</h2><p>'+esc(gachaTeam().name)+' の指揮を託す。</p></div><div class="manager-mail"><div class="manager-letter">'+paper+'</div><img class="mail-closed" src="envelope-closed.webp" alt=""><img class="mail-open" src="envelope-open.webp" alt=""><button type="button" class="ceremony-tap-surface" aria-label="'+(done?'契約を確認して次へ':'封筒をタップして開封')+'" onclick="ldCeremonyTap()"></button><div class="ceremony-tap-note">'+(done?(ldDemo?'タップして次の契約へ':'タップして次へ'):phase==='idle'?'封筒をタップして開ける':'')+'</div></div>'+(done?'<div class="manager-appointed">'+cardHtml(p,x.rank,{size:'l',pos:'監督',onclick:'cardPop(0)'})+'</div>':'')+'</section>';
 }
 function ldCeremonyTap(){
   const G=state.gacha;if(!G||ldBusy)return;

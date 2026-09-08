@@ -1,0 +1,21 @@
+/* デンジャーランク(D): 黒地に黄黒の警告帯。金銀とは正反対の「外れ」の見え方 */
+.ld-rank.D{color:#f2c318;}
+.ld-capsule.cap-D .ld-cap-tint{background:#1a1a1f !important;}
+.ld-capsule.cap-D .ld-cap-gloss{opacity:1;background-image:repeating-linear-gradient(135deg,#f2c318 0 8px,#111 8px 16px) !important;mix-blend-mode:normal;opacity:.55;}
+.ld-capsule.cap-D>small{color:#f2c318;}
+.ld-reveal.r-D{--capsule-club:#1a1a1f;}
+.ld-reveal.r-D::before{content:"DANGER";position:absolute;left:0;right:0;top:calc(10px + env(safe-area-inset-top,0px));text-align:center;font:700 13px/1 "Oswald",sans-serif;letter-spacing:.5em;color:#111;
+  background:repeating-linear-gradient(135deg,#f2c318 0 14px,#111 14px 28px);padding:8px 0;z-index:3;text-shadow:0 0 4px #f2c318;pointer-events:none;}
+.ld-reveal.r-D .ld-reveal-capsule{filter:saturate(.4) brightness(.8);}
+.pc.r-D{--pcfr:repeating-linear-gradient(135deg,#f2c318 0 10px,#15151a 10px 20px);box-shadow:0 0 0 1px #000,0 10px 24px -12px rgba(0,0,0,.9);}
+.pc.r-D .pc-in{background:#0a0a0c;}
+.pc.r-D .pc-ph img{filter:grayscale(.6) contrast(.9);}
+.pc.r-D .pc-st{color:#f2c318;}
+.pc.r-D .pc-holo{opacity:0 !important;}
+.pc.r-D .pc-pos::after{content:"　要注意";font-size:.8em;color:#f2c318;}
+/* 監督の異名と球場の見出し */
+.manager-epithet{display:block;font:700 13px/1.4 "Noto Sans JP",sans-serif;letter-spacing:.12em;color:#c9a35c;margin-bottom:2px;}
+.manager-epithet::before{content:"— ";} .manager-epithet::after{content:" —";}
+.manager-signature strong{font-size:1.15em;}
+.home-tagline{font:700 15px/1.5 "Noto Sans JP",sans-serif;color:#f2e6c9;letter-spacing:.06em;margin:4px 0 8px;text-shadow:0 1px 6px rgba(0,0,0,.8);}
+.home-grade{margin-left:8px;font:700 10px/1 "Oswald",sans-serif;letter-spacing:.2em;color:#111;background:#e2bd63;padding:2px 7px;border-radius:3px;vertical-align:middle;}

@@ -125,6 +125,8 @@ function prepPlayer(p, idPrefix, i){
 }
 const PLAYERS = DB.map((p,i)=>prepPlayer(p,"N",i));
 const MLB_STARS = MLB_DB.map((p,i)=>prepPlayer(p,"M",i));
+// デンジャーランクの助っ人。ガチャの「超外れ」としてだけ出る(ドラフトや名鑑には出さない)
+const DANGERS = (typeof DANGER_DB !== "undefined" ? DANGER_DB : []).map((p,i)=>prepPlayer(p,"D",i));
 // ドラフトの対象。既定は日本球界だが、メジャー限定にすると差し替わる。
 // 名鑑や検索はいつも両方を見るので、ここを見るのは指名まわりだけ
 let POOL = PLAYERS;
@@ -930,7 +932,7 @@ const GACHA_ROUNDS = [
   {k:"B", label:"野手ガチャ", note:"打線と控え、15人ぶんのカプセルが一気に落ちる。日米の名選手が混ざる", grps:["捕","一","二","三","遊","外","DH","BN"]},
   {k:"P", label:"投手ガチャ", note:"先発・中継ぎ・抑え、11人ぶん", grps:["SP","RP","CL"]},
 ];
-const RANK_ORDER = ["SS", "S", "A", "B", "C"];
+const RANK_ORDER = ["SS", "S", "A", "B", "C", "D"];   // D = デンジャー(残念助っ人)
 function startGacha(){
   state.gacha = {order: shuffle(state.parts.map((_, i) => i)), ptr: 0, round: 0, pulls: null, revealed: 0, phase: "idle"};
   show("scr-gacha");
@@ -961,7 +963,12 @@ function gachaNext(){
   curtain(t.name + " の番 ── " + R.label, R.note + "<br>端末を受け取って、回してください。", "ガチャへ", renderGacha);
 }
 // 枠に合う候補から、ランクの確率で一人引く。上のランクに誰もいなければ下へ流す
+const GACHA_DANGER_RATE = 0.07;   // 残念助っ人が出る確率(野手・投手の一枠ごと)
 function gachaDraw(t, d, minTier){
+  if(!minTier && rnd() < GACHA_DANGER_RATE){
+    const dg = DANGERS.filter(p => !state.taken.has(p.id) && eligibleGrp(p, d.grp));
+    if(dg.length) return dg[Math.floor(rnd() * dg.length)];
+  }
   const cands = POOL.filter(p => !state.taken.has(p.id) && poolOK(p) && !p.twoWay && eligibleGrp(p, d.grp));
   if(!cands.length) return null;
   const byTier = {};
@@ -1008,7 +1015,7 @@ function gachaPull(auto){
       const p = gachaDraw(t, d, need ? "A" : null);
       if(!p) continue;
       assignPick(t, p);
-      pulls.push({d, p, open: !!auto, rank: rankOf(ovrFor(p, d.grp)), sure: need});
+      pulls.push({d, p, open: !!auto, rank: p.danger ? "D" : rankOf(ovrFor(p, d.grp)), sure: need});
     }
   }
   G.pulls = pulls; G.revealed = auto ? pulls.length : 0;
@@ -1885,7 +1892,7 @@ function slotFilter(grp){
 }
 
 // ---- モーダル ----
-function findPlayer(id){ return PLAYERS.find(x=>x.id===id) || MLB_STARS.find(x=>x.id===id); }
+function findPlayer(id){ return PLAYERS.find(x=>x.id===id) || MLB_STARS.find(x=>x.id===id) || DANGERS.find(x=>x.id===id); }
 // 主要な数字は「／」でつないだ文章ではなく、図として並べる。
 // 大きい数字と小さいラベルに分けると、カードを見比べるときに目が拾いやすい
 function statFigures(p){
@@ -4222,7 +4229,49 @@ function powerCardHtml(t){
 function oddsLine(){
   return powerOdds().map(x => esc(x.t.name) + ' ' + Math.round(x.p*100) + '%').join('　');
 }
+// ガチャで集めた選手を、力の順に並べ直す。レギュラーの枠に強い選手、控えに弱い選手。
+// 守れる位置の少ない枠(捕手・遊撃…)から先に決めていく
+function optimizeRoster(t){
+  const grpOf = k => (SLOT_DEFS.find(d => d.key === k) || {}).grp;
+  // 野手
+  const batKeys = LINEUP_KEYS.concat(BENCH_KEYS);
+  const bats = batKeys.map(k => t.slots[k]).filter(Boolean);
+  const order = ["C","SS","B2","B3","B1","OF1","OF2","OF3","DH"];
+  const used = new Set();
+  const pick = (grp) => {
+    const c = bats.filter(p => !used.has(p) && !p.twoWay && eligibleGrp(p, grp)).sort((a,b) => ovrFor(b, grp) - ovrFor(a, grp))[0];
+    if(c) used.add(c);
+    return c || null;
+  };
+  const twoWay = bats.find(p => p.twoWay);
+  const assign = {};
+  order.forEach(k => { if(k === "DH" && twoWay){ assign[k] = twoWay; used.add(twoWay); } else assign[k] = pick(grpOf(k)); });
+  const rest = bats.filter(p => !used.has(p));
+  batKeys.forEach(k => { delete t.slots[k]; });
+  order.forEach(k => { if(assign[k]) t.slots[k] = assign[k]; });
+  BENCH_KEYS.forEach((k, i) => { if(rest[i]) t.slots[k] = rest[i]; });
+  // 投手(二刀流の先発枠は動かさない)
+  const pitKeys = SP_KEYS.concat(RP_KEYS, ["CL"]);
+  const twoWayKey = SP_KEYS.find(k => t.slots[k] && t.slots[k].twoWay);
+  const pits = pitKeys.filter(k => k !== twoWayKey).map(k => t.slots[k]).filter(Boolean);
+  const pused = new Set();
+  const sps = pits.filter(p => eligibleGrp(p, "SP")).sort((a,b) => ovrFor(b,"SP") - ovrFor(a,"SP"));
+  const spSlots = SP_KEYS.filter(k => k !== twoWayKey);
+  spSlots.forEach(k => { const p = sps.find(x => !pused.has(x)); if(p){ pused.add(p); } });
+  const cl = pits.filter(p => !pused.has(p) && eligibleGrp(p, "CL")).sort((a,b) => ovrFor(b,"CL") - ovrFor(a,"CL"))[0];
+  if(cl) pused.add(cl);
+  const rps = pits.filter(p => !pused.has(p) && eligibleGrp(p, "RP")).sort((a,b) => ovrFor(b,"RP") - ovrFor(a,"RP"));
+  const leftover = pits.filter(p => !pused.has(p) && !rps.includes(p));
+  pitKeys.filter(k => k !== twoWayKey).forEach(k => { delete t.slots[k]; });
+  let si = 0; spSlots.forEach(k => { const p = sps.filter(x => pused.has(x))[si++]; if(p) t.slots[k] = p; });
+  if(cl) t.slots.CL = cl;
+  RP_KEYS.forEach((k, i) => { const p = rps[i] || leftover.shift(); if(p) t.slots[k] = p; });
+  // 打順とローテを新しい顔ぶれで組み直す
+  autoOrderFor(t);
+}
 function startCamp(){
+  // ガチャで作った球団は、力の順にレギュラーを並べ直してから編成へ
+  if(state.opts.gacha) state.parts.forEach(optimizeRoster);
   // CPUは自動で組む
   state.parts.forEach(function(t){ if(t.cpu) autoOrderFor(t); });
   const human = state.parts.map(function(t, i){ return t.cpu ? -1 : i; })
@@ -5795,6 +5844,13 @@ function seTap(){
 }
 let rollTimer = null;
 // カプセルが割れる音と、落ちてくる風切り
+// デンジャー(残念助っ人)の落胆音。下がっていく三音
+function seDanger(){
+  if(!sndOn) return; const c=ac(); if(!c) return;
+  const t = c.currentTime;
+  [[330,0],[262,0.22],[196,0.44]].forEach(function(x){ tone(t+x[1], x[0], 0.24, 0.10, "sawtooth"); });
+  noiseBurst(t+0.7, 0.25, 500, 0.06);
+}
 function seCrack(){
   if(!sndOn) return; const c=ac(); if(!c) return;
   const t = c.currentTime;

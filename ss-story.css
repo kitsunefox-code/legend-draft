@@ -1,0 +1,25 @@
+#ss-bg.archive-mode{background:#090c10;padding:24px;color:#e9e4d8}
+#ss-bg.archive-mode::before,#ss-bg.archive-mode::after,#ss-bg.archive-mode .ss-rays{display:none}
+#ss-bg.archive-mode #ss-panel{width:min(960px,100%);max-width:960px;max-height:95dvh;overflow:auto;padding:0}
+.archive-story{border-top:3px solid #a53032;background:#11161b;text-align:left}
+.archive-story header{display:flex;justify-content:space-between;gap:20px;border-bottom:1px solid #ffffff24;padding:17px 24px;font-size:14px;letter-spacing:.12em}.archive-story header b{color:#c4af7d;font-weight:500}
+.archive-screen{position:relative;min-height:440px;display:flex;align-items:center;overflow:hidden;background:#11161b}
+.archive-photo{position:absolute;right:0;top:0;width:52%;height:100%;object-fit:cover;object-position:center 20%;filter:grayscale(1) contrast(1.1);opacity:.35;mask-image:linear-gradient(90deg,transparent,#000 45%)}
+.archive-rewind .archive-photo{filter:grayscale(1) blur(5px);opacity:.2}
+.archive-copy{position:relative;width:100%;padding:35px 42px;z-index:1}.archive-chapter{font-size:14px;letter-spacing:.18em;color:#abb1b6}.archive-year{font:700 clamp(72px,13vw,140px)/1.1 'Oswald',monospace;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:#eee8da;margin:15px 0 24px}
+.archive-copy h2{font-size:clamp(20px,3vw,29px);font-weight:700;line-height:1.8;max-width:650px;margin:0;text-wrap:pretty}.archive-copy p{font-size:16px;color:#a5acb2;margin-top:20px}
+.archive-event .archive-copy{animation:archiveEntry .6s ease-out both}.archive-track{height:3px;background:#343a3f}.archive-track i{display:block;height:100%;background:#aa3839;transition:width .5s}
+.archive-years{display:flex;gap:20px;overflow:auto;padding:16px 24px;color:#697179;font:16px 'Oswald',monospace}.archive-years .current{color:#f2e5c5;border-bottom:2px solid #ac3b3c}
+.archive-controls{display:flex;justify-content:space-between;gap:14px;padding:20px 24px;border-top:1px solid #ffffff20;background:#11161b}.archive-controls button{font:500 14px 'Noto Sans JP',sans-serif;border:1px solid #78818a;color:#c1c8ce;padding:12px 18px;background:none;min-height:46px;cursor:pointer}.archive-controls .archive-next{background:#e4dfd3;color:#14181b;border-color:#e4dfd3;font-weight:700}.archive-controls button:focus-visible{outline:3px solid #bf9c54;outline-offset:3px}
+#ss-bg.archive-mode .ss-pg{width:100%;box-shadow:none;background:#11161b;border:0;border-top:3px solid #a53032;padding:24px 30px}
+#ss-bg.archive-mode .ss-k{border:0;color:#e6dfd2;font-size:18px;letter-spacing:.06em;padding:12px 0}
+#ss-bg.archive-mode .ss-step{font-size:12px;letter-spacing:.1em;color:#89929b}
+#ss-bg.archive-mode .ss-list li{font-size:16px;line-height:1.8;animation:none}#ss-bg.archive-mode .ss-face{filter:grayscale(1);border:0}
+#ss-bg.archive-mode .ss-pg.final{display:flex;flex-direction:column;align-items:center;gap:12px}#ss-bg.archive-mode .ss-pg.final .ss-step{position:static}
+#ss-bg.archive-mode .ss-pg.final .ss-card{animation:archiveCard 1s ease-out both!important}#ss-bg.archive-mode .ss-desc{font-size:16px;line-height:1.8;max-width:580px}
+#ss-bg.archive-mode .ss-peak small,#ss-bg.archive-mode .ss-career-grid small{font-size:13px}#ss-bg.archive-mode .ss-career-title{font-size:13px;letter-spacing:.12em}
+.ld-card-foil{animation-duration:12s!important}.ld-card-prism{opacity:.3!important}.ld-stage-light{opacity:.4;animation:none}.ld-machine-title small{letter-spacing:.12em}.ld-machine-go{box-shadow:0 3px 0 #76551e!important}
+@keyframes archiveEntry{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+@keyframes archiveCard{from{opacity:0;transform:translateY(25px) scale(.93)}to{opacity:1;transform:none}}
+@media(max-width:600px){#ss-bg.archive-mode{padding:10px}.archive-screen{min-height:380px}.archive-copy{padding:26px 22px}.archive-photo{width:80%;opacity:.25}.archive-story header{padding:15px;font-size:12px}.archive-controls{padding:16px 12px;gap:8px}.archive-controls button{padding:11px;font-size:13px}.archive-copy h2{font-size:20px}#ss-bg.archive-mode .ss-pg{padding:18px 14px}#ss-bg.archive-mode .ss-list li{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.archive-event .archive-copy,#ss-bg.archive-mode .ss-pg.final .ss-card{animation:none!important}.archive-track i{transition:none}}

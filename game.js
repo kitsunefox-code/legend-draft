@@ -1141,7 +1141,7 @@ function ssNext(){
   const c = ssCtx;
   if(!c) return;
   c.page++; c.t0 = Date.now();
-  if(c.page >= 4){
+  if(c.page >= 5){
     $("ss-bg").classList.remove("show");
     ssCtx = null;
     const done = c.done;
@@ -1150,7 +1150,7 @@ function ssNext(){
     if(nx) setTimeout(function(){ ssShow(nx[0], nx[1]); }, 400);
     return;
   }
-  if(c.page === 3){ seFanfare(); gachaFlash("SS"); } else seTap();
+  if(c.page === 4){ seFanfare(); gachaFlash("SS"); } else seTap();
   ssRender();
 }
 function ssLore(p){
@@ -1161,9 +1161,12 @@ function ssRender(){
   const c = ssCtx;
   if(!c) return;
   const p = c.x.p, lore = ssLore(p), grp = c.x.d.grp;
-  const face = p.ph !== undefined
-    ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
-    : avatarBox(p, 120);
+  const photo = typeof ldPlayerPhoto === "function" ? ldPlayerPhoto(p) : null;
+  const face = photo && photo.src
+    ? '<img src="' + photo.src.replace(/"/g,"&quot;") + '" data-fallback="' + (photo.fallback||"").replace(/"/g,"&quot;") + '" alt="" decoding="async" referrerpolicy="no-referrer" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback=\'\'}else this.remove()">'
+    : p.ph !== undefined
+      ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" onerror="this.remove()">'
+      : avatarBox(p, 120);
   let body = "";
   if(c.page === 0){
     body = '<div class="ss-hit">' +
@@ -1175,11 +1178,11 @@ function ssRender(){
     if(p.b) life.push(p.b + "年生まれ" + (p.d ? "（" + p.d + "年没）" : ""));
     if(p.f) life.push(esc(p.f) + "出身");
     const chron = lore.chron.length ? lore.chron : [esc(p.team) + "（" + p.year + "年ごろ）", esc(p.decade) + "を代表する" + (p.cat === "P" ? "投手" : "打者")];
-    body = '<div class="ss-pg"><div class="ss-k">経歴</div>' +
+    body = '<div class="ss-pg timeline"><div class="ss-step">01 / 04</div><div class="ss-k">CAREER TIMELINE　経歴年表</div>' +
       '<div class="ss-face blur">' + face + '</div>' +
       '<div class="ss-name">？？？？</div>' +
       (life.length ? '<div class="ss-life">' + life.join("　") + '</div>' : '') +
-      '<ul class="ss-list">' + chron.map(function(s, i){ return '<li style="--i:' + i + '">' + esc(s) + '</li>'; }).join("") + '</ul>' +
+      '<ol class="ss-list ss-timeline">' + chron.map(function(s, i){ const y=String(s).match(/(?:19|20)\d{2}/); return '<li style="--i:' + i + '"><b>' + (y?y[0]:String(i+1).padStart(2,"0")) + '</b><span>' + esc(s) + '</span></li>'; }).join("") + '</ol>' +
       '<div class="ss-tap">タップで次へ</div></div>';
   }else if(c.page === 2){
     let aw = lore.awards.slice(0, 8);
@@ -1192,15 +1195,25 @@ function ssRender(){
         if(!aw.length) aw.push("記録は名鑑を参照");
       }
     }
-    const car = careerBrief(p);
-    body = '<div class="ss-pg"><div class="ss-k">受賞歴</div>' +
+    body = '<div class="ss-pg awards"><div class="ss-step">02 / 04</div><div class="ss-k">HONORS　受賞歴</div>' +
       '<div class="ss-face blur">' + face + '</div>' +
       '<div class="ss-name">？？？？</div>' +
       '<ul class="ss-list aw">' + aw.map(function(s, i){ return '<li style="--i:' + i + '">' + esc(s) + '</li>'; }).join("") + '</ul>' +
-      (car ? '<div class="ss-car">' + car.map(function(f){ return '<span><i>' + f[0] + '</i>' + f[1] + '</span>'; }).join("") + '</div>' : '') +
       '<div class="ss-tap">タップで次へ</div></div>';
+  }else if(c.page === 3){
+    const figs = careerFigs(p) || [];
+    const peak = p.cat === "P"
+      ? [["勝利",p.w],["防御率",Number(p.era).toFixed(2)],["奪三振",p.so]]
+      : [["打率",avg3(p.avg)],["本塁打",p.hr],["打点",p.rbi]];
+    body = '<div class="ss-pg career"><div class="ss-step">03 / 04</div><div class="ss-k">THE RECORD　記録と実績</div>' +
+      '<div class="ss-record-year"><small>SELECTED SEASON</small><b>' + p.year + '</b><span>' + esc(p.team) + '</span></div>' +
+      '<div class="ss-peak">' + peak.map(function(f){return '<span><small>' + f[0] + '</small><b>' + f[1] + '</b></span>';}).join("") + '</div>' +
+      (figs.length ? '<div class="ss-career-title">CAREER TOTAL</div><div class="ss-career-grid">' + figs.map(function(f){return '<span><small>' + f[0] + '</small><b>' + f[1] + '</b></span>';}).join("") + '</div>' : '') +
+      '<div class="ss-profile">' + [p.b?p.b+'年生まれ':'',p.f?esc(p.f)+'出身':'',p.th&&p.bh?p.th+'投'+p.bh+'打':''].filter(Boolean).join('<i></i>') + '</div>' +
+      '<div class="ss-tap">タップで選手カードへ</div></div>';
   }else{
     body = '<div class="ss-pg final">' +
+      '<div class="ss-step">04 / 04</div>' +
       '<div class="ss-get-stamp">GET!</div>' +
       cardHtml(p, "SS", {size:"l", pos:c.x.d.label, grp, cls:"ss-card"}) +
       (p.desc ? '<div class="ss-desc">' + esc(p.desc) + '</div>' : '') +
@@ -7484,3 +7497,5 @@ function showSuper(e){
 buildFrontPage();
 // 扉は show() を通らず最初から出ているので、どの面かを body に書いておく
 document.body.setAttribute("data-scr", (document.querySelector(".screen.active") || {}).id || "scr-title");
+
+

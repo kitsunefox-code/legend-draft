@@ -1,0 +1,18 @@
+.ld-reveal .ld-reveal-capsule{width:min(64vw,300px);animation:none;isolation:isolate;z-index:3}
+.ld-shell-art{position:relative;width:100%;aspect-ratio:1;filter:drop-shadow(0 14px 24px #0009)}
+.ld-shell-half{position:absolute;inset:0;transition:transform .85s cubic-bezier(.2,.75,.3,1),opacity .85s;isolation:isolate}
+.ld-shell-half img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:none!important}
+.ld-shell-half .ld-cap-tint,.ld-shell-half .ld-cap-gloss{inset:0;width:100%;height:100%;mask:url('capsule.webp') center/contain no-repeat}
+.shell-upper{clip-path:inset(0 0 50% 0)}.shell-lower{clip-path:inset(50% 0 0 0)}
+.ld-shell-seam{position:absolute;top:49%;left:15%;right:15%;height:2px;opacity:0;background:#eaf8ff;box-shadow:0 0 15px 4px #c8eaff,0 0 80px 18px #b5d8fa77}
+.ld-reveal-capsule .ld-shell-label{font-size:14px;letter-spacing:.12em;color:#c9d8e4;margin-top:20px}
+.ld-reveal.r-S.kind-B:not(.revealed) .ld-reveal-capsule,.ld-reveal.r-S.kind-P:not(.revealed) .ld-reveal-capsule{display:flex;animation:sCapsuleRise 1.3s ease-out both}
+.ld-reveal.r-S .ld-shell-art{filter:drop-shadow(0 0 28px #c4e5ff66)}.ld-reveal.r-S .ld-shell-seam{animation:sSeamGrow 1.9s ease-in forwards}
+.ld-reveal.r-S .ld-reveal-aura{background:linear-gradient(90deg,transparent 22%,#c6eaff14 35%,transparent 44% 57%,#c6eaff18 64%,transparent 78%);animation:sLightFocus 1.9s ease-in both}
+.ld-shell-opening .shell-upper{transform:translateY(-55px) rotate(-12deg);opacity:.2}.ld-shell-opening .shell-lower{transform:translateY(55px) rotate(9deg);opacity:.2}.ld-shell-opening .ld-shell-label{opacity:0}
+.ld-reveal.r-S.revealed .ld-reveal-result{animation:sPlayerArrival .85s cubic-bezier(.15,.8,.3,1) both}.ld-reveal.r-S .ld-reveal-kicker{font:600 14px 'Noto Sans JP',sans-serif;letter-spacing:.2em;color:#c5deed}.ld-reveal.r-S .ld-reveal-result .ld-card{box-shadow:0 0 0 1px #a3c3d6,0 15px 55px #000a!important}
+@keyframes sCapsuleRise{from{opacity:0;transform:translateY(70px) scale(.7)}to{opacity:1;transform:none}}
+@keyframes sSeamGrow{0%,45%{opacity:0;transform:scaleX(.2)}100%{opacity:1;transform:scaleX(1)}}
+@keyframes sLightFocus{from{opacity:0;transform:scaleX(1.8)}to{opacity:1;transform:scaleX(1)}}
+@keyframes sPlayerArrival{from{opacity:0;transform:translateY(24px) scale(.88);filter:brightness(1.6)}to{opacity:1;transform:none;filter:none}}
+@media(prefers-reduced-motion:reduce){.ld-reveal.r-S.kind-B .ld-reveal-capsule,.ld-reveal.r-S.kind-P .ld-reveal-capsule,.ld-reveal.r-S .ld-shell-seam,.ld-reveal.r-S .ld-reveal-aura,.ld-reveal.r-S.revealed .ld-reveal-result{animation:none}.ld-shell-half{transition:none}}

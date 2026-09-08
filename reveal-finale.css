@@ -1,0 +1,22 @@
+/* Keep the field and the player's face for the final reveal. */
+.home-ceremony:not(.home-complete) .home-panorama{visibility:hidden}
+.home-idle .home-tunnel,.home-approach .home-tunnel,.home-lights .home-tunnel{display:block;filter:brightness(.2)}
+.home-ceremony:not(.home-complete) .home-shade{z-index:2;background:radial-gradient(ellipse 28% 75% at 50% 50%,#020407 40%,#020407e8 60%,transparent 95%),linear-gradient(0deg,#020407,transparent 80%)}
+.home-ceremony:not(.home-complete) .home-content{z-index:3}
+.home-approach .home-tunnel{animation:homeUnseenApproach 2.4s ease-in forwards}.home-lights .home-tunnel{transform:scale(1.7);opacity:.3;animation:none}
+.home-complete .home-panorama{visibility:visible;animation:homeFinalLandscape 1.2s ease-out both}.home-complete .home-light{animation:homeFinalLight 1.1s ease-out both;z-index:2}.home-complete .home-content{animation:homeName .8s .25s ease-out both}
+@keyframes homeUnseenApproach{from{transform:scale(1);opacity:1}to{transform:scale(1.7);opacity:.3}}
+@keyframes homeFinalLandscape{from{filter:brightness(1.5);transform:scale(1.035)}to{filter:brightness(.95);transform:scale(1)}}
+@keyframes homeFinalLight{0%{opacity:.7}100%{opacity:0}}
+.manager-signature .ink-signature{font-family:'Yu Mincho','Hiragino Mincho ProN',serif;font-style:italic;font-weight:600;color:#1d2835;letter-spacing:.05em}
+.ink-signature>span{display:inline-block;white-space:pre;clip-path:inset(0 100% 0 0);animation:signatureStroke .55s ease-out forwards;animation-delay:calc(var(--stroke)*.4s)}
+.manager-lights .manager-signature{position:relative}.manager-lights .manager-signature:after{content:'';position:absolute;left:0;bottom:0;height:1px;background:#243141;width:100%;transform-origin:left;animation:signatureUnderline 1s 1.6s ease-out both}
+@keyframes signatureStroke{to{clip-path:inset(0 0 0 0)}}@keyframes signatureUnderline{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.archive-screen{background:linear-gradient(100deg,#080d14,#17212b 60%,#080d14)}
+.archive-rewind .archive-year{animation:timeRush .13s linear 6}.archive-event .archive-copy{animation:timeArrival .28s cubic-bezier(.16,.8,.3,1) both}
+.archive-event .archive-year{font-style:italic;letter-spacing:-.05em}.archive-event .archive-screen::after{content:'';position:absolute;left:0;right:0;top:0;height:1px;background:#eee7d399;animation:timeScan .35s ease-out both;pointer-events:none}
+#ss-bg.archive-mode .ss-pg.awards .ss-list{margin-right:0!important;max-width:100%}#ss-bg.archive-mode .ss-pg.awards .ss-name{position:static;width:auto;font-size:13px;margin:0 0 15px}
+@keyframes timeRush{0%{transform:translateX(0);filter:blur(0)}50%{transform:translateX(-12px);filter:blur(2px)}100%{transform:none;filter:none}}
+@keyframes timeArrival{from{opacity:0;transform:translateX(-70px);filter:blur(4px)}to{opacity:1;transform:none;filter:none}}
+@keyframes timeScan{from{transform:translateY(0);opacity:.5}to{transform:translateY(400px);opacity:0}}
+@media(prefers-reduced-motion:reduce){.home-approach .home-tunnel,.home-complete .home-panorama,.home-complete .home-light,.home-complete .home-content,.ink-signature>span,.manager-lights .manager-signature:after,.archive-rewind .archive-year,.archive-event .archive-copy,.archive-event .archive-screen::after{animation:none}.ink-signature>span{clip-path:none}}

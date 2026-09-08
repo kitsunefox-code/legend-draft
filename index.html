@@ -4625,7 +4625,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 .setup-go .btn.lg,.gc-foot .btn.lg,.pl-foot .btn.lg,.pk-foot .btn.lg{border-radius:14px;}
 
 </style>
-</head>
+<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ui-v2.css?v=3"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"></head>
 <body>
 <div class="wrap">
 
@@ -4658,6 +4658,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
       </p>
       <div class="bk-acts">
         <button class="btn lg" onclick="goSetup()">ゲームスタート</button>
+        <button class="btn ghost" onclick="ldTrial(2)">ガチャを試す</button>
         <button class="btn ghost" onclick="openMeikan()">選手名鑑を引く</button>
         <button class="btn ghost" onclick="openFile()">球界事件簿を読む</button>
       </div>
@@ -4734,7 +4735,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
         <input type="checkbox" id="opt-gacha" onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">ガチャモード<span class="ot-tag">NEW</span></span>
-        <span class="ot-d">ドラフトの代わりに、順番にガチャを回して球団を作る。3連ガチャでカプセルを開封、SSが出れば大歓声。コストは不要。運だけで戦力が決まる宴会向け</span></span>
+        <span class="ot-d">ドラフトの代わりに、球場・監督・野手15人・投手11人を順番に獲得。守備位置のカプセルを開封して球団を作ります。コストは不要です</span></span>
       </label>
       <label class="opt-tile mlbonly">
         <input type="checkbox" id="opt-mlbonly" onchange="foldSummary()">
@@ -4885,8 +4886,8 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 <!-- ================= GACHA ================= -->
 <div id="scr-gacha" class="screen">
   <div class="gc-head" id="gc-head"></div>
-  <div class="gc-stage" id="gc-stage"></div>
-  <div class="gc-foot" id="gc-foot"></div>
+  <div id="ld-intro"></div><nav id="ld-tabs" aria-label="ガチャの種類"></nav><div class="ld-shell"><div class="ld-play"><div class="gc-stage" id="gc-stage"></div>
+  <div class="gc-foot" id="gc-foot"></div></div><aside id="ld-side"></aside></div><p class="ld-bottom-note">LEGEND DRAFT · 成績は元ページ収録のキャリアハイ年。能力値はゲーム内評価です。</p>
 </div>
 
 <!-- ================= SEASON ================= -->
@@ -5239,10 +5240,11 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   </div>
 </div>
 
-<script src="qrcode.js?v=202609052030"></script>
-<script src="players.js?v=202609052030"></script>
-<script src="party.js?v=202609052030"></script>
-<script src="ss.js?v=202609052030"></script>
-<script src="game.js?v=202609052030"></script>
-</body>
+<script src="qrcode.js?v=202609060930"></script>
+<script src="players.js?v=202609060930"></script>
+<script src="data-fixes.js?v=1"></script>
+<script src="party.js?v=202609060930"></script>
+<script src="ss.js?v=202609060930"></script>
+<script src="game.js?v=202609060930"></script>
+<script src="premium.js?v=13"></script><script src="pull.js?v=10"></script><script src="ss-story.js?v=13"></script><script src="capsules.js?v=13"></script><script src="club-ceremony.js?v=14"></script><script src="tap-first.js?v=12"></script></body>
 </html>

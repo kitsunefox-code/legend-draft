@@ -182,3 +182,19 @@ if(document.modelContext?.registerTool){
   try{Promise.resolve(document.modelContext.registerTool(tool,{signal:lifetime.signal})).catch(()=>{});}catch(e){}
   window.addEventListener('pagehide',()=>lifetime.abort(),{once:true});
 }
+// 扉の下半分に「今日の一枚」。開くたびに違う名選手のカードと寸評(狭い画面だけ。広い画面には口絵がある)
+function ldTodayCard(){
+  const inner = document.querySelector('#scr-title .bk-inner');
+  if(!inner || document.querySelector('.bk-today')) return;
+  const pool = (typeof PLAYERS !== 'undefined' ? PLAYERS : []).concat(typeof MLB_STARS !== 'undefined' ? MLB_STARS : []).filter(p => p.cat !== 'M' && p.ph !== undefined && p.ovr >= 86);
+  if(!pool.length) return;
+  const p = pool[Math.floor(Math.random() * pool.length)];
+  const pos = p.cat === 'P' ? (p.role || '投') : (String(p.pos || '').slice(0, 1) || '野');
+  const fig = document.createElement('figure');
+  fig.className = 'bk-today';
+  fig.innerHTML = '<div class="bk-today-card">' + cardHtml(p, rankOf(p.ovr), {size:'s', pos, onclick:'ldTodayCard.reroll()'}) + '</div>' +
+    '<figcaption><small>今日の一枚</small><b>' + esc(p.name) + '</b><span>' + esc(p.desc || '') + '</span><em>タップで別の一枚</em></figcaption>';
+  inner.appendChild(fig);
+}
+ldTodayCard.reroll = function(){ const f = document.querySelector('.bk-today'); if(f) f.remove(); ldTodayCard(); if(typeof seTap === 'function') seTap(); };
+try{ ldTodayCard(); }catch(e){}

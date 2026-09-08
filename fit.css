@@ -391,3 +391,108 @@
   .wk-week{font-size:10px;}
   .wk-tot{display:none;}
 }
+
+/* ============================================================
+   見やすさ・余白の整理(2026-09-09)
+   ============================================================ */
+/* 幕: 球団のエンブレムと球団色 */
+#curtain-bg{background:radial-gradient(ellipse at 50% 28%,color-mix(in srgb,var(--tc,#22456b) 38%,#0e1830),#0b1220 72%) !important;}
+#c-emblem{display:flex;justify-content:center;margin:0 auto 14px;filter:drop-shadow(0 10px 22px rgba(0,0,0,.55));animation:homeName .5s ease-out both;}
+#c-emblem img,#c-emblem svg{width:72px;height:72px;}
+#curtain .c-kicker{display:inline-block;font:600 10px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.4em;color:#1a1206;background:#e0a600;padding:5px 12px 5px 14px;border-radius:12px;margin-bottom:16px;}
+/* 中継: イニング表は合計を大きく、イニング別は細く */
+#lv-board table{table-layout:fixed;}
+#lv-board th,#lv-board td{padding:3px 0;font-size:9.5px;}
+#lv-board td.tn{font-size:12px;font-weight:700;text-align:left;padding-left:6px;width:26%;}
+#lv-board td.r,#lv-board th:last-child{font:700 20px/1.1 "Oswald",sans-serif;color:#ffd257;width:14%;}
+#lv-board td.now{background:rgba(255,210,87,.18);}
+/* ルーレット: 対照表は小さく、当たったら当たりだけ */
+#event-panel:has(.rl-stage) .rl-legend{gap:3px;margin:2px 0 6px;}
+#event-panel:has(.rl-stage) .rl-chip{font-size:9px;padding:1px 5px 1px 2px;}
+#event-panel:has(.rl-stage) .rl-chip i{width:14px;height:14px;line-height:14px;font-size:9px;}
+#event-panel:has(.rl-stage.landed) .rl-chip.dim{display:none;}
+#event-panel:has(.rl-stage.landed) .rl-chip.hit{font-size:12px;padding:3px 10px 3px 4px;}
+#event-panel:has(.rl-stage.landed) .rl-chip.hit i{width:20px;height:20px;line-height:20px;font-size:12px;}
+
+@media (max-width:700px){
+  /* ---- シーズンの盤: 2段に圧縮。主役は「1週進める」 ---- */
+  #scr-season > .board{padding:6px 10px 6px !important;}
+  #scr-season .month-head{display:grid !important;grid-template-columns:1fr 1fr 1fr 38px 44px;grid-template-areas:"date date date speed snd" "note note note note note" "skip skip play play play";gap:4px 6px !important;align-items:center;}
+  #scr-season .month-head > .month-big{grid-area:date;font-size:17px !important;line-height:1.2;min-width:0;}
+  #scr-season .month-head > div:nth-child(2){grid-area:note;}
+  #scr-season .month-head > div:nth-child(3){display:none;}
+  #scr-season #s-note{font-size:11px !important;line-height:1.4 !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block !important;}
+  #scr-season #s-speed{grid-area:speed;width:38px;min-height:30px !important;height:30px;padding:0 !important;font-size:0 !important;color:transparent;appearance:none;-webkit-appearance:none;border-radius:8px;border:1px solid #2c5742;background:#0f2c20 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239fbfa8' stroke-width='2'%3E%3Cpath d='M4 14a8 8 0 0 1 16 0'/%3E%3Cpath d='M12 14l4-5'/%3E%3Ccircle cx='12' cy='14' r='1.5' fill='%239fbfa8'/%3E%3C/svg%3E") center/20px no-repeat;}
+  #scr-season .month-head .snd-btn{grid-area:snd;min-height:30px !important;height:30px;padding:0 4px !important;font-size:9.5px !important;letter-spacing:0;border-radius:8px;}
+  #scr-season #s-skip{grid-area:skip;min-height:42px !important;font-size:14px !important;font-weight:800;background:linear-gradient(180deg,#f0c23a,#d59a00) !important;color:#1a1206 !important;border:0 !important;box-shadow:0 3px 0 #8c6300 !important;border-radius:10px !important;}
+  #scr-season #s-play{grid-area:play;min-height:42px !important;font-size:12px !important;padding:4px 6px !important;border-radius:10px !important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #scr-season .season-prog{margin-top:5px !important;}
+  #scr-season .season-prog .sp-lbl{font-size:10px;}
+  /* 本日の試合は順位表の下へ(JSで移動済み) */
+  #scr-season .sc-row.moved{display:flex;flex-direction:column;gap:4px;margin-top:10px;padding-top:8px;border-top:1px dashed #2c5742;}
+  #scr-season .sc-row.moved::before{content:"本日の試合";font:600 10px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.3em;color:#9fbfa8;margin-bottom:2px;}
+  #scr-season .sc-row.moved .sc-card{padding:5px 8px;font-size:12px;}
+  /* 球団の札: 1球団1行 */
+  #scr-season .ts-row{display:flex !important;flex-direction:column;gap:3px !important;margin-top:5px !important;}
+  #scr-season .ts-card{display:grid !important;grid-template-columns:20px minmax(0,1fr) auto auto auto;gap:6px !important;align-items:center;padding:3px 8px !important;border-radius:6px;min-height:30px;}
+  #scr-season .ts-rank{width:20px;height:20px;line-height:19px;font-size:12px;}
+  #scr-season .ts-main{display:contents;}
+  #scr-season .ts-name{font-size:12.5px;display:flex;align-items:center;gap:4px;min-width:0;}
+  #scr-season .ts-rec{font-size:14px !important;margin:0;}
+  #scr-season .ts-gap{font-size:10.5px;text-align:right;min-width:44px;}
+  #scr-season .ts-badges{display:flex !important;margin:0;gap:3px;justify-content:flex-end;grid-column:auto;}
+  #scr-season .ts-badges:empty{display:none !important;}
+  #scr-season .ts-b{font-size:9px;}
+  /* 順位表: 見やすい列だけ。▶成績は印に */
+  #standings th.st-g,#standings td.st-g,#standings th.st-t,#standings td.st-t{display:none;}
+  #standings .st-more{font-size:0 !important;}
+  #standings .st-more::after{content:"›";font-size:15px;color:#9fbfa8;margin-left:3px;vertical-align:-1px;}
+  #standings th,#standings td{padding:7px 4px;font-size:12.5px;}
+  #standings td:nth-child(2){max-width:118px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #standings .st-l10{color:#cfe0d3;font-family:"Oswald",sans-serif;}
+  /* 速報の帯は下に。盤の日付に重ねない */
+  .telop{top:auto !important;bottom:calc(10px + env(safe-area-inset-bottom,0px)) !important;left:3vw !important;right:3vw !important;max-width:none !important;transform:translateY(160%) !important;padding:9px 12px 9px 12px !important;font-size:13px !important;white-space:normal !important;line-height:1.5;border-radius:10px !important;}
+  .telop.in{transform:translateY(0) !important;}
+  .telop .tk{font-size:9px;padding:2px 6px;margin-right:8px;}
+
+  /* ---- 扉: 今日の一枚 ---- */
+  .bk-today{display:flex;gap:10px;align-items:stretch;margin:2px 0 0;padding:8px 10px;border:1px solid var(--rule);border-radius:10px;background:var(--paper2);}
+  .bk-today-card{flex:none;width:92px;}
+  .bk-today-card .pc.ld-card{width:92px !important;}
+  .bk-today figcaption{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  .bk-today small{font:600 10px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.3em;color:var(--red);}
+  .bk-today b{font-size:14px;color:var(--ink);}
+  .bk-today span{font-size:11px;line-height:1.55;color:var(--ink2);display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
+  .bk-today em{font-style:normal;font-size:10px;color:var(--rule2);margin-top:auto;}
+  #scr-title .bk-hanrei{padding:6px 10px 4px;}
+
+  /* ---- 設定: 参加者の行と見出しを詰める ---- */
+  #p-list .p-row{padding:3px 0 !important;margin:2px 0 !important;gap:6px !important;}
+  #p-list .p-row .idx{width:22px;height:22px;font-size:12px;}
+  #p-list .p-row .em-btn{width:32px;height:32px;}
+  #p-list .p-row .em-btn img{width:24px;height:24px;}
+  #p-list .p-row input[type="text"],#p-list .p-row select{padding:6px 8px;font-size:13px;min-height:34px;}
+  #p-list .p-row button:not(.em-btn){width:32px;min-width:32px;height:32px;padding:0;font-size:14px;}
+  #scr-setup .panel{padding:10px 14px !important;margin:8px 0 !important;}
+  #scr-setup .panel > b:first-child,#scr-setup .p-head{font-size:16px !important;padding-bottom:4px !important;margin-bottom:8px !important;}
+  #scr-setup .panel.fold > b{margin-bottom:0 !important;padding-bottom:2px !important;border-bottom-width:1px !important;}
+  #scr-setup .panel > .sub{margin:2px 0 8px !important;font-size:12px;}
+  #scr-setup .mode-tile{padding:10px 10px !important;}
+
+  /* ---- ガチャ: 見出し行は要らない(タブが言っている) ---- */
+  #scr-gacha #ld-intro h1{display:none !important;}
+  #scr-gacha #ld-intro{padding:2px 0 4px !important;justify-content:flex-end !important;}
+  #scr-gacha #ld-intro .ld-team{display:flex;align-items:baseline;gap:6px;font-size:11px;}
+  #scr-gacha #ld-intro .ld-team b{font-size:12px !important;}
+
+  /* ---- 監督契約: 契約書は名前・数字・成立の3点を大きく ---- */
+  #scr-gacha .manager-complete .manager-desc{display:none !important;}
+  #scr-gacha .manager-complete .manager-document header>span{font-size:16px;}
+  #scr-gacha .manager-complete .manager-signature strong{font-size:30px !important;}
+  #scr-gacha .manager-complete .manager-signature strong.ink-long{font-size:24px !important;}
+  #scr-gacha .manager-complete .manager-epithet{font-size:12px;}
+  #scr-gacha .manager-complete .manager-record{font-size:12.5px;gap:8px 14px;}
+  #scr-gacha .manager-complete .manager-record b{font-size:19px;}
+  #scr-gacha .manager-complete .manager-seal{font-size:18px;padding:5px 12px;margin-top:12px;}
+}
+@media (min-width:701px){ .bk-today{display:none;} }

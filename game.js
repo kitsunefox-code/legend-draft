@@ -2192,6 +2192,18 @@ function startBidRound(part, teamIdxs){
 function curtain(title, sub, btnLabel, cb, skipLabel, skipCb){
   const kick = document.querySelector("#curtain .c-kicker");
   if(kick) kick.textContent = state.gacha ? "球団結成" : state.campCtx ? "開幕編成" : (document.body.dataset.scr === "scr-season" ? "ペナントレース" : "ドラフト会議");
+  // 誰の番かをエンブレムと球団色で。毎回同じ紺一色にならないように
+  let em = $("c-emblem");
+  if(!em){ em = document.createElement("div"); em.id = "c-emblem"; $("curtain").insertBefore(em, $("c-title")); }
+  let who = null;
+  try{
+    if(state.gacha && state.parts) who = gachaTeam();
+    else if(state.campCtx) who = state.parts[state.campCtx.pending[state.campCtx.ptr]];
+    else if(state.eventCtx && state.eventCtx.queue) who = state.eventCtx.queue[state.eventCtx.idx];
+    else if(state.bid && state.bid.hot !== undefined) who = state.parts[state.bid.hot];
+  }catch(e){ who = null; }
+  if(who && who.color){ em.innerHTML = teamEmblem(who, 72); em.style.display = ""; $("curtain-bg").style.setProperty("--tc", who.color); }
+  else { em.style.display = "none"; $("curtain-bg").style.removeProperty("--tc"); }
   $("c-title").textContent = title;
   $("c-sub").innerHTML = sub;
   const b = $("c-btn");
@@ -2662,6 +2674,10 @@ function startSeason(){
   state.rosterTab = 0;
   show("scr-season");
   renderSeasonTabs();
+  if(innerWidth <= 700){
+    const host = document.querySelector('#scr-season .s-pane[data-pane="rank"] .board'), sg = $("s-games");
+    if(host && sg && sg.parentNode !== host){ sg.classList.add("moved"); host.appendChild(sg); }
+  }
   renderTeamStrip();
   renderStandings("standings");
   renderLeaders();
@@ -4517,13 +4533,14 @@ function renderStandings(elId){
   const s = standingsSorted();
   const top = s[0];
   const clickable = elId === "standings" && state.seasonStats;
-  $(elId).innerHTML = `<tr><th>順位</th><th>チーム</th><th>試合</th><th>勝</th><th>敗</th><th>分</th><th>勝率</th><th>差</th></tr>` +
+  const last10 = function(t){ const h = t.hist || [0]; let w = 0, l = 0; for(let k = h.length - 1; k > 0 && w + l < 10; k--){ const d = h[k] - h[k-1]; if(d > 0) w++; else if(d < 0) l++; } return w + "-" + l; };
+  $(elId).innerHTML = `<tr><th>順位</th><th>チーム</th><th class="st-g">試合</th><th>勝</th><th>敗</th><th class="st-t">分</th><th>勝率</th><th>差</th><th class="st-l10">直近10</th></tr>` +
     s.map((t,i)=>{
       const pct = t.W+t.L ? (t.W/(t.W+t.L)).toFixed(3).replace(/^0/,"") : "---";
       const gb = i===0 ? "─" : (((top.W-t.W)+(t.L-top.L))/2).toFixed(1);
       return `<tr class="${i===0?"st-first":""}" ${clickable?`style="cursor:pointer;" onclick="openTeamStats(${state.parts.indexOf(t)})"`:""}><td>${i+1}</td>
-        <td style="text-align:left;">${teamEmblem(t,20)} ${esc(t.name)}${clickable?' <span style="font-size:10px;color:#9fbfa8;">▶成績</span>':""}</td>
-        <td>${t.W+t.L+t.T}</td><td>${t.W}</td><td>${t.L}</td><td>${t.T}</td><td>${pct}</td><td>${gb}</td></tr>`;
+        <td style="text-align:left;">${teamEmblem(t,20)} ${esc(t.name)}${clickable?' <span class="st-more">▶成績</span>':""}</td>
+        <td class="st-g">${t.W+t.L+t.T}</td><td>${t.W}</td><td>${t.L}</td><td class="st-t">${t.T}</td><td>${pct}</td><td>${gb}</td><td class="st-l10">${last10(t)}</td></tr>`;
     }).join("");
 }
 

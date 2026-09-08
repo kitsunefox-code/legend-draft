@@ -17,8 +17,8 @@
 .pc.ld-card .ld-card-rk .rk-ic,.pc.ld-card .ld-card-rk svg{display:block;filter:drop-shadow(0 2px 3px #000);}
 .pc.ld-card .ld-card-rk>b{font:500 20px/1 'Oswald',sans-serif;color:#fff;letter-spacing:1px;text-shadow:0 2px 5px #000;}
 .pc.ld-card .ld-card-rk>b small{display:block;font:7px/1.6 'Oswald',sans-serif;letter-spacing:2.5px;color:var(--foil-light);}
-.pc.ld-card .ld-card-posn{font:700 12px/1.4 'Noto Sans JP',sans-serif;background:var(--foil);color:#fff;padding:4px 10px;border-radius:5px;letter-spacing:1px;box-shadow:0 2px 8px #0008;white-space:nowrap;border:0;backdrop-filter:none;}
-.pc.ld-card.r-S .ld-card-posn,.pc.ld-card.r-SS .ld-card-posn,.pc.ld-card.r-C .ld-card-posn{color:#0a0f18;}
+.pc.ld-card .ld-card-posn{font:700 12px/1.4 'Noto Sans JP',sans-serif;background:var(--foil) !important;color:#fff !important;padding:4px 10px;border-radius:5px;letter-spacing:1px;box-shadow:0 2px 8px #0008;white-space:nowrap;border:0 !important;backdrop-filter:none !important;}
+.pc.ld-card.r-S .ld-card-posn,.pc.ld-card.r-SS .ld-card-posn,.pc.ld-card.r-C .ld-card-posn{color:#0a0f18 !important;}
 .pc.ld-card .ld-card-edition{top:auto;bottom:38%;left:9px;font-size:7px;opacity:.65;}
 
 /* 下段は静かに: シリーズ行を省き、名前と成績を締める */
@@ -47,3 +47,15 @@
 
 /* カプセルの右上の S/SS 文字は出さない(色で分かる) */
 .ld-cap-tier{display:none !important;}
+
+/* シーズンは名前の横(カードの規格)。左上はランク紋だけ */
+.pc.ld-card .ld-card-rk{padding:4px 6px;}
+.pc.ld-card .ld-card-rk>b{display:none;}
+.pc.ld-card .ld-card-name{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
+.pc.ld-card .ld-card-nm{min-width:0;}
+.pc.ld-card .ld-card-yr{flex:none;font:500 15px/1 'Oswald',sans-serif;font-style:normal;letter-spacing:1px;color:var(--foil-light);text-shadow:0 1px 4px #000;display:inline-flex;align-items:baseline;gap:3px;}
+.pc.ld-card .ld-card-yr small{font:600 7px/1 'Oswald',sans-serif;letter-spacing:2px;color:#cfd7e6;}
+.pc.ld-card.sz-m .ld-card-yr{font-size:11px;}
+.pc.ld-card.sz-m .ld-card-yr small{font-size:5px;letter-spacing:1px;}
+.pc.ld-card.sz-s .ld-card-yr{display:none;}
+.pc.ld-card.sz-s .ld-card-rk{padding:1px 2px;}

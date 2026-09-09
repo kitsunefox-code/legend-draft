@@ -38,8 +38,15 @@
 .rv-foot .btn{min-height:42px;}
 @media (max-width:700px){
   #rv-bg{padding:0;align-items:stretch;}
-  #rv{max-width:none;display:flex;flex-direction:column;overflow-y:auto;padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));}
+  /* 下に余白を残さず、内容を縦の中央へ。ボタンは内容の直後 */
+  #rv{max-width:none;display:flex;flex-direction:column;justify-content:center;overflow-y:auto;padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));}
   .rv-stage{flex:none;}
-  .rv-foot{margin-top:auto;padding-top:10px;}
+  .rv-head{margin-bottom:10px;}
+  .rv-who{margin-bottom:12px;}
+  .rv-call{margin-top:14px;}
+  .rv-q{margin-top:14px;font-size:15px;}
+  .rv-btns{margin-top:12px;}
+  .rv-verdict{margin-top:14px;}
+  .rv-foot{margin-top:16px;}
   .rv-foot .btn{width:100%;min-height:48px;}
 }

@@ -593,7 +593,7 @@ SCENES.home = (function(){
   const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
   function stage(c){
     return stageOpen(300) + stands(120) + diamondSvg("plate") +
-      figAt("rv-rf", P.release, RF, -1, defCol(c), "#222") +
+      figAt("rv-rf", P.look, RF, -1, defCol(c), "#222") +
       figAt("rv-pit", P.look, {x:D.mound.x, y:D.mound.y + 2}, -1, defCol(c), "#222") +
       figAt("rv-run", P.stand, FROM, 1, runCol(c), "#222") +
       figAt("rv-cat", P.crouch, CAT, -1, defCol(c), "#222") +
@@ -607,6 +607,7 @@ SCENES.home = (function(){
     const pose = pr < 0.72 ? run(t / 95) : lerpP(run(t / 95), P.slide, ease((pr - 0.72) / 0.28));
     moveFig("rv-run", pose, pt, 1, runCol(c), "#222");
     const tArr = RUNT + tr.delta;
+    if(t >= THROW - 320){ const q = Math.min(1, (t - THROW + 320) / 320); moveFig("rv-rf", q < 0.5 ? lerpP(P.look, P.wind, ease(q / 0.5)) : lerpP(P.wind, P.release, ease((q - 0.5) / 0.5)), RF, -1, defCol(c), "#222"); }
     if(t >= THROW){
       const p = Math.min(1, (t - THROW) / (tArr - THROW));
       throwBall(p, {x:RF.x - 6, y:RF.y}, GLOVE, 44, 18);
@@ -672,7 +673,7 @@ SCENES.catch = (function(){
   function stage(c){
     return stageOpen(280) + stands(150) + ground(150, 130) +
       '<rect x="0" y="120" width="360" height="30" fill="#254a6e"/><text x="180" y="140" text-anchor="middle" font-family="Oswald" font-size="12" fill="#cfe0d4" letter-spacing="4" opacity=".6">OUTFIELD</text>' +
-      figSvg("rv-ump", P.look, 40, G, 0.9, 1, "#2b2b30", "#111") +
+      figSvg("rv-ump", P.look, 272, G, 0.9, -1, "#2b2b30", "#111") +
       figSvg("rv-of", P.ready, 20, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
       shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(LAND.x - 34, G + 4, LAND.x + 34, G + 4) + big(270, 100) + lbl() + '</svg>';
   }
@@ -683,14 +684,14 @@ SCENES.catch = (function(){
     const pg = t < DIVE ? 0 : Math.min(1, (t - DIVE) / (tArr - DIVE));
     const fx = 20 + (LAND.x - 42 - 20) * pg;
     const pose = pg < 0.7 ? run(t / 90) : lerpP(run(t / 90), P.dive, ease((pg - 0.7) / 0.3));
-    setFig("rv-of", pose, fx, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
+    setFig("rv-of", pose, fx, G - (pg > 0.7 ? 9 * (pg - 0.7) / 0.3 : 0), 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
     if(!tr.safe && pg >= 1) ball("rv-ball", LAND.x + 4, G - 5, 4.5, true);
     else ball("rv-ball", bx, Math.min(LAND.y - 4, by), 4.5, true);
     ball("rv-sh", bx, G + 3, 0, true);
   }
   return {
     play(c){ const tr = timing(c, 40, 110); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("外野への浅い飛球");
-      realtime(t => draw(t, tr, c), Math.max(FALL, FALL + tr.delta) + 300, function(){ umpCall("rv-ump", 40, G, 1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+      realtime(t => draw(t, tr, c), Math.max(FALL, FALL + tr.delta) + 300, function(){ umpCall("rv-ump", 272, G, -1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
       const first = Math.min(FALL, FALL + tr.delta), second = Math.max(FALL, FALL + tr.delta) + 80;

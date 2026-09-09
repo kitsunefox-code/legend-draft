@@ -3,17 +3,21 @@
 // MLB選手のキャリアハイを ja.wikipedia の年度別成績から自動で作る。
 //   素性(名前・球団・守備)はこちらで与え、数字は表から取る。
 //   打ち込みで間違えるより、表から拾ったほうが確かなので。
-//   入力: data/mlb_seed.json  [{name, team, cat, pos|role, desc, no, th, bh, titles, tc}]
+//   入力: data/mlb_seed.json  [{name, team, cat, pos|role, desc, no, th, bh, titles, tc, page, from, fr}]
+//     page: 記事名が名前と違うとき。from: この年以降だけ見る(日本人のMLB時代など)。fr: 日本の球団(--npb のとき)
 //   出力: data/seg_mlb8.json
-//   使い方: node tools/gen_mlb.js [--only 名前]
+//   使い方: node tools/gen_mlb.js [--only 名前] [--seed data/x.json --out data/y.json] [--npb]
 // ============================================================
 const fs = require("fs");
 const path = require("path");
 
 const ROOT = path.join(__dirname, "..");
 const UA = "legend-draft/1.0 (personal party game; konkon0621@gmail.com)";
-const SEED = path.join(ROOT, "data", "mlb_seed.json");
-const OUT = path.join(ROOT, "data", "seg_mlb8.json");
+const ARGS = process.argv.slice(2);
+const argOf = (k, d) => ARGS.includes(k) ? ARGS[ARGS.indexOf(k)+1] : d;
+const SEED = path.join(ROOT, argOf("--seed", "data/mlb_seed.json"));
+const OUT = path.join(ROOT, argOf("--out", "data/seg_mlb8.json"));
+const NPB = ARGS.includes("--npb");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function api(params){
@@ -79,6 +83,16 @@ async function statsOf(title, isPit){
 // いちばん良かった年を選ぶ。打者は長打と打点、投手は役割で見るところを変える
 function best(rows, seed){
   if(!rows || !rows.length) return null;
+  // 出場の少ない年(故障・短縮・帰国前後)をキャリアハイに選ばない
+  const enough = rows.filter(r => {
+    if(seed.cat === "P"){
+      const role = seed.role || "SP";
+      if(role === "SP") return (r.ip === undefined || r.ip >= 100) && (r.w === undefined || r.w >= 8 || (r.ip||0) >= 140);
+      return r.g === undefined || r.g >= 40;
+    }
+    return r.g === undefined || r.g >= 90;
+  });
+  if(enough.length) rows = enough;
   if(seed.cat === "P"){
     const role = seed.role || "SP";
     if(role === "CL" || role === "RP"){
@@ -111,13 +125,16 @@ function best(rows, seed){
     // 監督は成績表の形が違うので、与えられた数字をそのまま使う
     if(sd.cat === "M"){ out.push(sd); continue; }
     let rows = null;
-    try{ rows = await statsOf(sd.page || sd.name, sd.cat === "P"); }catch(e){}
+    try{ rows = await statsOf(sd.page || sd.name.replace(/\(MLB\)$/, ""), sd.cat === "P"); }catch(e){}
+    if(rows && sd.from) rows = rows.filter(r => r.year >= sd.from);
+    if(rows && sd.to) rows = rows.filter(r => r.year <= sd.to);
     const b = best(rows, sd);
     if(!b){ bad.push(sd.name); console.log("  × " + sd.name + " 成績表が読めない"); continue; }
     const rec = {
-      name: sd.name, cat: sd.cat, team: sd.team, fr: "MLB", year: b.year,
-      desc: sd.desc || "", mlb: true,
+      name: sd.name, cat: sd.cat, team: sd.team, fr: NPB ? (sd.fr || "その他") : "MLB", year: b.year,
+      desc: sd.desc || "",
     };
+    if(!NPB) rec.mlb = true;
     if(sd.cat === "P"){
       rec.role = sd.role || "SP";
       rec.w = b.w || 0; rec.era = b.era != null ? b.era : 4.00;

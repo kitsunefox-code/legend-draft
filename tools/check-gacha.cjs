@@ -21,7 +21,7 @@ for(const [round,count] of [[0,1],[1,1],[2,15],[3,11]]){
 run('ldTrial(2);gachaPull();');const g=run('state.gacha');run('gachaPull();');assert.equal(run('state.gacha'),g);assert.equal(run('state.gacha.pulls.length'),15);
 const ptr=run('state.gacha.ptr');run('gachaAdvance();');assert.equal(run('state.gacha.ptr'),ptr);
 assert.equal(run('ldBusy'),false);
-const missingSsLore=run('POOL.filter(p=>p.cat!=="M"&&rankOf(p.ovr)==="SS"&&!SS_LORE[p.name]).map(p=>p.name)');
+const missingSsLore=run('POOL.filter(p=>p.cat!=="M"&&p.rank==="SS"&&!SS_LORE[p.name]).map(p=>p.name)');
 assert.equal(missingSsLore.length,0,`SS lore missing: ${missingSsLore.join(', ')}`);
 assert.equal(run('["クリスチャン・イエリチ","テオスカー・ヘルナンデス","ウィル・スミス (投手)","マーカス・セミエン","ボビー・コックス"].every(n=>POOL.some(p=>p.name===n&&!Object.hasOwn(p,"ph")&&/commons\\.wikimedia\\.org/.test(p.pu)))'),true);
 // A queued automatic reveal must respect a pause before its timer fires.

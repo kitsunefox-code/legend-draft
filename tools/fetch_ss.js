@@ -23,6 +23,22 @@ const SS = [
   ["ハック・ウィルソン","en","Hack Wilson"], ["チャック・クライン","en","Chuck Klein"], ["ビル・テリー","en","Bill Terry"],
   ["エド・ウォルシュ","en","Ed Walsh"], ["バイダ・ブルー","en","Vida Blue"],
   ["イチロー","ja","イチロー"], ["イチロー(MLB)","en","Ichiro Suzuki"],
+  // 殿堂(LEGEND_SS)に合わせて追加
+  ["王貞治","ja","王貞治"], ["長嶋茂雄","ja","長嶋茂雄"], ["野村克也","ja","野村克也"], ["張本勲","ja","張本勲"],
+  ["川上哲治","ja","川上哲治"], ["松井秀喜","ja","松井秀喜"], ["山本浩二","ja","山本浩二"], ["バース","ja","ランディ・バース"],
+  ["村上宗隆","ja","村上宗隆"], ["大谷翔平","ja","大谷翔平"], ["沢村栄治","ja","沢村栄治"], ["スタルヒン","ja","ヴィクトル・スタルヒン"],
+  ["野茂英雄","ja","野茂英雄"], ["佐々木主浩","ja","佐々木主浩"], ["村山実","ja","村山実"],
+  ["ルー・ゲーリッグ","en","Lou Gehrig"], ["ジョー・ディマジオ","en","Joe DiMaggio"], ["ウィリー・メイズ","en","Willie Mays"],
+  ["ミッキー・マントル","en","Mickey Mantle"], ["ハンク・アーロン","en","Hank Aaron"], ["ホーナス・ワグナー","en","Honus Wagner"],
+  ["アレックス・ロドリゲス","en","Alex Rodriguez"], ["アルバート・プホルス","en","Albert Pujols"], ["ケン・グリフィーJr.","en","Ken Griffey Jr."],
+  ["ミゲル・カブレラ","en","Miguel Cabrera"], ["マイク・トラウト","en","Mike Trout"], ["アーロン・ジャッジ","en","Aaron Judge"],
+  ["フランク・ロビンソン","en","Frank Robinson"], ["カール・ヤストレムスキー","en","Carl Yastrzemski"], ["ジョージ・ブレット","en","George Brett"],
+  ["トニー・グウィン","en","Tony Gwynn"], ["ロベルト・クレメンテ","en","Roberto Clemente"], ["サイ・ヤング","en","Cy Young"],
+  ["ボブ・ギブソン","en","Bob Gibson"], ["ノーラン・ライアン","en","Nolan Ryan"], ["トム・シーバー","en","Tom Seaver"],
+  ["ロジャー・クレメンス","en","Roger Clemens"], ["グレッグ・マダックス","en","Greg Maddux"], ["ランディ・ジョンソン","en","Randy Johnson"],
+  ["マリアノ・リベラ","en","Mariano Rivera"], ["レフティ・グローブ","en","Lefty Grove"], ["ウォーレン・スパーン","en","Warren Spahn"],
+  ["ジャスティン・バーランダー","en","Justin Verlander"], ["マックス・シャーザー","en","Max Scherzer"], ["ボブ・フェラー","en","Bob Feller"],
+  ["グローバー・アレクサンダー","en","Grover Cleveland Alexander"],
 ];
 
 async function wikitext(lang, title){

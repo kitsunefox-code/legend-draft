@@ -192,25 +192,61 @@ function legendScore(p){
     if((c.sv||0) >= 250) b += 3; else if((c.sv||0) >= 150) b += 1;
   }
   if(typeof MARK_MVP !== "undefined" && (MARK_MVP.has(p.name + "@" + p.year) || MARK_MVP.has(p.name.replace("(MLB)","") + "@" + p.year))) b += 1.5;
+  // 語り継がれる一年(60本、20勝、45セーブ…)は数字の合計以上の重み
+  if(p.cat === "B"){
+    if(p.hr >= 55) b += 4; else if(p.hr >= 45) b += 2.5; else if(p.hr >= 38) b += 1;
+    if(p.rbi >= 130) b += 1.5; else if(p.rbi >= 115) b += 0.5;
+    if(p.avg >= 0.350) b += 1.5; else if(p.avg >= 0.330) b += 0.5;
+    if(p.sb >= 50) b += 1.5;
+  }else if(p.cat === "P"){
+    if(p.role === "SP"){
+      if(p.w >= 20) b += 2; else if(p.w >= 16) b += 0.5;
+      if(p.so >= 250) b += 2; else if(p.so >= 200) b += 1;
+      if(p.era <= 2.00 && p.year >= 1950) b += 1.5;
+    }else{
+      if(p.sv >= 45) b += 2; else if(p.sv >= 35) b += 1;
+      if(p.era <= 1.20) b += 1.5;
+    }
+  }
   return p.ovr + b;
 }
+// 時代ごとに上から並べる(昔の数字は大きいので、現代の選手が全員Cにならないように)
+function eraBucket(p){ return p.year < 1950 ? 0 : p.year < 1990 ? 1 : 2; }
 function assignRanks(list){
-  const rest = [];
+  const rest = [[], [], []];
   list.forEach(p => {
     if(p.cat === "M"){ p.rank = rankOf(p.ovr); return; }
     if(LEGEND_SS.has(p.name)){ p.rank = "SS"; p.ovr = Math.max(p.ovr, 92); p.cost = costOf(p.ovr, p.cat, !!p.mlb); return; }
-    p.legend = legendScore(p); rest.push(p);
+    p.legend = legendScore(p); rest[eraBucket(p)].push(p);
   });
-  rest.sort((a, b) => b.legend - a.legend);
-  const n = rest.length;
-  rest.forEach((p, i) => {
-    const q = i / n;
-    p.rank = q < 0.08 ? "S" : q < 0.24 ? "A" : q < 0.56 ? "B" : "C";
-    if(p.rank === "S" && p.ovr < 88){ p.ovr = 88; p.cost = costOf(p.ovr, p.cat, !!p.mlb); }
+  rest.forEach(bucket => {
+    bucket.sort((a, b) => b.legend - a.legend);
+    const n = bucket.length;
+    bucket.forEach((p, i) => {
+      const q = i / n;
+      p.rank = q < 0.08 ? "S" : q < 0.24 ? "A" : q < 0.56 ? "B" : "C";
+      if(p.rank === "S" && p.ovr < 88){ p.ovr = 88; p.cost = costOf(p.ovr, p.cat, !!p.mlb); }
+    });
   });
 }
 assignRanks(PLAYERS);
 assignRanks(MLB_STARS);
+// 日本で伝説の人のMLB版は、日本版の一つ下までは保証する(松井秀喜(MLB)がCでは寂しい)
+(function(){
+  const below = {SS:"S", S:"A", A:"B", B:"C", C:"C"};
+  const order = ["SS","S","A","B","C"];
+  const byName = new Map(PLAYERS.filter(p => p.cat !== "M").map(p => [p.name, p]));
+  MLB_STARS.forEach(p => {
+    if(p.cat === "M" || !/\(MLB\)$/.test(p.name)) return;
+    const jp = byName.get(p.name.replace(/\(MLB\)$/, ""));
+    if(!jp || !jp.rank || p.rank === "SS") return;
+    const floor = below[jp.rank] || "C";
+    if(order.indexOf(floor) < order.indexOf(p.rank)){
+      p.rank = floor;
+      if(p.rank === "S" && p.ovr < 88){ p.ovr = 88; p.cost = costOf(p.ovr, p.cat, !!p.mlb); }
+    }
+  });
+})();
 // デンジャーランクの助っ人。ガチャの「超外れ」としてだけ出る(ドラフトや名鑑には出さない)
 const DANGERS = (typeof DANGER_DB !== "undefined" ? DANGER_DB : []).map((p,i)=>prepPlayer(p,"D",i));
 // ドラフトの対象。既定は日本球界だが、メジャー限定にすると差し替わる。

@@ -76,7 +76,7 @@ function mgrOvr(m){
 function rankOf(o){ return o>=94?"SS":o>=89?"S":o>=84?"A":o>=79?"B":"C"; }
 // ランク章(画像)。読み込めない環境でも文字にフォールバックする
 function rankIcon(o, size){
-  const r = rankOf(o);
+  const r = (o && typeof o === "object") ? (o.rank || rankOf(o.ovr)) : rankOf(o);
   const px = size || 26;
   return `<img class="rk-ic" src="assets/rank/${r.toLowerCase()}.png" alt="${r}" width="${px}" height="${px}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'rank rank-${r}',textContent:'${r}'}))">`;
 }
@@ -136,7 +136,9 @@ function nameTaken(p){
   return false;
 }
 // ランクの章。デンジャーは髑髏の警告印
-function rankMark(p, grp, size){ return p && p.danger ? dokuroSvg(size || 26) : rankIcon(ovrFor(p, grp), size); }
+function rankMark(p, grp, size){ return p && p.danger ? dokuroSvg(size || 26) : rankIcon(p, size); }
+// 選手のランク(カードの箔・ガチャの当たり)。試合の強さ(ovr)とは別に、伝説度で決める
+function prank(p){ return p ? (p.danger ? "D" : (p.rank || rankOf(p.ovr))) : "C"; }
 function prepPlayer(p, idPrefix, i){
   p.id = idPrefix + i;
   p.decade = decadeOf(p.year);
@@ -156,6 +158,59 @@ function prepPlayer(p, idPrefix, i){
 }
 const PLAYERS = DB.map((p,i)=>prepPlayer(p,"N",i));
 const MLB_STARS = MLB_DB.map((p,i)=>prepPlayer(p,"M",i));
+// ---------- ランク(伝説度) ----------
+// SSは殿堂: 数字と関係なく、球史に名を刻んだ顔ぶれだけ。S以下は「その年の強さ + タイトル数 + 通算の節目 + その年のMVP」の
+// 伝説度を日本とMLBで別々に上から並べて決める(S 8%・A 16%・B 32%・残りC)。試合の強さ(ovr)はその年の成績のまま
+const LEGEND_SS = new Set([
+  // 日本 野手
+  "王貞治","長嶋茂雄","野村克也","落合博満","イチロー","張本勲","川上哲治","松井秀喜","山本浩二","バース","村上宗隆","大谷翔平",
+  // 日本 投手
+  "金田正一","稲尾和久","江夏豊","杉浦忠","沢村栄治","スタルヒン","野茂英雄","ダルビッシュ有","田中将大","山本由伸","佐々木主浩","村山実",
+  // MLB 野手
+  "ベーブ・ルース","テッド・ウィリアムズ","タイ・カッブ","ルー・ゲーリッグ","ジョー・ディマジオ","ウィリー・メイズ","ミッキー・マントル",
+  "ハンク・アーロン","バリー・ボンズ","スタン・ミュージアル","ホーナス・ワグナー","ロジャース・ホーンスビー","ジミー・フォックス",
+  "大谷翔平(MLB)","イチロー(MLB)","アレックス・ロドリゲス","アルバート・プホルス","ケン・グリフィーJr.","ミゲル・カブレラ","マイク・トラウト",
+  "アーロン・ジャッジ","フランク・ロビンソン","カール・ヤストレムスキー","ジョージ・ブレット","トニー・グウィン","ロベルト・クレメンテ",
+  // MLB 投手
+  "ウォルター・ジョンソン","サイ・ヤング","クリスティ・マシューソン","サンディ・コーファックス","ボブ・ギブソン","ノーラン・ライアン",
+  "トム・シーバー","ロジャー・クレメンス","グレッグ・マダックス","ランディ・ジョンソン","ペドロ・マルティネス","クレイトン・カーショウ",
+  "マリアノ・リベラ","レフティ・グローブ","ウォーレン・スパーン","スティーブ・カールトン","ジャスティン・バーランダー","マックス・シャーザー",
+  "ボブ・フェラー","グローバー・アレクサンダー",
+]);
+function legendScore(p){
+  let b = 0;
+  const t = p.titles || 0;
+  b += Math.min(8, t * 0.45);
+  const c = p.car || {};
+  if(p.cat === "B"){
+    if((c.h||0) >= 3000) b += 3; else if((c.h||0) >= 2000) b += 2;
+    if((c.hr||0) >= 500) b += 3; else if((c.hr||0) >= 400) b += 2; else if((c.hr||0) >= 300) b += 1;
+    if(p.tc) b += 2;
+  }else if(p.cat === "P"){
+    if((c.w||0) >= 300) b += 3; else if((c.w||0) >= 200) b += 2; else if((c.w||0) >= 150) b += 1;
+    if((c.so||0) >= 3000) b += 2; else if((c.so||0) >= 2000) b += 1;
+    if((c.sv||0) >= 250) b += 3; else if((c.sv||0) >= 150) b += 1;
+  }
+  if(typeof MARK_MVP !== "undefined" && (MARK_MVP.has(p.name + "@" + p.year) || MARK_MVP.has(p.name.replace("(MLB)","") + "@" + p.year))) b += 1.5;
+  return p.ovr + b;
+}
+function assignRanks(list){
+  const rest = [];
+  list.forEach(p => {
+    if(p.cat === "M"){ p.rank = rankOf(p.ovr); return; }
+    if(LEGEND_SS.has(p.name)){ p.rank = "SS"; p.ovr = Math.max(p.ovr, 92); p.cost = costOf(p.ovr, p.cat, !!p.mlb); return; }
+    p.legend = legendScore(p); rest.push(p);
+  });
+  rest.sort((a, b) => b.legend - a.legend);
+  const n = rest.length;
+  rest.forEach((p, i) => {
+    const q = i / n;
+    p.rank = q < 0.08 ? "S" : q < 0.24 ? "A" : q < 0.56 ? "B" : "C";
+    if(p.rank === "S" && p.ovr < 88){ p.ovr = 88; p.cost = costOf(p.ovr, p.cat, !!p.mlb); }
+  });
+}
+assignRanks(PLAYERS);
+assignRanks(MLB_STARS);
 // デンジャーランクの助っ人。ガチャの「超外れ」としてだけ出る(ドラフトや名鑑には出さない)
 const DANGERS = (typeof DANGER_DB !== "undefined" ? DANGER_DB : []).map((p,i)=>prepPlayer(p,"D",i));
 // ドラフトの対象。既定は日本球界だが、メジャー限定にすると差し替わる。
@@ -1016,7 +1071,7 @@ function gachaDraw(t, d, minTier){
   const cands = POOL.filter(p => !state.taken.has(p.id) && poolOK(p) && !p.twoWay && eligibleGrp(p, d.grp) && !nameTaken(p));
   if(!cands.length) return null;
   const byTier = {};
-  cands.forEach(p => { const r = rankOf(ovrFor(p, d.grp)); (byTier[r] = byTier[r] || []).push(p); });
+  cands.forEach(p => { const r = prank(p); (byTier[r] = byTier[r] || []).push(p); });
   let roll = rnd() * 100, tier = "C";
   for(const [r, w] of GACHA_TIERS){ if(roll < w){ tier = r; break; } roll -= w; }
   if(minTier && RANK_ORDER.indexOf(tier) > RANK_ORDER.indexOf(minTier)) tier = minTier;
@@ -1060,7 +1115,7 @@ function gachaPull(auto){
       const p = gachaDraw(t, d, need ? "A" : null);
       if(!p) continue;
       assignPick(t, p);
-      pulls.push({d, p, open: !!auto, rank: p.danger ? "D" : rankOf(ovrFor(p, d.grp)), sure: need});
+      pulls.push({d, p, open: !!auto, rank: prank(p), sure: need});
     }
   }
   G.pulls = pulls; G.revealed = auto ? pulls.length : 0;
@@ -1440,9 +1495,9 @@ function gachaRevealNext(){
 }
 // 野手は守備図の上に、投手はマウンドとブルペンに。カプセルがその場で札に変わる
 const GC_FIELD = {
-  OF1:[17,22], OF2:[50,14], OF3:[83,22],
-  SS:[33,46], B2:[67,46], B3:[13,62], B1:[87,62],
-  C:[50,80], DH:[88,86],
+  OF1:[16,18], OF2:[50,12], OF3:[84,18],
+  SS:[31,44], B2:[69,44], B3:[12,64], B1:[88,64],
+  C:[50,84], DH:[88,90],
 };
 function gachaFieldHtml(G, R){
   const hasSS = G.pulls.some(x => x.rank === "SS");
@@ -2415,7 +2470,7 @@ function kujiOpenAll(){
         $("kuji-result").innerHTML =
           '<span class="kr-win">交渉権確定</span><span style="color:' + wt.color + '">●</span> ' + esc(wt.name) +
           (n >= 4 ? '　<span class="kr-note">' + n + '球団競合を制した</span>' : '') +
-          '<div class="kr-card">' + cardHtml(lot.g.p, rankOf(lot.g.p.ovr), {size:'m', pos:(lot.g.p.cat==='P' ? (lot.g.p.role||'投') : (String(lot.g.p.pos||'').slice(0,1)||'野'))}) + '</div>';
+          '<div class="kr-card">' + cardHtml(lot.g.p, prank(lot.g.p), {size:'m', pos:(lot.g.p.cat==='P' ? (lot.g.p.role||'投') : (String(lot.g.p.pos||'').slice(0,1)||'野'))}) + '</div>';
         const losers = lot.order.filter(function(x){ return x !== lot.winner; })
           .map(function(x){ return state.parts[x]; });
         const cry = losers.filter(function(t){ return (t.lotLose||0) >= 2; });
@@ -2565,7 +2620,7 @@ function rollAwakenings(){
       const p = t.slots[d.key];
       if(!p || done.has(p.id)) continue;
       done.add(p.id);
-      const r = rankOf(p.ovr);
+      const r = prank(p);
       const base = r==="C"?0.20 : r==="B"?0.11 : r==="A"?0.04 : r==="S"?0.01 : 0;
       if(rnd() < base*mult){
         const up = 3 + Math.floor(rnd()*5);
@@ -5022,7 +5077,7 @@ function renderOrder(){
       <span class="od-n">${kind==="rot" ? "第"+(i+1) : (i+1)}</span>
       ${faceThumb(p)}
       <span class="od-pos">${d ? d.label : ""}</span>
-      <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p.ovr, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
+      <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${line}</span>
       <button class="od-b od-sw" onpointerdown="event.stopPropagation()" onclick="odPickOpen('${k}')" title="この枠の選手を入れ替える">替</button>
       <button class="od-b" onpointerdown="event.stopPropagation()" onclick="moveOrder('${kind}',${i},-1)" ${i===0?"disabled":""}>▲</button>
@@ -5078,9 +5133,9 @@ function powerLineHtml(t){
 }
 // 守備位置図。9人を守る場所に置き、タップで入れ替え
 const FIELD_POS = {
-  OF1:[17,21], OF2:[50,16], OF3:[83,21],
-  SS:[34,44], B2:[66,44], B3:[14,58], B1:[86,58],
-  C:[50,84], DH:[14,84],
+  OF1:[16,16], OF2:[50,12], OF3:[84,16],
+  SS:[31,42], B2:[69,42], B3:[12,62], B1:[88,62],
+  C:[50,86], DH:[14,88],
 };
 function fieldHtml(t, c){
   const mark = (key, x, y, extraLabel) => {
@@ -5628,7 +5683,7 @@ function tradeRow(x, sel, dim, clickJs, team){
   return `<div class="tr-item ${sel?"sel":""} ${dim?"dim":""}" ${dim?"":`onclick="${clickJs}"`}>
     <span class="tr-pos">${x.d.label}</span>
     <span class="tr-nm">${esc(p.name)}${titleBadge(p)}${st?`<span class="tr-st">${st}</span>`:""}</span>
-    <span class="rank rank-${rankOf(ovrFor(p,x.d.grp))}" style="position:static;flex:none;">${rankOf(ovrFor(p,x.d.grp))}</span>
+    <span class="rank rank-${prank(p)}" style="position:static;flex:none;">${prank(p)}</span>
   </div>`;
 }
 // ---- 交渉テーブル(6月末) ----
@@ -5724,9 +5779,9 @@ function renderTradeInput(){
       '</div>' +
     '</div>' +
     (pa && pb ? '<div class="tr-summary">' +
-      '<span><b>' + esc(pa.p.name) + '</b>（' + rankOf(pa.p.ovr) + '・' + pa.p.cost + 'pt）</span>' +
+      '<span><b>' + esc(pa.p.name) + '</b>（' + prank(pa.p) + '・' + pa.p.cost + 'pt）</span>' +
       '<span class="tr-arrow">⇄</span>' +
-      '<span><b>' + esc(pb.p.name) + '</b>（' + rankOf(pb.p.ovr) + '・' + pb.p.cost + 'pt）</span>' +
+      '<span><b>' + esc(pb.p.name) + '</b>（' + prank(pb.p) + '・' + pb.p.cost + 'pt）</span>' +
     '</div>' : "") +
     '<div class="ng-foot">' +
       '<button class="btn ghost sm" onclick="tradeBackToTable()">卓上へ戻る</button>' +
@@ -5840,7 +5895,7 @@ function renderMlbPanel(){
         ${slots.map(d=>{
           const cur = t.slots[d.key];
           return `<button class="rel-btn" onclick="mlbSignClick('${d.key}')">
-            <span class="rel-hd">[${d.label}] ${esc(cur.name)} <span class="rank rank-${rankOf(ovrFor(cur,d.grp))}" style="position:static;">${rankOf(ovrFor(cur,d.grp))}</span></span>
+            <span class="rel-hd">[${d.label}] ${esc(cur.name)} <span class="rank rank-${prank(cur)}" style="position:static;">${prank(cur)}</span></span>
             <span class="rel-st">${statLineLive(statOf(t, cur, d.grp)) || "─"}</span>
           </button>`;
         }).join("")}
@@ -7616,8 +7671,8 @@ const PARTY_CHOICES = [
       const key = LINEUP_KEYS.find(k=>t.slots[k]===starter);
       const bkey = BENCH_KEYS.find(k=>t.slots[k]===sub);
       startChoice("監督采配", `${t.name} ── 主力の大不振`,
-        `<b>${esc(starter.name)}</b>（${rankOf(starter.ovr)}・調子${formIcon(starter)}）が深刻な不振に陥っています。<br>
-         控えの <b>${esc(sub.name)}</b>（${rankOf(sub.ovr)}）を使う手もありますが、指揮官の判断は？`,
+        `<b>${esc(starter.name)}</b>（${prank(starter)}・調子${formIcon(starter)}）が深刻な不振に陥っています。<br>
+         控えの <b>${esc(sub.name)}</b>（${prank(sub)}）を使う手もありますが、指揮官の判断は？`,
         [
           {label:"我慢して起用を続ける", desc:"復調すれば恩返し。信頼はナインに伝わる", run(){
             starter.form = clamp((starter.form||0)+2, -2, 2); moodSet(t, 0.8, 14, "信頼の起用");

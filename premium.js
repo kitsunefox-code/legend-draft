@@ -9,7 +9,8 @@ let ldFinish = null;
 const ldOriginalAdvance = gachaAdvance;
 const ldOriginalPull = gachaPull;
 const ldPositions = {C:'捕手',B1:'一塁手',B2:'二塁手',B3:'三塁手',SS:'遊撃手',OF1:'左翼手',OF2:'中堅手',OF3:'右翼手',DH:'指名打者'};
-Object.assign(GC_FIELD,{OF1:[24,41],OF2:[50,35],OF3:[76,41],SS:[37,56],B2:[63,56],B3:[20,68],B1:[80,68],C:[50,86],DH:[90,88]});
+// 写真の球場に合わせた置き場所。携帯の札(58×75)が重ならない間隔
+Object.assign(GC_FIELD,{OF1:[20,30],OF2:[50,26],OF3:[80,30],SS:[33,54],B2:[67,54],B3:[12,66],B1:[88,66],C:[50,88],DH:[84,89]});
 const ldDelay = (fn, ms) => { const id = setTimeout(() => {ldTimers.delete(id);fn();}, ms);ldTimers.add(id);return id; };
 function ldCancel(){ldTimers.forEach(clearTimeout);ldTimers.clear();ldBusy=false;ldAuto=false;ldResultView=false;ldFinish=null;ssCtx=null;ssQueue.length=0;$('ss-bg').classList.remove('show');document.querySelector('.ld-reveal')?.remove();seRollStop();}
 function ldQueueNext(ms=420){ldDelay(()=>{if(ldAuto)gachaRevealNext();},ldFast?Math.min(ms,120):ms);}
@@ -65,9 +66,15 @@ function ldRevealFx(){
   return '<div class="ld-cinema" aria-hidden="true"><div class="ld-floodlights"><span></span><span></span><span></span><span></span></div><div class="ld-speedlines">'+rays+'</div><div class="ld-orbits"><span></span><span></span><span></span></div><div class="ld-particles">'+particles+'</div><div class="ld-impact"></div><div class="ld-flare"></div></div>';
 }
 function ldSlots(){const R=gachaRound(),t=gachaTeam();return state.gacha.pulls || gachaOpenFor(t,R).map(d=>({d,rank:'B',open:false}));}
+// 携帯の守備図は札を小さく: 顔・守備位置・ランクだけ。カードは一覧で見る(重ならない)
+function gachaChipHtml(x,i,pos){
+  const p=x.p;
+  return '<button type="button" class="gc-chip r-'+x.rank+'" onclick="cardPop('+i+')" aria-label="'+esc(p.name)+'">'+faceThumb(p,40,50)+'<span class="gc-chip-pos">'+esc(pos)+'</span><span class="gc-chip-rk">'+rankIcon(x.rank==='D'?60:p,16)+'</span><span class="gc-chip-nm">'+esc(p.name)+'</span></button>';
+}
 function ldSlot(x,i){
   const G=state.gacha, pos=ldPositions[x.d.key]||x.d.label;
-  const inside=x.open?cardHtml(x.p,x.rank,{size:'s',pos,grp:x.d.grp,onclick:'cardPop('+i+')'}):gachaCapHtml(x,i,false);
+  const narrow=(typeof innerWidth==='number'&&innerWidth<=700);
+  const inside=x.open?(narrow&&x.p&&gachaRound().k==='B'?gachaChipHtml(x,i,pos):cardHtml(x.p,x.rank,{size:'s',pos,grp:x.d.grp,onclick:'cardPop('+i+')'})):gachaCapHtml(x,i,false);
   return '<div class="gc-spot '+(x.open?'open':'')+'" data-i="'+i+'">'+inside+'</div>';
 }
 function ldField(){
@@ -82,6 +89,8 @@ function ldField(){
 }
 renderGacha=function(){
   const G=state.gacha;if(!G)return;const R=gachaRound(),t=gachaTeam(),slots=ldSlots(),total=slots.length,all=!!G.pulls&&G.revealed>=total;
+  // 携帯は全部開いたら一覧へ(守備図では札が小さいので)。守備図へは足のボタンで戻れる
+  if(all&&total>1&&!G.autoList){G.autoList=true;if(typeof innerWidth==='number'&&innerWidth<=700)ldResultView=true;}
   $('gc-head').innerHTML='<div class="ld-brand"><b>LEGEND<span>DRAFT</span></b><small>歴代最強ペナント</small></div><div class="ld-header-right"><span class="ld-mode">'+(ldDemo?'ガチャ体験':'球団編成')+'</span>'+ldButton(sndOn?'音 ON':'音 OFF','ldToggleSound(this)','quiet')+(ldDemo?ldButton('本編をはじめる ↗','ldSetup()','quiet'):'')+'</div>';
   $('ld-intro').innerHTML='<div><div class="ld-eyebrow">球団をつくる</div><h1>'+R.label.replace('ガチャ','')+'<span>ガチャ</span></h1><p>'+ (R.k==='B'?'9つの守備位置と6つの控え枠。カプセルの先に、あなたのベストナイン。':R.note)+'</p></div><div class="ld-team"><small>YOUR TEAM</small><b>'+esc(t.name)+'</b><span>'+ (ldDemo?'何度でも無料で体験':(G.ptr+1)+' / '+G.order.length+' 球団')+'</span></div>';
   $('ld-tabs').innerHTML=GACHA_ROUNDS.map((r,i)=>'<button type="button" '+(!ldDemo?'disabled':'')+' class="'+(i===G.round?'active':'')+'" onclick="ldTrial('+i+')"><small>0'+(i+1)+'</small>'+r.label+'<span>'+({K:'1',M:'1',B:'15',P:'11'})[r.k]+'</span></button>').join('');
@@ -120,7 +129,8 @@ gachaAdvance=function(){const G=state.gacha;if(!G||ldBusy||!G.pulls||G.revealed<
 gachaPatch=function(i){
   const G=state.gacha,x=G?.pulls?.[i];if(!x)return;
   const spot=document.querySelector('#gc-stage [data-i="'+i+'"]');if(!spot)return;
-  spot.innerHTML=gachaSpotHtml(x,i,G.pulls.length===1);spot.classList.toggle('open',!!x.open);
+  const narrow=(typeof innerWidth==='number'&&innerWidth<=700),R=gachaRound();
+  spot.innerHTML=(x.open&&x.p&&narrow&&R&&R.k==='B')?gachaChipHtml(x,i,ldPositions[x.d.key]||x.d.label):gachaSpotHtml(x,i,G.pulls.length===1);spot.classList.toggle('open',!!x.open);
 };
 gachaAfterReveal=function(){
   const G=state.gacha;if(!G?.pulls)return;const total=G.pulls.length,all=G.revealed>=total;
@@ -129,6 +139,8 @@ gachaAfterReveal=function(){
   if(all)ldAuto=false;
   ldRefreshActions();
   ldSidebar();
+  // 携帯は全部開いたら一覧へ(守備図の札は小さいので)
+  if(all&&total>1&&!G.autoList&&(typeof innerWidth==='number'&&innerWidth<=700)){G.autoList=true;ldDelay(()=>{if(state.gacha!==G||ldBusy)return;ldResultView=true;renderGacha();},900);}
 };
 gachaReveal=function(i){
   const G=state.gacha,x=G?.pulls?.[i];if(ldBusy||!x||x.open||G.phase==='drop')return;
@@ -192,7 +204,7 @@ function ldTodayCard(){
   const pos = p.cat === 'P' ? (p.role || '投') : (String(p.pos || '').slice(0, 1) || '野');
   const fig = document.createElement('figure');
   fig.className = 'bk-today';
-  fig.innerHTML = '<div class="bk-today-card">' + cardHtml(p, rankOf(p.ovr), {size:'s', pos, onclick:'ldTodayCard.reroll()'}) + '</div>' +
+  fig.innerHTML = '<div class="bk-today-card">' + cardHtml(p, prank(p), {size:'s', pos, onclick:'ldTodayCard.reroll()'}) + '</div>' +
     '<figcaption><small>今日の一枚</small><b>' + esc(p.name) + '</b><span>' + esc(p.desc || '') + '</span><em>タップで別の一枚</em></figcaption>';
   inner.appendChild(fig);
 }

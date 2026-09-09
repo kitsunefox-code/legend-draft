@@ -68,3 +68,9 @@
 .pc.ld-card.sz-m .ld-card-marks{gap:2px;}
 .pc.ld-card.sz-s .ld-card-left{gap:2px;}
 .pc.ld-card.sz-s .ld-card-marks{gap:1px;padding-left:1px;}
+
+/* 箔は平らに。金属の反射も、白く走る光も、虹も出さない(プロスピのような色の枠) */
+.pc.ld-card{background:var(--foil) !important;border:1px solid var(--foil-dark) !important;box-shadow:0 0 0 1px #02060d,0 10px 24px #0008 !important;}
+.pc.ld-card.r-SS{box-shadow:0 0 0 1px #48361a,0 0 16px #e8b44738,0 10px 24px #000a !important;}
+.pc.ld-card .ld-card-foil,.pc.ld-card .ld-card-prism{display:none !important;animation:none !important;}
+.pc.ld-card .ld-card-etch{border-color:color-mix(in srgb,var(--foil-light) 35%,transparent);}

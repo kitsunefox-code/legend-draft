@@ -506,3 +506,28 @@
 }
 /* 速報の帯は、催し・号外・中継・幕の上には出さない(机でも携帯でも) */
 body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-bg.show) .telop,body:has(#curtain-bg.show) .telop{display:none !important;}
+
+/* ============================================================
+   守備図の札(携帯): 顔と守備位置だけの小さな札。重ならない
+   ============================================================ */
+@media (max-width:700px){
+  /* ガチャの守備図 */
+  #scr-gacha .gc-field{aspect-ratio:1 !important;}
+  #scr-gacha .gc-at{transform:translate(-50%,-50%);}
+  #scr-gacha .gc-at .gc-spot{width:58px !important;height:auto !important;}
+  .gc-chip{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;width:58px;padding:3px 3px 4px;border:2px solid var(--foil,#8a8a96);border-radius:7px;background:#0b1420;color:#fff;cursor:pointer;box-shadow:0 4px 10px -3px #000c;font-family:inherit;}
+  .gc-chip.r-SS{--foil:#e0a600;} .gc-chip.r-S{--foil:#c9d3e2;} .gc-chip.r-A{--foil:#e4432c;} .gc-chip.r-B{--foil:#2f6fd6;} .gc-chip.r-C{--foil:#2a9a5b;} .gc-chip.r-D{--foil:#3a3a44;}
+  .gc-chip .f-th{width:40px;height:50px;border-radius:3px;overflow:hidden;display:block;}
+  .gc-chip .f-th img{width:40px;height:50px;object-fit:cover;display:block;}
+  .gc-chip-pos{position:absolute;top:-1px;right:-1px;font:700 9px/1 "Noto Sans JP",sans-serif;background:var(--foil);color:#fff;padding:2px 4px;border-radius:0 5px 0 5px;}
+  .gc-chip.r-SS .gc-chip-pos,.gc-chip.r-S .gc-chip-pos,.gc-chip.r-C .gc-chip-pos{color:#0a0f18;}
+  .gc-chip-rk{position:absolute;top:-2px;left:-2px;line-height:0;filter:drop-shadow(0 1px 2px #000);}
+  #scr-gacha .ld-bench-slots .gc-chip{width:100%;}
+  .gc-chip-nm{font:700 9px/1.2 "Noto Sans JP",sans-serif;margin-top:3px;max-width:52px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* 編成の守備図: 名前は下の打順に出ているので札は顔と守備位置だけ */
+  #order-body .fd{aspect-ratio:10/7.2 !important;}
+  #order-body .fd-p{width:44px !important;padding:2px 2px 3px !important;gap:1px;}
+  #order-body .fd-p .f-th{width:28px !important;height:34px !important;}
+  #order-body .fd-nm{display:none;}
+  #order-body .fd-pos{font-size:9.5px;padding:0 4px;}
+}

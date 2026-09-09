@@ -1,0 +1,836 @@
+[
+ {
+  "name": "クレイグ・ビジオ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "モイセス・アルー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ポール・オニール",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ティノ・マルティネス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "マーキス・グリッソム",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジェイソン・ケンドール",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ロビン・ベンチュラ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ショーン・グリーン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "リッチー・セクソン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジャーメイン・ダイ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ラウル・イバニェス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "デビッド・エクスタイン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 3.0"
+ },
+ {
+  "name": "グレイディ・サイズモア",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "トラビス・ハフナー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "マーク・グレース",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ブライアン・ジャイルズ",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "ジェイソン・ベイ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "カルロス・リー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "マット・ケンプ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "アンドレ・イーシアー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジェイソン・ワース",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ハンター・ペンス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "マイケル・ヤング",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "エルビス・アンドラス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ケビン・ユーキリス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "アレックス・ゴードン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "エリック・ホスマー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "マイク・ムスタカス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジェイソン・ヘイワード",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ホセ・アブレイユ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "ユリ・グリエル",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "ジェイ・ブルース",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "マット・カーペンター",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "チャーリー・ブラックモン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "トレバー・ストーリー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ディー・ゴードン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ライアン・ジマーマン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ダニエル・マーフィー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ゲイリー・サンチェス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "DJ・ルメイユ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ハビアー・バエズ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ウィルソン・コントレラス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "スターリング・マルテ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "ボー・ビシェット",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "アドリス・ガルシア",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "ナサニエル・ロウ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "スティーブン・クワン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ヤンディ・ディアス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "ブランドン・ニモ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "エウヘニオ・スアレス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "クリスチャン・ウォーカー",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "マイケル・ハリス2世",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "マックス・マンシー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "トミー・エドマン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "ルイス・アラエス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ブレント・ルッカー",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ジェイク・クロネンワース",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "カイル・シーガー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジョシュ・ベル",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "アンドリュー・ベニンテンディ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "マーセル・オズナ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ニック・カステヤノス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "ジョーイ・ギャロ",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "ミッチ・ハニガー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジャスティン・ターナー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "ジョク・ピーダーソン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "ボビー・ボニーヤ",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "ロン・ガント",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ジョー・カーター",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "カルロス・バーガ",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "ジム・アボット",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "オーレル・ハーシュハイザー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "マイク・ムッシーナ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "アンディ・ペティット",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "デビッド・ウェルズ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "マイク・ハンプトン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 3.0"
+ },
+ {
+  "name": "ケビン・アピアー",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "ジミー・キー",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "ロブ・ネン",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "アーマンド・ベニテス",
+  "page": "",
+  "status": "photo",
+  "lic": "Public domain"
+ },
+ {
+  "name": "ロベルト・エルナンデス",
+  "page": "ロベルト・エルナンデス (投手)",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "フレディ・ガルシア",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジョン・ガーランド",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 3.0"
+ },
+ {
+  "name": "ダン・ヘイレン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "マーク・マルダー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジョニー・クエト",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "マット・ケイン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "ジョーダン・ジマーマン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジオ・ゴンザレス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ノア・シンダーガード",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "マット・ハービー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "カイル・ヘンドリックス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "カルロス・カラスコ",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ルイス・セベリーノ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "ランス・マッカラーズ・ジュニア",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "チャーリー・モートン",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ウォーカー・ビューラー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "タイラー・グラスノー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "ルーカス・ジオリト",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ブランドン・ウッドラフ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "マックス・フリード",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 3.0"
+ },
+ {
+  "name": "ザック・ギャレン",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "ギャレット・クロシェ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "クリスチャン・ハビアー",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "ホセ・ベリオス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "アレック・マノア",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ルイス・カスティーヨ",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "パブロ・ロペス",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ソニー・グレイ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジョー・ライアン",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ネイサン・イオバルディ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "カルロス・ロドン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "ジャスティン・スティール",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "セス・ルーゴ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "クリス・バシット",
+  "page": "",
+  "status": "photo",
+  "lic": "CC0"
+ },
+ {
+  "name": "ヘスス・ルザルド",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "ハンター・グリーン",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "マイケル・キング",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "ジェイソン・イズリングハウゼン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ブラッド・リッジ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ボビー・ジェンクス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ヒース・ベル",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "カルロス・マーモル",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 3.0"
+ },
+ {
+  "name": "セルジオ・ロモ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "フェルナンド・ロドニー",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 2.0"
+ },
+ {
+  "name": "ジム・ジョンソン",
+  "page": "ジム・ジョンソン (投手)",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "ブレイク・トライネン",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "テイラー・ロジャーズ",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "アレックス・コロメ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "ジョーダン・ヒックス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "ポール・シーウォルド",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "デビッド・ベドナー",
+  "page": "",
+  "status": "no-article",
+  "lic": ""
+ },
+ {
+  "name": "アンドレス・ムニョス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 3.0"
+ },
+ {
+  "name": "ピート・フェアバンクス",
+  "page": "",
+  "status": "no-photo",
+  "lic": ""
+ },
+ {
+  "name": "クレイ・ホームズ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 3.0"
+ },
+ {
+  "name": "エバン・フィリップス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY 4.0"
+ },
+ {
+  "name": "ケルビン・ヘレーラ",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ },
+ {
+  "name": "コディ・アレン",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 4.0"
+ },
+ {
+  "name": "ヘクター・ネリス",
+  "page": "",
+  "status": "photo",
+  "lic": "CC BY-SA 2.0"
+ }
+]

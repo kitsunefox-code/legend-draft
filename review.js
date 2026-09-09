@@ -317,8 +317,8 @@ function gesture(c, done){
     const H = Number(svg.getAttribute("viewBox").split(" ")[3]);
     let start = 0;
     function f(ts){ if(!RV) return; if(!start) start = ts; const t = (ts - start);
-      if(t < 900){ const p = t / 900; setFig("rv-gfig", run(t / 110, 0.6), -20 + 90 * p, H - 16, 1.05, 1, col, "#111"); }
-      else { const q = Math.min(1, (t - 900) / 500); setFig("rv-gfig", lerpP(P.stand, P.square, ease(q)), 70, H - 16, 1.05, 1, col, "#111"); }
+      if(t < 900){ const p = t / 900; setFig("rv-gfig", run(t / 110, 0.6), -20 + 90 * p, H - 34, 1.05, 1, col, "#111"); }
+      else { const q = Math.min(1, (t - 900) / 500); setFig("rv-gfig", lerpP(P.stand, P.square, ease(q)), 70, H - 34, 1.05, 1, col, "#111"); }
       if(t < 1500) RV.raf = requestAnimationFrame(f); else { crowd(0.8, 0.08); RV.timer = setTimeout(done, 600); } }
     RV.raf = requestAnimationFrame(f);
   }
@@ -334,7 +334,7 @@ function verdictSign(safe, isHR, done){
   let start = 0;
   function f(ts){ if(!RV) return; if(!start) start = ts; const t = Math.min(1, (ts - start) / 700);
     const p = t < 0.5 ? lerpP(P.stand, via, ease(t * 2)) : lerpP(via, to, ease((t - 0.5) * 2));
-    setFig("rv-ump2", p, 300, H - 16, 1.1, -1, "#2b2b30", "#111");
+    setFig("rv-ump2", p, 300, H - 36, 1.1, -1, "#2b2b30", "#111");
     if(t < 1) RV.raf = requestAnimationFrame(f); else done(); }
   RV.raf = requestAnimationFrame(f);
 }
@@ -449,12 +449,12 @@ function realtime(draw, end, onDone){
 }
 function timing(c, a, b){ const safe = c.callOut ? c.wrong : !c.wrong; const gap = rnd1(a, b); return {safe, gap, delta: safe ? gap : -gap}; }
 // 審判の宣告(舞台の中の審判)
-function umpCall(id, x, y, facing, safe, isHR){
+function umpCall(id, x, y, facing, safe, isHR, sc){
   const to = isHR ? (safe ? P.point : P.foul) : (safe ? P.safe : P.outB), via = safe ? P.stand : P.outA;
   let start = 0;
   function f(ts){ if(!RV) return; if(!start) start = ts; const t = Math.min(1, (ts - start) / 600);
     const p = t < 0.5 ? lerpP(P.stand, via, ease(t * 2)) : lerpP(via, to, ease((t - 0.5) * 2));
-    setFig(id, p, x, y, 1, facing, "#2b2b30", "#111");
+    setFig(id, p, x, y, sc || 1, facing, "#2b2b30", "#111");
     if(t < 1) RV.raf = requestAnimationFrame(f); }
   RV.raf = requestAnimationFrame(f);
 }
@@ -467,37 +467,93 @@ function finishReplay(c, tr, textSafe, textOut, isHR){
   verdictSign(safe, isHR, function(){ RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 700); });
 }
 
+// ---- 内野の構図: 野球ゲームの定番(パワプロ/プロスピ)に合わせる ----
+// plate = バックネット裏カメラ: 手前が本塁、右奥が一塁、正面奥が二塁、左奥が三塁
+// cf    = センターカメラ:       手前が二塁、左奥が一塁、正面奥が本塁、右奥が三塁
+// 走者はどちらの構図でも「左から右」「奥から手前」へ動くのが正しい向き
+const DIAMOND = {
+  plate: {home:{x:180,y:258}, first:{x:324,y:180}, second:{x:180,y:132}, third:{x:36,y:180}, mound:{x:180,y:178}},
+  cf:    {second:{x:180,y:258}, first:{x:36,y:180}, home:{x:180,y:132}, third:{x:324,y:180}, mound:{x:180,y:208}},
+};
+function dsc(y){ return 0.5 + 0.55 * Math.max(0, Math.min(1, (y - 125) / 135)); }      // 奥行き: 手前ほど大きい
+function br(y){ return 2.6 + 2.6 * Math.max(0, Math.min(1, (y - 125) / 135)); }          // 球の大きさ
+function hipY(pt){ return pt.y - 27 * dsc(pt.y); }                                       // 足元を地面につける
+function figAt(id, pose, pt, facing, col, cap){ return figSvg(id, pose, pt.x, hipY(pt), dsc(pt.y), facing, col, cap); }
+function moveFig(id, pose, pt, facing, col, cap, lift){ setFig(id, pose, pt.x, hipY(pt) - (lift || 0), dsc(pt.y), facing, col, cap); }
+function lerpPt(a, b, t){ return {x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t}; }
+// 送球: 地面の点 from→to をなぞる影と、放物線を描く球。gh=捕る高さ
+function throwBall(pt, from, to, arc, gh){
+  const gx = from.x + (to.x - from.x) * pt, gy = from.y + (to.y - from.y) * pt;
+  ball("rv-ball", gx, gy - Math.sin(pt * Math.PI) * arc - gh * pt, br(gy), true);
+  ball("rv-sh", gx, gy, 0, true);
+}
+function diamondSvg(cam){
+  const D = DIAMOND[cam];
+  const near = cam === "plate" ? D.home : D.second, far = cam === "plate" ? D.second : D.home;
+  const left = cam === "plate" ? D.third : D.first, right = cam === "plate" ? D.first : D.third;
+  const off = (p, k) => ({x: 180 + (p.x - 180) * k, y: 195 + (p.y - 195) * k});
+  const poly = pts => pts.map(p => p.x.toFixed(1) + " " + p.y.toFixed(1)).join(" L");
+  const home = D.home;
+  let s = '<rect x="0" y="120" width="360" height="180" fill="url(#rvGrass)"/>';
+  s += '<rect x="0" y="120" width="360" height="5" fill="#254a6e"/>';                                   // 外野フェンス
+  s += '<path d="M' + poly([near, right, far, left].map(p => off(p, 1.15))) + ' Z" fill="#8a5a34"/>';    // 内野の土
+  s += '<path d="M' + poly([near, right, far, left].map(p => off(p, 0.78))) + ' Z" fill="url(#rvGrass)"/>';
+  s += '<ellipse cx="' + D.mound.x + '" cy="' + D.mound.y + '" rx="' + (cam === "plate" ? 15 : 20) + '" ry="' + (cam === "plate" ? 4.5 : 6) + '" fill="#8a5a34"/>';
+  // 本塁まわりの土とファウルライン(本塁から一塁・三塁の先へ)
+  const hr = cam === "plate" ? [34, 10] : [14, 4];
+  s += '<ellipse cx="' + home.x + '" cy="' + home.y + '" rx="' + hr[0] + '" ry="' + hr[1] + '" fill="#8a5a34"/>';
+  const fl = (b) => { const dx = b.x - home.x, dy = b.y - home.y; const k = dx > 0 ? (360 - home.x) / dx : (0 - home.x) / dx; return '<line x1="' + home.x + '" y1="' + home.y + '" x2="' + (home.x + dx * k).toFixed(1) + '" y2="' + (home.y + dy * k).toFixed(1) + '" stroke="#f4f1e6" stroke-opacity=".75" stroke-width="1.6"/>'; };
+  s += fl(D.first) + fl(D.third);
+  // ベース(奥行きで小さく)と本塁
+  const bag = (p) => { const w = Math.max(5.5, 8 * dsc(p.y)), h = w * 0.48; return '<path d="M' + (p.x - w) + ' ' + p.y + ' l' + w + ' -' + h + ' l' + w + ' ' + h + ' l-' + w + ' ' + h + ' z" fill="#f4f1e6" stroke="#333" stroke-width=".6"/>'; };
+  s += bag(D.first) + bag(D.second) + bag(D.third);
+  if(cam === "plate"){
+    s += '<path d="M170 254 h20 v5 l-10 6 l-10 -6 z" fill="#f4f1e6" stroke="#333"/>';
+    s += '<rect x="146" y="250" width="18" height="16" fill="none" stroke="#f4f1e6" stroke-opacity=".7"/><rect x="196" y="250" width="18" height="16" fill="none" stroke="#f4f1e6" stroke-opacity=".7"/>';
+  }else{
+    s += '<path d="M175 135 l5 -4 l5 4 v3 h-10 z" fill="#f4f1e6" stroke="#333" stroke-width=".6"/>';
+  }
+  return s;
+}
+// 画面の左下: いま見ている構図と、走者の進む向き
+function camTag(cam, txt){
+  return '<text x="10" y="292" font-family="Noto Sans JP,sans-serif" font-size="9" fill="#cfe0d4" letter-spacing="1.5" opacity=".8">' + esc(txt) + '</text>';
+}
 const SCENES = {};
 
-// ---- 一塁のクロスプレー: 走者が右へ駆け、一塁手が伸びて送球を受ける ----
+// ---- 一塁のクロスプレー(バックネット裏): 打者走者が本塁から右奥の一塁へ。遊撃手の送球を一塁手が伸びて捕る ----
 SCENES.first = (function(){
-  const G = 232, BAG = 262, START = 20, RUNT = 1250, THROW = 420;
+  const D = DIAMOND.plate, RUNT = 1250, THROW = 420;
+  const FROM = {x:176, y:254}, TO = {x:312, y:186};                       // 走者の足元。一塁ベースの手前で止まる
+  const FBP = {x:334, y:172}, SSP = {x:108, y:164}, UMP = {x:338, y:224};
+  const GLOVE = {x:320, y:178};
+  const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
   function stage(c){
-    return stageOpen(280) + stands(150) + ground(150, 130) + dirt(0, 214, 360, 22) +
-      '<rect x="' + (BAG - 10) + '" y="' + (G - 3) + '" width="22" height="7" fill="#f4f1e6" stroke="#333"/>' +
-      '<line x1="0" y1="' + (G + 4) + '" x2="360" y2="' + (G + 4) + '" stroke="#f4f1e6" stroke-opacity=".6" stroke-width="2"/>' +
-      figSvg("rv-ump", P.ready, 322, G, 0.95, -1, "#2b2b30", "#111") +
-      figSvg("rv-fb", P.ready, 306, G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
-      figSvg("rv-run", P.stand, START, G, 1, 1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
-      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(BAG - 30, G + 6, BAG + 30, G + 6) + big(120, 120) + lbl() + '</svg>';
+    return stageOpen(300) + stands(120) + diamondSvg("plate") +
+      figAt("rv-ss", P.ready, SSP, 1, defCol(c), "#222") +
+      figAt("rv-pit", P.look, {x:D.mound.x, y:D.mound.y + 2}, 1, defCol(c), "#222") +
+      figAt("rv-fb", P.ready, FBP, -1, defCol(c), "#222") +
+      figAt("rv-ump", P.ready, UMP, -1, "#2b2b30", "#111") +
+      figAt("rv-run", P.stand, FROM, 1, runCol(c), "#222") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(D.first.x - 26, D.first.y + 6, D.first.x + 26, D.first.y + 6) + big(100, 70) + lbl() +
+      camTag("plate", "バックネット裏カメラ　本塁 → 一塁") + '</svg>';
   }
   function draw(t, tr, c){
     const pr = Math.min(1, t / RUNT);
-    const x = START + (BAG - 16 - START) * Math.pow(pr, 0.92);
-    setFig("rv-run", pr < 1 ? run(t / 95) : lerpP(run(t / 95), P.stand, Math.min(1, (t - RUNT) / 250)), x, G, 1, 1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222");
+    const pt = lerpPt(FROM, TO, Math.pow(pr, 0.92));
+    moveFig("rv-run", pr < 1 ? run(t / 95) : lerpP(run(t / 95), P.stand, Math.min(1, (t - RUNT) / 250)), pt, 1, runCol(c), "#222");
     const tArr = RUNT + tr.delta;
+    if(t >= THROW - 260){ const q = Math.min(1, (t - THROW + 260) / 260); moveFig("rv-ss", q < 0.6 ? lerpP(P.ready, P.wind, ease(q / 0.6)) : lerpP(P.wind, P.release, ease((q - 0.6) / 0.4)), SSP, 1, defCol(c), "#222"); }
     if(t >= THROW){
-      const pt = Math.min(1, (t - THROW) / (tArr - THROW));
-      const bx = 110 + (BAG + 10 - 110) * pt, by = 40 + (G - 26 - 40) * pt + Math.sin(pt * Math.PI) * -40;
-      ball("rv-ball", bx, by, 4.5 + pt * 1.5, pt < 1 || true);
-      ball("rv-sh", bx, G + 6, 0, true);
-      setFig("rv-fb", lerpP(P.ready, P.stretch, ease(Math.min(1, pt * 1.6))), 306 - 18 * Math.min(1, pt * 1.6), G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
-      if(pt >= 1) ball("rv-ball", BAG + 16, G - 30, 4.5, true);
+      const p = Math.min(1, (t - THROW) / (tArr - THROW));
+      throwBall(p, {x:SSP.x + 8, y:SSP.y}, GLOVE, 30, 22);
+      moveFig("rv-fb", lerpP(P.ready, P.stretch, ease(Math.min(1, p * 1.6))), {x: FBP.x - 10 * Math.min(1, p * 1.6), y: FBP.y + 2}, -1, defCol(c), "#222");
+      if(p >= 1) ball("rv-ball", GLOVE.x - 6, GLOVE.y - 22, br(GLOVE.y), true);
     }
   }
   return {
     play(c){ const tr = timing(c, 45, 110); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("一塁のクロスプレー");
-      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", 322, G, -1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", UMP.x, hipY(UMP), -1, !c.callOut, false, dsc(UMP.y)); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
       const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 60;
@@ -505,34 +561,39 @@ SCENES.first = (function(){
   };
 })();
 
-// ---- 本塁のクロスプレー: 走者が左の本塁へ滑り、捕手がブロックしてタッチ ----
+// ---- 本塁のクロスプレー(バックネット裏): 三塁走者が左奥から手前の本塁へ。外野からの返球を捕手が受けてタッチ ----
 SCENES.home = (function(){
-  const G = 232, PLATE = 70, START = 340, RUNT = 1250, THROW = 380;
+  const D = DIAMOND.plate, RUNT = 1300, THROW = 330;
+  const FROM = {x:44, y:182}, TO = {x:166, y:256};                        // 三塁 → 本塁の手前
+  const CAT = {x:200, y:252}, UMP = {x:238, y:282}, RF = {x:326, y:142};   // 捕手は本塁の三塁側で構え、球審はその後ろ
+  const GLOVE = {x:190, y:250};
+  const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
   function stage(c){
-    return stageOpen(280) + stands(150) + ground(150, 130) + dirt(0, 214, 360, 22) +
-      '<path d="M' + (PLATE - 10) + ' ' + (G - 2) + ' h20 v5 l-10 5 l-10 -5 z" fill="#f4f1e6" stroke="#333"/>' +
-      figSvg("rv-ump", P.ready, 22, G, 0.95, 1, "#2b2b30", "#111") +
-      figSvg("rv-cat", P.crouch, PLATE + 20, G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
-      figSvg("rv-run", P.stand, START, G, 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
-      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(PLATE - 34, G + 6, PLATE + 34, G + 6) + big(230, 120) + lbl() + '</svg>';
+    return stageOpen(300) + stands(120) + diamondSvg("plate") +
+      figAt("rv-rf", P.release, RF, -1, defCol(c), "#222") +
+      figAt("rv-pit", P.look, {x:D.mound.x, y:D.mound.y + 2}, -1, defCol(c), "#222") +
+      figAt("rv-run", P.stand, FROM, 1, runCol(c), "#222") +
+      figAt("rv-cat", P.crouch, CAT, -1, defCol(c), "#222") +
+      figAt("rv-ump", P.ready, UMP, -1, "#2b2b30", "#111") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(D.home.x - 32, D.home.y + 12, D.home.x + 32, D.home.y + 12) + big(180, 70) + lbl() +
+      camTag("plate", "バックネット裏カメラ　三塁 → 本塁") + '</svg>';
   }
   function draw(t, tr, c){
     const pr = Math.min(1, t / RUNT);
-    const x = START - (START - PLATE - 6) * Math.pow(pr, 0.9);
+    const pt = lerpPt(FROM, TO, Math.pow(pr, 0.9));
     const pose = pr < 0.72 ? run(t / 95) : lerpP(run(t / 95), P.slide, ease((pr - 0.72) / 0.28));
-    setFig("rv-run", pose, x, G - (pr > 0.72 ? 8 : 0), 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222");
+    moveFig("rv-run", pose, pt, 1, runCol(c), "#222", pr > 0.72 ? -6 : 0);
     const tArr = RUNT + tr.delta;
     if(t >= THROW){
-      const pt = Math.min(1, (t - THROW) / (tArr - THROW));
-      const bx = 330 - (330 - PLATE - 14) * pt, by = 30 + (G - 22 - 30) * pt + Math.sin(pt * Math.PI) * -46;
-      ball("rv-ball", bx, by, 4.5, true); ball("rv-sh", bx, G + 6, 0, true);
-      setFig("rv-cat", pt < 1 ? P.crouch : lerpP(P.crouch, P.tag, ease(Math.min(1, (t - tArr) / 140))), PLATE + 20, G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
-      if(pt >= 1) ball("rv-ball", PLATE + 2, G - 12, 4.5, true);
+      const p = Math.min(1, (t - THROW) / (tArr - THROW));
+      throwBall(p, {x:RF.x - 6, y:RF.y}, GLOVE, 44, 18);
+      moveFig("rv-cat", p < 1 ? P.crouch : lerpP(P.crouch, P.tag, ease(Math.min(1, (t - tArr) / 140))), CAT, -1, defCol(c), "#222");
+      if(p >= 1) ball("rv-ball", GLOVE.x - 14, GLOVE.y - 8, br(GLOVE.y), true);
     }
   }
   return {
     play(c){ const tr = timing(c, 40, 100); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("本塁のクロスプレー");
-      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", 22, G, 1, !c.callOut, false); crowd(0.6, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", UMP.x, hipY(UMP), -1, !c.callOut, false, dsc(UMP.y)); crowd(0.6, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
       const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 140;
@@ -540,34 +601,41 @@ SCENES.home = (function(){
   };
 })();
 
-// ---- 二塁の盗塁: 走者が滑り、遊撃手が捕手からの送球を受けてタッチ ----
+// ---- 二塁の盗塁(センターカメラ): 一塁走者が左奥から手前の二塁へ。奥の捕手が送球し、遊撃手がベース上でタッチ ----
 SCENES.steal = (function(){
-  const G = 232, BAG = 170, START = 340, RUNT = 1200, THROW = 260;
+  const D = DIAMOND.cf, RUNT = 1200, THROW = 240;
+  const FROM = {x:46, y:182}, TO = {x:166, y:256};
+  const CAT = {x:188, y:134}, BAT = {x:160, y:134}, SS = {x:208, y:250}, UMP = {x:270, y:214}, PIT = {x:118, y:204};
+  const GLOVE = {x:196, y:246};
+  const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
   function stage(c){
-    return stageOpen(280) + stands(150) + ground(150, 130) + dirt(60, 214, 240, 22) +
-      '<rect x="' + (BAG - 10) + '" y="' + (G - 3) + '" width="22" height="7" fill="#f4f1e6" stroke="#333"/>' +
-      figSvg("rv-ump", P.ready, 250, G - 30, 0.9, -1, "#2b2b30", "#111") +
-      figSvg("rv-ss", P.ready, BAG - 26, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
-      figSvg("rv-run", P.stand, START, G, 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
-      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(BAG - 34, G + 6, BAG + 34, G + 6) + big(80, 120) + lbl() + '</svg>';
+    return stageOpen(300) + stands(120) + diamondSvg("cf") +
+      figAt("rv-bat", P.bat, BAT, 1, runCol(c), "#222") +
+      figAt("rv-cat", P.crouch, CAT, 1, defCol(c), "#222") +
+      figAt("rv-pit", P.crouch, PIT, 1, defCol(c), "#222") +
+      figAt("rv-ump", P.ready, UMP, -1, "#2b2b30", "#111") +
+      figAt("rv-run", P.stand, FROM, 1, runCol(c), "#222") +
+      figAt("rv-ss", P.ready, SS, -1, defCol(c), "#222") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(D.second.x - 32, D.second.y + 12, D.second.x + 32, D.second.y + 12) + big(180, 70) + lbl() +
+      camTag("cf", "センターカメラ　一塁 → 二塁") + '</svg>';
   }
   function draw(t, tr, c){
     const pr = Math.min(1, t / RUNT);
-    const x = START - (START - BAG - 8) * Math.pow(pr, 0.9);
+    const pt = lerpPt(FROM, TO, Math.pow(pr, 0.9));
     const pose = pr < 0.7 ? run(t / 95) : lerpP(run(t / 95), P.slide, ease((pr - 0.7) / 0.3));
-    setFig("rv-run", pose, x, G - (pr > 0.7 ? 8 : 0), 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222");
+    moveFig("rv-run", pose, pt, 1, runCol(c), "#222", pr > 0.7 ? -6 : 0);
     const tArr = RUNT + tr.delta;
+    if(t >= THROW - 200){ const q = Math.min(1, (t - THROW + 200) / 200); moveFig("rv-cat", q < 0.5 ? lerpP(P.crouch, P.wind, ease(q / 0.5)) : lerpP(P.wind, P.release, ease((q - 0.5) / 0.5)), CAT, 1, defCol(c), "#222"); }
     if(t >= THROW){
-      const pt = Math.min(1, (t - THROW) / (tArr - THROW));
-      const bx = -10 + (BAG - 18 + 10) * pt, by = 60 + (G - 30 - 60) * pt + Math.sin(pt * Math.PI) * -30;
-      ball("rv-ball", bx, by, 4.5, true); ball("rv-sh", bx, G + 6, 0, true);
-      setFig("rv-ss", pt < 1 ? lerpP(P.ready, P.stretch, pt * 0.5) : lerpP(P.stretch, P.tag, ease(Math.min(1, (t - tArr) / 140))), BAG - 26 + 10 * pt, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
-      if(pt >= 1) ball("rv-ball", BAG + 2, G - 10, 4.5, true);
+      const p = Math.min(1, (t - THROW) / (tArr - THROW));
+      throwBall(p, {x:CAT.x + 4, y:CAT.y}, GLOVE, 16, 20);
+      moveFig("rv-ss", p < 1 ? lerpP(P.ready, P.stretch, p * 0.5) : lerpP(P.stretch, P.tag, ease(Math.min(1, (t - tArr) / 140))), {x: SS.x - 6 * p, y: SS.y}, -1, defCol(c), "#222");
+      if(p >= 1) ball("rv-ball", GLOVE.x - 8, GLOVE.y - 8, br(GLOVE.y), true);
     }
   }
   return {
     play(c){ const tr = timing(c, 40, 100); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("二塁への盗塁");
-      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", 250, G - 30, -1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", UMP.x, hipY(UMP), -1, !c.callOut, false, dsc(UMP.y)); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
       const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 140;

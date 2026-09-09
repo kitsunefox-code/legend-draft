@@ -263,7 +263,7 @@ function foldPanel(el){
 function foldSummary(){
   const ev = $("ev-cnt");
   if(ev){
-    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-cpu","opt-mlbonly"];
+    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-review","opt-cpu","opt-mlbonly"];
     const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
     ev.textContent = n + "件";
   }
@@ -434,6 +434,7 @@ function startDraft(){
   state.opts.party = $("opt-party") ? $("opt-party").checked : false;
   state.opts.saihai = $("opt-saihai") ? $("opt-saihai").checked : false;
   state.opts.points = $("opt-points") ? $("opt-points").checked : true;   // パーティー総合得点(切ると順位だけ)
+  state.opts.review = $("opt-review") ? $("opt-review").checked : true;   // 生中継の際どい判定にリクエスト/ABS(review.js)
   state.opts.park = $("opt-park") ? $("opt-park").checked : false;
   state.opts.injury = $("opt-injury") ? $("opt-injury").checked : false;
 
@@ -7007,6 +7008,17 @@ function chooseOutcome(bat, pit, pitKey, need, outs, bases){
   for(const k of pool){ r -= base[k]; if(r <= 0) return k; }
   return pool[0];
 }
+// 打席結果を、そのイニングの予定得点に合う形で作る(選ぶ時と作る時で乱数が違うと帳尻が崩れるため、ここで引き直す)
+function rollOutcomeFit(key, bases, outs, bat, pit, need){
+  let r = null;
+  for(let k = 0; k < 10; k++){
+    r = simOutcome(key, bases, outs, bat, pit);
+    if(r.runs > need) continue;
+    if(outs + r.outsAdd >= 3 && need - r.runs > 0) continue;
+    return r;
+  }
+  return r;
+}
 function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
   const order = LINEUP_KEYS.map(k=>bat.slots[k]).filter(Boolean);
   const ev = [];
@@ -7017,7 +7029,7 @@ function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
     const prevBases = bases.slice();
     const outsBefore = outs;
     const key = chooseOutcome(b, pitInfo.p, pitInfo.key, need, outs, bases);
-    const r = simOutcome(key, bases, outs, b, pitInfo.p);
+    const r = rollOutcomeFit(key, bases, outs, b, pitInfo.p, need);
     bases = r.bases; outs += r.outsAdd; runs += r.runs;
     const onBefore = [!!prevBases[0], !!prevBases[1], !!prevBases[2]];
     for(const q of genPitchSeq(key, b, pitInfo.p)){
@@ -7028,7 +7040,9 @@ function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
     ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
       inn, top, outs, on:[!!bases[0], !!bases[1], !!bases[2]],
       bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
-      sit:`${inn}回${top?"表":"裏"}　${outs}死　${basesLabel(bases)}`});
+      sit:`${inn}回${top?"表":"裏"}　${outs}死　${basesLabel(bases)}`,
+      // リクエスト/ABS(review.js)が打席をやり直すための控え
+      key, outsAdd:r.outsAdd, preBases:prevBases, preOuts:outsBefore, preRuns:runs - r.runs, idx, target, pitInfo, walkoff:!!walkoff, batT:bat});
     if(walkoff && runs >= target && target > 0){
       ev.push({t:"pa", text:`サヨナラ！ ${bat.name}が試合を決めた！`, cls:"hr", runs:0, sit:"試合終了"});
       break;

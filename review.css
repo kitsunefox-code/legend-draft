@@ -1,0 +1,45 @@
+/* リクエスト／ABSチャレンジ ── 中継の上に重なる判定席 */
+#rv-bg{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;background:rgba(6,12,9,.82);padding:12px;}
+#rv-bg.show{display:flex;}
+#rv{width:100%;max-width:440px;background:linear-gradient(180deg,#0f2c20,#0b1f16);border:2px solid #0b1f16;outline:1px solid #2c5742;outline-offset:-5px;color:#e6efe8;padding:14px 14px 12px;box-shadow:inset 0 0 40px rgba(0,0,0,.4),6px 8px 0 rgba(0,0,0,.45);animation:rvIn .22s ease-out;}
+@keyframes rvIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
+.rv-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.rv-k{display:inline-block;background:#e0a600;color:#1a1206;font:700 11px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:4px;padding:5px 10px 5px 12px;}
+#rv-bg.req .rv-k{background:#4f8fe8;color:#fff;}
+.rv-sit{font-size:12px;color:#9fbfa8;letter-spacing:1px;}
+.rv-who{display:flex;align-items:center;gap:8px;font-size:13px;color:#cfe0d4;margin-bottom:8px;}
+.rv-who b{color:#ffd257;font-size:14px;}
+.rv-stage{border:1px solid #2c5742;background:#0c2419;}
+.rv-svg{display:block;width:100%;height:auto;}
+.rv-call{display:none;margin-top:10px;align-items:baseline;gap:10px;padding:8px 12px;background:rgba(0,0,0,.3);border-left:4px solid #e8f0ea;}
+.rv-call.show{display:flex;animation:rvIn .18s ease-out;}
+.rv-call small{font-size:10px;color:#9fbfa8;letter-spacing:2px;}
+.rv-call b{font:700 26px/1 "Oswald","Noto Sans JP",sans-serif;color:#fff;letter-spacing:2px;}
+.rv-call span{font-size:12px;color:#cfe0d4;}
+.rv-q{margin-top:10px;min-height:1.4em;font-size:14px;letter-spacing:1px;font-family:"Zen Old Mincho","Yu Mincho",serif;color:#ffd257;display:flex;align-items:center;gap:10px;}
+.rv-q i{font:700 20px/1 "Oswald",sans-serif;color:#fff;background:#c9463a;border-radius:50%;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;}
+.rv-btns{display:grid;grid-template-columns:1.3fr 1fr;gap:8px;margin-top:8px;}
+.rv-btns:empty{display:none;}
+.rv-btns .btn{min-height:48px;font-size:15px;}
+.rv-btns .rv-go{background:#c9463a;color:#fff;border-color:#8a2c22;box-shadow:0 4px 0 #6e1f17;}
+.rv-btns .rv-no{color:#cfe0d4;border-color:#2c5742;background:transparent;}
+.rv-verdict{display:none;margin-top:10px;padding:10px 12px;border-radius:6px;background:rgba(0,0,0,.28);border-left:4px solid #9fbfa8;}
+.rv-verdict.show{display:block;animation:rvIn .18s ease-out;}
+.rv-verdict b{display:block;font:700 20px/1.2 "Zen Old Mincho","Yu Mincho",serif;color:#fff;margin-bottom:4px;}
+.rv-verdict span{font-size:12.5px;color:#cfe0d4;line-height:1.55;}
+.rv-verdict.win{border-left-color:#6fe3a0;background:linear-gradient(90deg,rgba(111,227,160,.16),rgba(0,0,0,.28));}
+.rv-verdict.win b{color:#6fe3a0;}
+.rv-verdict.lose{border-left-color:#ff6b5b;}
+.rv-verdict.lose b{color:#ff6b5b;}
+.rv-verdict.miss{border-left-color:#e0a600;}
+.rv-verdict.miss b{color:#ffd257;}
+.rv-foot{margin-top:10px;display:flex;justify-content:flex-end;}
+.rv-foot:empty{display:none;}
+.rv-foot .btn{min-height:42px;}
+@media (max-width:700px){
+  #rv-bg{padding:0;align-items:stretch;}
+  #rv{max-width:none;display:flex;flex-direction:column;overflow-y:auto;padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));}
+  .rv-stage{flex:none;}
+  .rv-foot{margin-top:auto;padding-top:10px;}
+  .rv-foot .btn{width:100%;min-height:48px;}
+}

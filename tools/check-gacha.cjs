@@ -82,6 +82,7 @@ for(const round of [0,1]){
 }
 console.log('PASS: stadium entry and manager contract, single assignment, skip, completion and stale-ceremony cancellation.');
 vm.runInContext(fs.readFileSync('tap-first.js','utf8'),ctx,{filename:'tap-first.js'});
+vm.runInContext(fs.readFileSync('review.js','utf8'),ctx,{filename:'review.js'});
 run('ldTrial(1);ldCeremonyTap();');const tapped=run('state.gacha');run('ldCeremonyTap();');assert.equal(run('state.gacha'),tapped);
 run('ldCeremonyFinish();ldCeremonyTap();');assert.equal(run('state.gacha'),tapped,'Ignore completion double-taps');
 run('state.gacha.ceremonyDoneAt=Date.now()-1000;ldCeremonyTap();');assert.notEqual(run('state.gacha'),tapped);

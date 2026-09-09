@@ -1,140 +1,32 @@
-// リクエスト／ABSチャレンジ ── 生中継の試合で際どい判定が出たとき、不利を受けた人間の球団の監督が
-// ビデオ判定(リクエスト)かロボット審判(ABS)を申請できる。目で見て判断する腕試し。
-// 覆れば打席はやり直し(得点は変えず、そのイニングの残りを作り直す)で+1点、外れれば士気が落ちる。
-// game.js の buildGameScript / liveStep / liveSkip を包んで差し込む。
+// リクエスト／ABSチャレンジ ── 接戦の終盤、1点がかかった場面でだけ出る。
+// 判定が覆れば、その試合の得点が本当に動く(勝敗まで変わる)。
+//   リクエストは日本のプロ野球の流儀: 監督がベンチを出て両手で四角を作る → 審判団が集まる →
+//   場内アナウンス → リプレー → 責任審判が宣告。対象は塁のアウト/セーフ、捕球、本塁打かファウルか
+//   (2018年導入。ボール/ストライクは対象外)。
+//   ABSはメジャーの流儀: 打者(捕手・投手)がヘルメットを叩いてチャレンジ → ビデオボードに
+//   ゾーンと球の位置 → 球の一部でもゾーンにかかればストライク(2025年導入の仕組みに倣う)。
+// 人物は関節つきの人型で動かす。game.js の playDay から rvFindScene / rvStartScene が呼ばれる。
 (function(){
-const RV_MS = 7000;       // 決断の持ち時間
-const RV_EDGE = 11;       // ゾーンの縁から何px以内を「際どい」とするか
-let RV = null;            // 進行中のチャレンジ
+const RV_MS = 8000;                 // 決断の持ち時間
+const NS = "http://www.w3.org/2000/svg";
+let RV = null;
 
 function rnd1(a, b){ return a + rnd() * (b - a); }
+function pick(arr){ return arr[Math.floor(rnd() * arr.length)]; }
 function hasFn(n){ return typeof window[n] === "function"; }
-function ping(freq, dur, vol, type){ if(!window.sndOn) return; const x = ac(); if(x) tone(x.currentTime, freq, dur, vol, type || "square"); }
+function ping(freq, dur, vol, type){ if(!window.sndOn) return; try{ const x = ac(); if(x) tone(x.currentTime, freq, dur, vol, type || "square"); }catch(e){} }
+function crowd(dur, vol){ if(!window.sndOn) return; try{ const x = ac(); if(x) noiseBurst(x.currentTime, dur || 0.6, 4200, vol || 0.07); }catch(e){} }
+function $r(id){ return document.getElementById(id); }
+function clampN(v, a, b){ return Math.max(a, Math.min(b, v)); }
+function ease(t){ return t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t); }
 
-// ---------- 半イニングのやり直し(genHalf と同じ規則で、途中の状況から) ----------
-function rvHalfFrom(bat, pitInfo, target, startIdx, inn, top, init){
-  const order = LINEUP_KEYS.map(k=>bat.slots[k]).filter(Boolean);
-  const ev = [];
-  let idx = startIdx, outs = init.outs, bases = init.bases.slice(), runs = init.runs, guard = 16;
-  while(outs < 3 && guard-- > 0){
-    const b = order[idx % order.length]; idx++;
-    const need = target - runs;
-    const prevBases = bases.slice();
-    const outsBefore = outs;
-    const key = chooseOutcome(b, pitInfo.p, pitInfo.key, need, outs, bases);
-    const r = rollOutcomeFit(key, bases, outs, b, pitInfo.p, need);
-    bases = r.bases; outs += r.outsAdd; runs += r.runs;
-    const onBefore = [!!prevBases[0], !!prevBases[1], !!prevBases[2]];
-    for(const q of genPitchSeq(key, b, pitInfo.p)){
-      ev.push({t:"pitch", inn, top, outs:outsBefore, on:onBefore,
-        bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
-        b:q.b, s:q.s, type:q.type, kmh:q.kmh, zone:q.zone, res:q.res});
-    }
-    ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
-      inn, top, outs, on:[!!bases[0], !!bases[1], !!bases[2]],
-      bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
-      sit:`${inn}回${top?"表":"裏"}　${outs}死　${basesLabel(bases)}`});
-    if(runs >= target && outs >= 3) break;
-  }
-  return ev;
-}
-
-// ---------- 際どい場面を一つ選び、台本に差し込む ----------
-const EDGE_ZONES = ["外角いっぱい","内角ぎりぎり","低めいっぱい","高めいっぱい"];
-function rvPick(script, g){
-  if(!state.opts || state.opts.review === false) return null;
-  const cands = [];
-  for(let i = 0; i < script.length; i++){
-    const e = script[i];
-    if(e.t !== "pa" || !e.key || e.walkoff || !e.batT || !e.pitInfo) continue;
-    const batT = e.batT, defT = batT === g.A ? g.B : g.A;
-    let kind, victim, flip, sub = null;
-    if(e.key === "K"){ kind = "abs"; victim = batT; flip = "BB"; }
-    else if(e.key === "BB"){ kind = "abs"; victim = defT; flip = "K"; }
-    else if(e.key === "GO" && e.outsAdd === 1 && e.runs === 0){ kind = "req"; victim = batT; flip = "1B"; sub = "first"; }
-    else if(e.key === "FO" && e.outsAdd === 1 && e.runs === 0){ kind = "req"; victim = batT; flip = "1B"; sub = "catch"; }
-    else if(e.key === "1B" && e.runs === 0){ kind = "req"; victim = defT; sub = rnd() < 0.5 ? "first" : "catch"; flip = sub === "first" ? "GO" : "FO"; }
-    else continue;
-    if(!victim) continue;
-    if(window.rvForce && window.rvForce !== kind) continue;   // 動作確認用
-    if(window.rvForceSub && sub && window.rvForceSub !== sub) continue;
-    // 覆したあとの結果が、そのイニングの得点(もう決まっている)と矛盾しないこと
-    const need = e.target - e.preRuns;
-    let r = null;
-    for(let k = 0; k < 6; k++){
-      const t = simOutcome(flip, e.preBases, e.preOuts, e.batP, e.pitInfo.p);
-      if((flip === "GO" || flip === "FO") && t.outsAdd !== 1) continue;   // 判定が覆っただけなので併殺にはしない
-      if(t.runs > need) continue;
-      if(e.preOuts + t.outsAdd >= 3 && need - t.runs > 0) continue;
-      r = t; break;
-    }
-    if(!r) continue;
-    cands.push({i, kind, victim, flip, sub, res:r, opp: victim === batT ? defT : batT, w: (e.inn >= 7 ? 4 : e.inn >= 4 ? 2 : 1) * (victim.cpu ? 0.35 : 1)});
-  }
-  if(!cands.length) return null;
-  const total = cands.reduce((s, c) => s + c.w, 0);
-  let x = rnd() * total;
-  for(const c of cands){ x -= c.w; if(x <= 0) return c; }
-  return cands[cands.length - 1];
-}
-function rvInsert(script, g){
-  const c = rvPick(script, g);
-  if(!c) return;
-  const pa = script[c.i];
-  const bat = pa.bat, pit = pa.pit;
-  const defT = pa.batT === g.A ? g.B : g.A;
-  c.pa = pa;
-  c.wrong = rnd() < 0.5;              // 審判が間違っている確率。見て判断できるかが勝負
-  // 直前の投球を「見逃し」の際どい球にして、実況の言葉も合わせる
-  const last = script[c.i - 1] && script[c.i - 1].t === "pitch" ? script[c.i - 1] : null;
-  if(c.kind === "abs"){
-    c.zone = pick1(EDGE_ZONES);
-    if(last){ last.zone = c.zone; last.res = c.flip === "BB" ? "見逃し三振" : "ボール（四球）"; c.type = last.type; c.kmh = last.kmh; }
-    if(c.flip === "BB"){
-      c.call = "ストライク！"; c.callSub = "見逃し三振"; c.callIsStrike = true;
-      pa.text = `${bat}、${c.zone}の${c.type || "球"}を見送る…… 判定はストライク、三振！ ${bat}が首を振る`;
-      c.flipText = `ABSの判定はボール。四球で出塁！ ${bat}が胸をなで下ろす`;
-      c.holdText = `ABSの判定もストライク。三振は変わらず`;
-    }else{
-      c.call = "ボール"; c.callSub = "四球"; c.callIsStrike = false;
-      pa.text = `${bat}、${c.zone}の${c.type || "球"}を見送って四球。${pit}が判定に首をかしげる`;
-      c.flipText = `ABSの判定はストライク！ 判定が覆って${bat}は三振`;
-      c.holdText = `ABSの判定もボール。四球は変わらず`;
-    }
-  }else if(c.sub === "catch"){
-    if(c.flip === "1B"){
-      c.call = "アウト！"; c.callSub = "捕球の判定"; c.callOut = true;
-      pa.text = `${bat}、${pick1(["ライト","レフト","センター"])}前に落ちるかという当たり…… 外野手が滑り込んで判定はアウト！ 捕ったか、ワンバウンドか`;
-      c.flipText = `リプレー検証の結果、ワンバウンド！ 判定が覆って${bat}はヒット`;
-      c.holdText = `リプレー検証の結果も直接捕球。判定どおり`;
-    }else{
-      c.call = "セーフ！"; c.callSub = "捕球の判定"; c.callOut = false;
-      pa.text = `${bat}の浅い飛球に外野手が飛び込む…… 判定はワンバウンドでヒット。${defT.name}ベンチがグラブを指さす`;
-      c.flipText = `リプレー検証の結果、直接捕球！ 判定が覆って${bat}はアウト`;
-      c.holdText = `リプレー検証の結果もワンバウンド。ヒットは変わらず`;
-    }
-  }else{
-    if(c.flip === "1B"){
-      c.call = "アウト！"; c.callSub = "一塁の判定"; c.callOut = true;
-      pa.text = `${bat}、${pick1(["ショート","サード","セカンド"])}へのゴロで一塁へ全力疾走…… 判定はアウト！ 際どいタイミング`;
-      c.flipText = `リプレー検証の結果、セーフ！ 判定が覆って${bat}は内野安打`;
-      c.holdText = `リプレー検証の結果もアウト。判定どおり`;
-    }else{
-      c.call = "セーフ！"; c.callSub = "一塁の判定"; c.callOut = false;
-      pa.text = `${bat}、内野へのゴロで一塁へ頭から…… 判定はセーフ！ 内野安打に${defT.name}ベンチが抗議`;
-      c.flipText = `リプレー検証の結果、アウト！ 判定が覆って${bat}は一塁で憤死`;
-      c.holdText = `リプレー検証の結果もセーフ。判定どおり`;
-    }
-  }
-  pa.cls = pa.cls || "";
-  script.splice(c.i + 1, 0, {t:"review", cand:c});
-}
-
-// ---------- 中継のない日の「いい場面」 ----------
-// 接戦の試合(2点差以内)の終盤に、人間の球団へ判定の場面を出す。首位攻防・終盤戦・連勝連敗中ほど出やすい
+// ============================================================
+// 1. 場面の抽選 ── 接戦(2点差以内)の終盤に、人間の球団へ。
+//    覆れば得点が動く場面だけを作る(押し出し・本塁・ポール際・一塁二塁のクロスプレー・捕球)
+// ============================================================
 function rvFindScene(rolled){
   if(state.day < 5 || !state.opts || state.opts.review === false || !state.parts) return null;
-  const s = (typeof standingsSorted === "function") ? standingsSorted() : state.parts.slice();
+  const s = hasFn("standingsSorted") ? standingsSorted() : state.parts.slice();
   const rem = state.schedule ? state.schedule.length - state.day : 99;
   for(const r of rolled){
     for(const side of ["A","B"]){
@@ -143,63 +35,71 @@ function rvFindScene(rolled){
       const my = side === "A" ? r.rA : r.rB, op = side === "A" ? r.rB : r.rA;
       if(Math.abs(my - op) > 2) continue;
       if(t.rvCool && state.day < t.rvCool) continue;
-      let p = state.skipping ? 0.10 : 0.22;
+      let p = state.skipping ? 0.08 : 0.20;
       if(rem <= 30) p += 0.08;
       if(s.indexOf(t) <= 1 && s.indexOf(opp) <= 1) p += 0.12;
-      if(Math.abs(t.stk || 0) >= 4) p += 0.05;
+      if(Math.abs(my - op) <= 1) p += 0.06;
       if(rnd() > p) continue;
-      t.rvCool = state.day + 12;
-      return rvBuildScene(r, side, t, opp, my, op);
+      const c = rvBuildScene(r, side, t, opp, my, op);
+      if(!c) continue;
+      t.rvCool = state.day + 14;
+      return c;
     }
   }
   return null;
 }
-function rvPickFrom(arr){ return arr.length ? arr[Math.floor(rnd() * arr.length)] : null; }
+const PLAYS = ["first", "home", "steal", "catch", "hr", "abs"];
 function rvBuildScene(r, side, t, opp, my, op){
-  const kind = rnd() < 0.5 ? "abs" : "req";
-  const batting = rnd() < 0.5;                       // 人間の球団が攻撃側か
+  const batting = rnd() < 0.55;                       // 人間の球団が攻撃側か
   const batT = batting ? t : opp, defT = batting ? opp : t;
-  const lineup = (typeof lineupOf === "function") ? lineupOf(batT).filter(Boolean) : Object.values(batT.slots).filter(p => p && p.cat === "B");
-  const batP = rvPickFrom(lineup) || Object.values(batT.slots).find(p => p && p.cat === "B");
+  const lineup = hasFn("lineupOf") ? lineupOf(batT).filter(Boolean) : Object.values(batT.slots).filter(p => p && p.cat === "B");
+  if(lineup.length < 3) return null;
+  const batP = pick(lineup);
   const pitP = defT.slots.CL || defT.slots.RP1 || defT.slots.SP1 || Object.values(defT.slots).find(p => p && p.cat === "P");
-  if(!batP || !pitP) return null;
-  const inn = rnd() < 0.5 ? 9 : rnd() < 0.6 ? 8 : 7;
-  const top = (batT === r.A);                        // Aが先攻
-  const preOuts = Math.floor(rnd() * 3);
+  if(!pitP) return null;
   const others = lineup.filter(p => p !== batP);
-  const preBases = [rnd() < 0.45 ? rvPickFrom(others) : null, rnd() < 0.35 ? rvPickFrom(others) : null, rnd() < 0.25 ? rvPickFrom(others) : null];
-  const c = {kind, victim:t, standalone:true, game:r, side, my, op, opp, wrong: rnd() < 0.5,
-    pa:{inn, top, preOuts, preBases, bat:batP.name, batP, pit:pitP.name, pitP, batT}};
-  const bat = batP.name, pit = pitP.name;
-  if(kind === "abs"){
-    const pt = (typeof pickPitchType === "function") ? pickPitchType(pitP) : {name:"ストレート", kmh:145};
-    c.zone = pick1(EDGE_ZONES); c.type = pt.name; c.kmh = pt.kmh;
-    if(batting){ c.flip = "BB"; c.call = "ストライク！"; c.callSub = "見逃し三振"; c.callIsStrike = true;
-      c.flipText = `ABSの判定はボール。四球で出塁！ ${bat}が胸をなで下ろす`; c.holdText = `ABSの判定もストライク。三振は変わらず`; }
-    else { c.flip = "K"; c.call = "ボール"; c.callSub = "四球"; c.callIsStrike = false;
-      c.flipText = `ABSの判定はストライク！ 判定が覆って${bat}は三振`; c.holdText = `ABSの判定もボール。四球は変わらず`; }
+  const fielders = (hasFn("lineupOf") ? lineupOf(defT) : []).filter(Boolean);
+  let play = window.rvForcePlay || pick(PLAYS);
+  if(!batting && play === "abs" && op < 1) play = "first";
+  // 守備側が不利を受けた場面は、相手が点を取っていないと成り立たない
+  if(!batting && op < 1) play = pick(["first", "steal", "catch"]);
+  const runnersNeeded = {abs:3, home:1, steal:1, hr:0, first:0, catch:0}[play];
+  const bases = [null, null, null];
+  if(play === "abs"){ bases[0] = pick(others); bases[1] = pick(others); bases[2] = pick(others); }
+  else if(play === "home"){ bases[rnd() < 0.5 ? 2 : 1] = pick(others); }
+  else if(play === "steal"){ bases[0] = pick(others); }
+  else { if(rnd() < 0.5) bases[Math.floor(rnd() * 3)] = pick(others); }
+  const runners = bases.filter(Boolean).length;
+  const inn = rnd() < 0.5 ? 9 : rnd() < 0.6 ? 8 : 7;
+  const outs = play === "abs" ? (rnd() < 0.6 ? 2 : 1) : Math.floor(rnd() * 3);
+  // 得点が動く幅。本塁打は走者ぶんも
+  const delta = play === "hr" ? 1 + runners : 1;
+  if(!batting && op < delta) return null;
+  const c = {play, kind: play === "abs" ? "abs" : "req", victim:t, opp, batting, game:r, side, my, op, delta,
+    inn, top: batT === r.A, outs, bases, batP, pitP, runner: bases[2] || bases[1] || bases[0] || null,
+    fielder: pick(fielders.length ? fielders : lineup), wrong: rnd() < 0.5, standalone:true};
+  c.pa = {inn, top:c.top, preOuts:outs, preBases:bases, bat:batP.name, batP, pit:pitP.name, pitP, batT};
+  const bat = batP.name, run = c.runner ? c.runner.name : bat;
+  if(play === "abs"){
+    const pt = hasFn("pickPitchType") ? pickPitchType(pitP) : {name:"ストレート", kmh:148};
+    c.type = pt.name; c.kmh = pt.kmh; c.zone = pick(["外角いっぱい","内角ぎりぎり","低めいっぱい","高めいっぱい"]);
+    if(batting){ c.callIsStrike = true; c.call = "ストライク！"; c.callSub = "見逃し三振"; c.flipText = `ABSの判定はボール。押し出しの四球で1点`; c.holdText = `ABSの判定もストライク。三振でチェンジ`; c.stake = "覆れば押し出しで1点"; }
+    else { c.callIsStrike = false; c.call = "ボール"; c.callSub = "押し出しの四球"; c.flipText = `ABSの判定はストライク！ 押し出しは取り消し、三振でチェンジ`; c.holdText = `ABSの判定もボール。押し出しの1点は変わらず`; c.stake = "覆れば相手の1点が消える"; }
+  }else if(play === "hr"){
+    if(batting){ c.callOut = true; c.call = "ファウル"; c.callSub = "ポール際の打球"; c.flipText = `検証の結果、本塁打！ ${bat}の${delta}ラン`; c.holdText = `検証の結果もファウル。打ち直し`; c.stake = `覆れば本塁打で${delta}点`; }
+    else { c.callOut = false; c.call = "ホームラン"; c.callSub = "ポール際の打球"; c.flipText = `検証の結果、ファウル！ ${bat}の本塁打は取り消し`; c.holdText = `検証の結果も本塁打。判定どおり`; c.stake = `覆れば相手の${delta}点が消える`; }
+  }else if(play === "home"){
+    if(batting){ c.callOut = true; c.call = "アウト！"; c.callSub = "本塁のクロスプレー"; c.flipText = `検証の結果、セーフ！ ${run}が生還して1点`; c.holdText = `検証の結果もアウト。本塁憤死`; c.stake = "覆れば1点"; }
+    else { c.callOut = false; c.call = "セーフ！"; c.callSub = "本塁のクロスプレー"; c.flipText = `検証の結果、アウト！ ${run}は本塁で憤死、1点取り消し`; c.holdText = `検証の結果もセーフ。1点は変わらず`; c.stake = "覆れば相手の1点が消える"; }
+  }else if(play === "steal"){
+    if(batting){ c.callOut = true; c.call = "アウト！"; c.callSub = "二塁の盗塁"; c.flipText = `検証の結果、セーフ！ ${run}が二塁へ、続く打者のヒットで1点`; c.holdText = `検証の結果もアウト。盗塁失敗`; c.stake = "覆れば走者が生き、1点につながる"; }
+    else { c.callOut = false; c.call = "セーフ！"; c.callSub = "二塁の盗塁"; c.flipText = `検証の結果、アウト！ ${run}は二塁で憤死、その後の1点は消える`; c.holdText = `検証の結果もセーフ。走者は二塁へ`; c.stake = "覆れば相手の1点が消える"; }
+  }else if(play === "catch"){
+    if(batting){ c.callOut = true; c.call = "アウト！"; c.callSub = "捕球の判定"; c.flipText = `検証の結果、ワンバウンド！ ${bat}のヒットで1点`; c.holdText = `検証の結果も直接捕球。アウト`; c.stake = "覆ればヒットで1点"; }
+    else { c.callOut = false; c.call = "ヒット"; c.callSub = "捕球の判定"; c.flipText = `検証の結果、直接捕球！ ヒットは取り消し、1点も消える`; c.holdText = `検証の結果もワンバウンド。ヒット`; c.stake = "覆れば相手の1点が消える"; }
   }else{
-    const canSteal = !!preBases[0] && !preBases[1];
-    const subs = ["first", "catch"].concat(canSteal ? ["steal"] : []);
-    c.sub = window.rvForceSub && subs.indexOf(window.rvForceSub) >= 0 ? window.rvForceSub : rvPickFrom(subs);
-    const runner = preBases[0] ? preBases[0].name : bat;
-    if(c.sub === "steal"){
-      c.runner = runner;
-      if(batting){ c.call = "アウト！"; c.callSub = "二塁の盗塁"; c.callOut = true;
-        c.flipText = `リプレー検証の結果、セーフ！ 判定が覆って${runner}は二塁へ`; c.holdText = `リプレー検証の結果もアウト。盗塁失敗は変わらず`; }
-      else { c.call = "セーフ！"; c.callSub = "二塁の盗塁"; c.callOut = false;
-        c.flipText = `リプレー検証の結果、アウト！ 判定が覆って${runner}は二塁で憤死`; c.holdText = `リプレー検証の結果もセーフ。盗塁は変わらず`; }
-    }else if(c.sub === "catch"){
-      if(batting){ c.call = "アウト！"; c.callSub = "捕球の判定"; c.callOut = true;
-        c.flipText = `リプレー検証の結果、ワンバウンド！ 判定が覆って${bat}はヒット`; c.holdText = `リプレー検証の結果も直接捕球。判定どおり`; }
-      else { c.call = "セーフ！"; c.callSub = "捕球の判定"; c.callOut = false;
-        c.flipText = `リプレー検証の結果、直接捕球！ 判定が覆って${bat}はアウト`; c.holdText = `リプレー検証の結果もワンバウンド。ヒットは変わらず`; }
-    }else{
-      if(batting){ c.call = "アウト！"; c.callSub = "一塁の判定"; c.callOut = true;
-        c.flipText = `リプレー検証の結果、セーフ！ 判定が覆って${bat}は内野安打`; c.holdText = `リプレー検証の結果もアウト。判定どおり`; }
-      else { c.call = "セーフ！"; c.callSub = "一塁の判定"; c.callOut = false;
-        c.flipText = `リプレー検証の結果、アウト！ 判定が覆って${bat}は一塁で憤死`; c.holdText = `リプレー検証の結果もセーフ。判定どおり`; }
-    }
+    if(batting){ c.callOut = true; c.call = "アウト！"; c.callSub = "一塁のクロスプレー"; c.flipText = `検証の結果、セーフ！ ${bat}の内野安打で1点`; c.holdText = `検証の結果もアウト。判定どおり`; c.stake = "覆れば内野安打で1点"; }
+    else { c.callOut = false; c.call = "セーフ！"; c.callSub = "一塁のクロスプレー"; c.flipText = `検証の結果、アウト！ ${bat}は一塁で憤死、1点は消える`; c.holdText = `検証の結果もセーフ。1点は変わらず`; c.stake = "覆れば相手の1点が消える"; }
   }
   return c;
 }
@@ -207,7 +107,6 @@ function rvStartScene(c){
   c.resume = !!state.playing;
   stopTimer();
   const sp = $r("s-play"), sk = $r("s-skip"); if(sp) sp.disabled = true; if(sk) sk.disabled = true;
-  if(hasFn("telop")) try{ telop(`【${c.kind === "abs" ? "ABSチャレンジ" : "リクエスト"}】${c.victim.name}、${c.pa.inn}回の際どい判定`); }catch(e){}
   rvStart(c);
 }
 function rvSceneClose(c){
@@ -217,39 +116,97 @@ function rvSceneClose(c){
   if(hasFn("renderLive")) renderLive();
   if(c.resume) startTimer();
 }
-
 window.rvFindScene = rvFindScene; window.rvStartScene = rvStartScene; window.rvBuildScene = rvBuildScene;
 
-// ---------- game.js への差し込み ----------
-const _buildGameScript = buildGameScript;
-buildGameScript = function(g){
-  const built = _buildGameScript(g);
-  try{ if(g && g.A && g.B && state.parts) rvInsert(built.script, g); }catch(e){ console.warn("review", e); }
-  return built;
+// ============================================================
+// 2. 人型 ── 関節つきの棒人間。腰を原点に、胴・頭・腕2本・脚2本。角度は鉛直から時計回り(度)
+// ============================================================
+const FIG = {torso:24, head:7, ua:11, la:11, ul:14, ll:14};
+function deg(a){ return a * Math.PI / 180; }
+function figPath(p){
+  // p: {lean, la, lb, ra, rb, lu, lk, ru, rk, headx}
+  const hipx = 0, hipy = 0;
+  const sh = {x: hipx + Math.sin(deg(p.lean)) * FIG.torso, y: hipy - Math.cos(deg(p.lean)) * FIG.torso};
+  const head = {x: sh.x + Math.sin(deg(p.lean + (p.headx || 0))) * (FIG.head + 3), y: sh.y - Math.cos(deg(p.lean + (p.headx || 0))) * (FIG.head + 3)};
+  const limb = (ox, oy, a1, len1, a2, len2) => {
+    const e = {x: ox + Math.sin(deg(a1)) * len1, y: oy + Math.cos(deg(a1)) * len1};
+    const h = {x: e.x + Math.sin(deg(a1 + a2)) * len2, y: e.y + Math.cos(deg(a1 + a2)) * len2};
+    return {e, h, d: "M" + ox.toFixed(1) + " " + oy.toFixed(1) + " L" + e.x.toFixed(1) + " " + e.y.toFixed(1) + " L" + h.x.toFixed(1) + " " + h.y.toFixed(1)};
+  };
+  const L1 = limb(sh.x, sh.y, p.la, FIG.ua, p.lb, FIG.la), R1 = limb(sh.x, sh.y, p.ra, FIG.ua, p.rb, FIG.la);
+  const L2 = limb(hipx, hipy, p.lu, FIG.ul, p.lk, FIG.ll), R2 = limb(hipx, hipy, p.ru, FIG.ul, p.rk, FIG.ll);
+  return {sh, head, arms:[L1, R1], legs:[L2, R2], torso:"M" + hipx + " " + hipy + " L" + sh.x.toFixed(1) + " " + sh.y.toFixed(1)};
+}
+// 図形にする。col=ユニ色, skin=肌, back=遠い側の手足は少し暗く
+function figSvg(id, p, x, y, sc, facing, col, cap){
+  const g = figPath(p);
+  const stroke = col || "#e8e6dc", capc = cap || "#1b2a45";
+  const lw = 5.2;
+  const line = (d, c, w) => '<path d="' + d + '" stroke="' + c + '" stroke-width="' + (w || lw) + '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+  return '<g id="' + id + '" transform="translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') scale(' + (sc * facing).toFixed(3) + ' ' + sc.toFixed(3) + ')">' +
+    line(g.legs[1].d, shade(stroke, .72)) + line(g.arms[1].d, shade(stroke, .72), lw - 1) +
+    line(g.torso, stroke, 7) +
+    line(g.legs[0].d, stroke) + line(g.arms[0].d, stroke, lw - 1) +
+    '<circle cx="' + g.head.x.toFixed(1) + '" cy="' + g.head.y.toFixed(1) + '" r="' + FIG.head + '" fill="#e2b48a"/>' +
+    '<path d="M' + (g.head.x - 7.5).toFixed(1) + ' ' + (g.head.y - 1).toFixed(1) + ' a7.5 7.5 0 0 1 15 0 z" fill="' + capc + '"/>' +
+    '<path d="M' + (g.head.x - 1).toFixed(1) + ' ' + (g.head.y - 1.5).toFixed(1) + ' h11" stroke="' + capc + '" stroke-width="2.4" stroke-linecap="round"/>' +
+  '</g>';
+}
+function shade(hex, k){
+  const m = /^#([0-9a-f]{6})$/i.exec(hex); if(!m) return hex;
+  const n = parseInt(m[1], 16); const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return "rgb(" + Math.round(r * k) + "," + Math.round(g * k) + "," + Math.round(b * k) + ")";
+}
+// ポーズの辞書。角度は鉛直から時計回り(前が+x)
+const P = {
+  stand:   {lean:0,  la:8,   lb:6,   ra:-8,  rb:6,   lu:6,   lk:2,   ru:-6,  rk:2},
+  ready:   {lean:12, la:35,  lb:-70, ra:20,  rb:-70, lu:30,  lk:-40, ru:-25, rk:-30},
+  crouch:  {lean:28, la:40,  lb:-95, ra:30,  rb:-95, lu:95,  lk:-120,ru:80,  rk:-110},
+  slide:   {lean:78, la:120, lb:-40, ra:60,  rb:-30, lu:70,  lk:-20, ru:95,  rk:-70},
+  stretch: {lean:30, la:100, lb:-10, ra:-20, rb:-40, lu:75,  lk:-10, ru:-40, rk:-10},
+  dive:    {lean:88, la:170, lb:-10, ra:120, rb:-40, lu:-10, lk:20,  ru:-30, rk:30},
+  tag:     {lean:35, la:110, lb:-20, ra:-10, rb:-60, lu:45,  lk:-60, ru:-30, rk:-20},
+  outA:    {lean:-6, la:20,  lb:-100,ra:-150,rb:0,   lu:8,   lk:2,   ru:-8,  rk:2},     // 拳を上げ
+  outB:    {lean:8,  la:20,  lb:-100,ra:-70, rb:-110,lu:8,   lk:2,   ru:-8,  rk:2},     // 前へ突く
+  safe:    {lean:4,  la:95,  lb:0,   ra:-95, rb:0,   lu:22,  lk:2,   ru:-22, rk:2},     // 両手を横に
+  point:   {lean:6,  la:-90, lb:0,   ra:-10, rb:6,   lu:6,   lk:2,   ru:-6,  rk:2},     // 指さし(本塁打)
+  foul:    {lean:0,  la:-120,lb:-20, ra:-20, rb:6,   lu:6,   lk:2,   ru:-6,  rk:2},     // 片手を上げてファウル
+  helmet:  {lean:6,  la:-150,lb:120, ra:10,  rb:6,   lu:6,   lk:2,   ru:-6,  rk:2},     // ヘルメットを叩く
+  square:  {lean:2,  la:-100,lb:100, ra:-100,rb:-100,lu:6,   lk:2,   ru:-6,  rk:2},     // 両手で四角(リクエスト)
+  bat:     {lean:14, la:-60, lb:-110,ra:-45, rb:-120,lu:20,  lk:-6,  ru:-24, rk:-6},
+  swing:   {lean:-10,la:80,  lb:-40, ra:60,  rb:-30, lu:30,  lk:-10, ru:-40, rk:-6},
+  wind:    {lean:-14,la:-160,lb:-30, ra:-60, rb:-90, lu:-70, lk:-80, ru:10,  rk:2},
+  release: {lean:40, la:120, lb:-10, ra:-40, rb:-10, lu:70,  lk:-20, ru:-50, rk:20},
+  follow:  {lean:55, la:160, lb:0,   ra:-20, rb:-30, lu:60,  lk:-10, ru:-70, rk:60},
+  look:    {lean:-8, la:15,  lb:6,   ra:-15, rb:6,   lu:6,   lk:2,   ru:-6,  rk:2, headx:28},
+  leap:    {lean:4,  la:-165,lb:-10, ra:-20, rb:-40, lu:30,  lk:-50, ru:-30, rk:-60},
 };
-const _liveStep = liveStep;
-liveStep = function(){
-  const c = liveCtx; if(!c) return;
-  const e = c.script[c.i];
-  if(e && e.t === "review"){
-    c.i++;
-    if(c.timer){ clearTimeout(c.timer); } c.timer = null;
-    rvStart(e.cand);
-    return;
-  }
-  _liveStep();
-};
-const _liveSkip = liveSkip;
-liveSkip = function(){ if(RV) rvAbort(); _liveSkip(); };
+function run(t, amp){ // 走り。t=位相
+  const a = amp || 1;
+  return {lean:16, la:-35 * Math.sin(t) * a - 15, lb:-80, ra:35 * Math.sin(t) * a - 15, rb:-80,
+          lu:42 * Math.sin(t) * a, lk:-70 * Math.max(0, -Math.sin(t)) * a - 10, ru:-42 * Math.sin(t) * a, rk:-70 * Math.max(0, Math.sin(t)) * a - 10};
+}
+function lerpP(a, b, t){ const o = {}; for(const k in a){ o[k] = a[k] + ((b[k] === undefined ? a[k] : b[k]) - a[k]) * t; } for(const k in b){ if(o[k] === undefined) o[k] = b[k]; } return o; }
+function setFig(id, p, x, y, sc, facing, col, cap){
+  const old = document.getElementById(id); if(!old) return;
+  const tmp = document.createElementNS(NS, "g"); tmp.innerHTML = figSvg(id, p, x, y, sc, facing, col, cap);
+  old.replaceWith(tmp.firstChild);
+}
+function ball(id, x, y, r, show){ const b = document.getElementById(id); if(!b) return; b.setAttribute("cx", x); b.setAttribute("cy", y); if(r) b.setAttribute("r", r); b.setAttribute("opacity", show === false ? 0 : 1); }
+function ballSvg(id){ return '<circle id="' + id + '" cx="0" cy="0" r="4.5" fill="#fff" stroke="#c9463a" stroke-width="1" opacity="0"/>'; }
+function shadowSvg(id){ return '<ellipse id="' + id + '" cx="0" cy="0" rx="6" ry="2.2" fill="#000" opacity="0"/>'; }
+function teamCol(t, d){ return (t && t.color) || d; }
 
-// ---------- 画面 ----------
+// ============================================================
+// 3. 画面
+// ============================================================
 function rvBox(){
-  let bg = document.getElementById("rv-bg");
+  let bg = $r("rv-bg");
   if(bg) return bg;
   bg = document.createElement("div"); bg.id = "rv-bg";
   bg.innerHTML = '<div id="rv">' +
     '<div class="rv-head"><span class="rv-k" id="rv-k"></span><span class="rv-sit" id="rv-sit"></span></div>' +
-    '<div class="rv-who" id="rv-who"></div>' +
+    '<div class="rv-board" id="rv-board"></div>' +
     '<div class="rv-stage" id="rv-stage"></div>' +
     '<div class="rv-call" id="rv-call"></div>' +
     '<div class="rv-q" id="rv-q"></div>' +
@@ -260,47 +217,48 @@ function rvBox(){
   document.body.appendChild(bg);
   return bg;
 }
-function $r(id){ return document.getElementById(id); }
-
-function rvStart(c){
-  const pa = c.pa;
+function boardHtml(c){
+  const home = c.top ? (c.side === "A" ? c.opp : c.victim) : (c.side === "A" ? c.victim : c.opp);
+  const away = home === c.victim ? c.opp : c.victim;
+  const sc = t => t === c.victim ? c.my : c.op;
   const mgr = c.victim.slots && c.victim.slots.MGR;
-  RV = {c, phase:"pitch", t0:0, raf:0, timer:0, tick:0, decided:null};
+  return '<div class="rv-sb"><div class="rv-sb-t' + (away === c.victim ? " me" : "") + '">' + teamEmblem(away, 18) + '<b>' + esc(away.name) + '</b><i>' + sc(away) + '</i></div>' +
+    '<div class="rv-sb-mid"><small>' + c.inn + '回' + (c.top ? "表" : "裏") + '</small><span>' + c.outs + '死 ' + esc(basesLabel(c.bases)) + '</span></div>' +
+    '<div class="rv-sb-t' + (home === c.victim ? " me" : "") + '">' + teamEmblem(home, 18) + '<b>' + esc(home.name) + '</b><i>' + sc(home) + '</i></div></div>' +
+    '<div class="rv-stake"><span>' + esc(c.stake) + '</span>' + (mgr ? '<small>' + esc(c.victim.name) + ' 監督 ' + esc(mgr.name) + '</small>' : '') + '</div>';
+}
+function rvStart(c){
+  RV = {c, phase:"play", raf:0, timer:0, tick:0};
   const bg = rvBox();
   $r("rv-k").textContent = c.kind === "abs" ? "ABSチャレンジ" : "リクエスト";
-  $r("rv-sit").textContent = `${pa.inn}回${pa.top ? "表" : "裏"}　${pa.preOuts}死　${basesLabel(pa.preBases)}`;
-  $r("rv-who").innerHTML = teamEmblem(c.victim, 22) + '<span>' + esc(c.victim.name) + ' の監督' + (mgr ? '　<b>' + esc(mgr.name) + '</b>' : '') + (c.standalone && c.opp ? '　<small>vs ' + esc(c.opp.name) + (state.schedule ? '・' + esc(dateLabel(state.day)) : '') + '</small>' : '') + '</span>';
+  $r("rv-sit").textContent = (state.schedule ? dateLabel(state.day) + "　" : "") + esc(c.victim.name) + " × " + esc(c.opp.name);
+  $r("rv-board").innerHTML = boardHtml(c);
   $r("rv-call").innerHTML = ""; $r("rv-call").className = "rv-call";
   $r("rv-q").innerHTML = ""; $r("rv-btns").innerHTML = ""; $r("rv-verdict").innerHTML = ""; $r("rv-foot").innerHTML = "";
   $r("rv-verdict").className = "rv-verdict";
+  const ann = $r("rv-ann"); if(ann){ ann.className = ""; ann.innerHTML = ""; }
   bg.className = "show " + (c.kind === "abs" ? "abs" : "req");
-  const btn = document.getElementById("lv-btn"); if(btn) btn.disabled = true;
-  if(c.kind === "abs") absPlay(c); else reqPlay(c);
+  if(hasFn("telop")) try{ telop("【" + (c.kind === "abs" ? "ABS" : "リクエスト") + "】" + c.victim.name + "、" + c.inn + "回の際どい判定"); }catch(e){}
+  SCENES[c.play].play(c);
 }
 function rvAbort(){
   if(!RV) return;
   cancelAnimationFrame(RV.raf); clearTimeout(RV.timer); clearInterval(RV.tick);
   RV = null;
-  const bg = document.getElementById("rv-bg"); if(bg) bg.className = "";
-  const btn = document.getElementById("lv-btn"); if(btn) btn.disabled = false;
+  const bg = $r("rv-bg"); if(bg) bg.className = "";
 }
-// 判定が出たら、監督に問う
+// 審判の宣告のあと、監督(ABSは打者)に問う
 function rvAsk(){
   const c = RV.c;
   $r("rv-call").innerHTML = '<small>審判の判定</small><b>' + esc(c.call) + '</b><span>' + esc(c.callSub) + '</span>';
   $r("rv-call").className = "rv-call show";
   ping(c.kind === "abs" ? 300 : 260, 0.12, 0.08, "sawtooth");
+  crowd(0.5, 0.05);
   RV.phase = "ask";
-  if(c.victim.cpu){
-    // CPUの監督: 本当に誤審なら7割で申請、そうでなくても1割5分は当たって砕ける
-    $r("rv-q").innerHTML = esc(c.victim.name) + "の監督が判断中……";
-    RV.timer = setTimeout(function(){ if(!RV) return; window.rvDecide(c.wrong ? rnd() < 0.72 : rnd() < 0.15, false); }, 1500);
-    return;
-  }
   let left = RV_MS / 1000;
-  $r("rv-q").innerHTML = (c.kind === "abs" ? "ロボット審判に問う？" : "ビデオ判定を求める？") + ' <i id="rv-timer">' + left + '</i>';
+  $r("rv-q").innerHTML = (c.kind === "abs" ? "ヘルメットを叩いてチャレンジする？" : "監督、リクエストを出す？") + ' <i id="rv-timer">' + left + '</i>';
   $r("rv-btns").innerHTML =
-    '<button type="button" class="btn rv-go" onclick="rvDecide(true)">' + (c.kind === "abs" ? "ABSチャレンジ！" : "リクエスト！") + '</button>' +
+    '<button type="button" class="btn rv-go" onclick="rvDecide(true)">' + (c.kind === "abs" ? "チャレンジ！" : "リクエスト！") + '</button>' +
     '<button type="button" class="btn ghost rv-no" onclick="rvDecide(false)">判定を受け入れる</button>';
   RV.tick = setInterval(function(){
     if(!RV) return;
@@ -313,237 +271,153 @@ function rvAsk(){
 window.rvDecide = function(go, auto){
   if(!RV || RV.phase !== "ask") return;
   clearInterval(RV.tick);
-  RV.phase = "reveal"; RV.decided = go;
+  RV.phase = "reveal";
   $r("rv-btns").innerHTML = "";
-  $r("rv-q").innerHTML = go ? (RV.c.kind === "abs" ? "ABSが判定中……" : "リプレー検証中……") : (auto ? "時間切れ。判定を受け入れた" : "判定を受け入れた");
   if(hasFn("seTap") && !auto) seTap();
-  if(RV.c.victim.cpu && go) $r("rv-q").innerHTML = esc(RV.c.victim.name) + "が" + (RV.c.kind === "abs" ? "ABSチャレンジ！" : "リクエスト！");
-  if(RV.c.kind === "abs") absReveal(go); else reqReveal(go);
+  if(!go){
+    $r("rv-q").innerHTML = auto ? "時間切れ。判定を受け入れた" : "判定を受け入れた";
+    RV.timer = setTimeout(function(){ if(RV) SCENES[RV.c.play].reveal(false); }, 400);
+    return;
+  }
+  // 申請の所作: 監督が四角を作る / 打者がヘルメットを叩く
+  $r("rv-q").innerHTML = RV.c.kind === "abs" ? esc(RV.c.batP.name) + "がヘルメットを叩いた ── チャレンジ" : esc(RV.c.victim.name) + "の監督がベンチを出た ── リクエスト";
+  gesture(RV.c, function(){
+    if(!RV) return;
+    $r("rv-q").innerHTML = RV.c.kind === "abs" ? "ABSのビデオボードへ……" : "審判団が集まり、リプレー検証へ……";
+    if(RV.c.kind !== "abs") announce("ただいまのプレーについて、リクエストにより判定を検証します");
+    RV.timer = setTimeout(function(){ if(RV) SCENES[RV.c.play].reveal(true); }, RV.c.kind === "abs" ? 700 : 1400);
+  });
 };
-// 結末を書き、得点と士気に反映して、中継へ戻す
+// 場内アナウンスの帯
+function announce(txt){
+  let a = $r("rv-ann");
+  if(!a){ a = document.createElement("div"); a.id = "rv-ann"; $r("rv").insertBefore(a, $r("rv-call")); }
+  a.innerHTML = '<i>場内</i>' + esc(txt);
+  a.className = "show";
+}
+// 申請の所作を舞台の上に重ねる
+function gesture(c, done){
+  const svg = $r("rv-svg"); if(!svg){ done(); return; }
+  const g = document.createElementNS(NS, "g"); g.setAttribute("id", "rv-gest");
+  const col = teamCol(c.victim, "#e0a600");
+  if(c.kind === "abs"){
+    g.innerHTML = figSvg("rv-gfig", P.bat, 0, 0, 1, 1, col, "#222");
+    svg.appendChild(g);
+    const lefty = c.batP && c.batP.bh === "左", bx = lefty ? 102 : 258;
+    const old = $r("rv-bat"); if(old) old.setAttribute("opacity", 0);
+    let start = 0;
+    function f(ts){ if(!RV) return; if(!start) start = ts; const t = Math.min(1, (ts - start) / 700);
+      setFig("rv-gfig", lerpP(P.bat, P.helmet, ease(t)), bx, 262, 1.15, lefty ? 1 : -1, col, "#222");
+      if(t < 1) RV.raf = requestAnimationFrame(f); else { ping(600, 0.06, 0.06); RV.timer = setTimeout(done, 500); } }
+    RV.raf = requestAnimationFrame(f);
+  }else{
+    // 監督が画面の端から歩いてきて、両手で四角
+    g.innerHTML = figSvg("rv-gfig", P.stand, 0, 0, 1, 1, col, "#111");
+    svg.appendChild(g);
+    const H = Number(svg.getAttribute("viewBox").split(" ")[3]);
+    let start = 0;
+    function f(ts){ if(!RV) return; if(!start) start = ts; const t = (ts - start);
+      if(t < 900){ const p = t / 900; setFig("rv-gfig", run(t / 110, 0.6), -20 + 90 * p, H - 16, 1.05, 1, col, "#111"); }
+      else { const q = Math.min(1, (t - 900) / 500); setFig("rv-gfig", lerpP(P.stand, P.square, ease(q)), 70, H - 16, 1.05, 1, col, "#111"); }
+      if(t < 1500) RV.raf = requestAnimationFrame(f); else { crowd(0.8, 0.08); RV.timer = setTimeout(done, 600); } }
+    RV.raf = requestAnimationFrame(f);
+  }
+}
+// 責任審判の宣告。ジェスチャーつき
+function verdictSign(safe, isHR, done){
+  const svg = $r("rv-svg"); if(!svg){ done(); return; }
+  const gest = $r("rv-gest"); if(gest) gest.remove();
+  const H = Number(svg.getAttribute("viewBox").split(" ")[3]);
+  const g = document.createElementNS(NS, "g"); g.setAttribute("id", "rv-ump2"); svg.appendChild(g);
+  const to = isHR ? (safe ? P.point : P.foul) : (safe ? P.safe : P.outB);
+  const via = safe ? P.stand : P.outA;
+  let start = 0;
+  function f(ts){ if(!RV) return; if(!start) start = ts; const t = Math.min(1, (ts - start) / 700);
+    const p = t < 0.5 ? lerpP(P.stand, via, ease(t * 2)) : lerpP(via, to, ease((t - 0.5) * 2));
+    setFig("rv-ump2", p, 300, H - 16, 1.1, -1, "#2b2b30", "#111");
+    if(t < 1) RV.raf = requestAnimationFrame(f); else done(); }
+  RV.raf = requestAnimationFrame(f);
+}
+// ============================================================
+// 4. 結末 ── 覆れば得点が動く。得点・士気・ニュースへ
+// ============================================================
 function rvSettle(go){
   const c = RV.c, v = c.victim;
   const over = go && c.wrong;
   let head, body, cls;
-  if(go && over){ head = "判定が覆った！"; body = c.flipText + (c.standalone ? "。+1点" : "。打席はやり直し。+1点"); cls = "win"; }
-  else if(go){ head = "判定どおり"; body = c.holdText + "。チームの士気が少し落ちる"; cls = "lose"; }
-  else if(c.wrong){ head = "……実は誤審だった"; body = "覆せたのに見送った。判定はそのまま"; cls = "miss"; }
-  else { head = "正しい判定だった"; body = "受け入れて正解。無駄なチャレンジをしなかった"; cls = "ok"; }
+  if(go && over){ head = "判定が覆った！"; body = c.flipText + "。+1点"; cls = "win"; }
+  else if(go){ head = "判定どおり"; body = c.holdText + "。士気が少し落ちる"; cls = "lose"; }
+  else if(c.wrong){ head = "……実は誤審だった"; body = "覆せた判定を見送った"; cls = "miss"; }
+  else { head = "正しい判定だった"; body = "受け入れて正解"; cls = "ok"; }
+  // 得点を動かす(その日の結果はまだ確定していない)
+  const r = c.game;
+  if(over){
+    if(c.batting){ if(c.side === "A") r.rA += c.delta; else r.rB += c.delta; c.my += c.delta; }
+    else { if(c.side === "A") r.rB = Math.max(0, r.rB - c.delta); else r.rA = Math.max(0, r.rA - c.delta); c.op = Math.max(0, c.op - c.delta); }
+  }
+  const won = c.my > c.op, tie = c.my === c.op;
+  const sc = `${v.name} ${c.my}-${c.op} ${c.opp.name}`;
+  body += over ? (won ? `。${sc} で勝利！` : tie ? `。${sc} の引き分けに持ち込んだ` : `。それでも ${sc} で及ばず`)
+               : (won ? `。試合は ${sc} で勝利` : tie ? `。試合は ${sc} の引き分け` : `。試合は ${sc} で敗れた`);
   $r("rv-verdict").innerHTML = '<b>' + esc(head) + '</b><span>' + esc(body) + '</span>';
   $r("rv-verdict").className = "rv-verdict show " + cls;
   $r("rv-q").innerHTML = "";
+  $r("rv-board").innerHTML = boardHtml(c);
   const day = state.schedule ? dateLabel(Math.max(0, Math.min(state.day, state.schedule.length) - 1)) : "";
-  if(c.standalone){
-    const t = c.victim, won = c.my > c.op, tie = c.my === c.op;
-    const sc = `${t.name} ${c.my}-${c.op} ${c.opp.name}`;
-    body += (go && over) ? (won ? `。流れを引き寄せ、${sc} で勝利` : tie ? `。試合は ${sc} の引き分け` : `。それでも試合は ${sc} で落とした`)
-          : (won ? `。試合は ${sc} で勝利` : tie ? `。試合は ${sc} の引き分け` : `。試合は ${sc} で敗れた`);
-    $r("rv-verdict").innerHTML = '<b>' + esc(head) + '</b><span>' + esc(body) + '</span>';
-  }
+  const label = c.kind === "abs" ? "ABSチャレンジ" : "リクエスト";
   if(go && over){
-    if(!c.standalone) rvApply(c);
-    addPts(v, 1, c.kind === "abs" ? "ABSチャレンジ成功" : "リクエスト成功");
+    addPts(v, 1, label + "成功");
     moodSet(v, 0.8, 7, "判定を覆した勢い");
     v.rvWin = (v.rvWin || 0) + 1;
-    if(c.opp && typeof mascotAb === "function" && mascotAb(v, "trick")) moodSet(c.opp, -1, 7, v.mascot.name + "のいたずら");
-    state.news.unshift({mo:day, txt:`【覆った】${v.name}の${c.kind === "abs" ? "ABSチャレンジ" : "リクエスト"}が成功。${c.pa.bat}の打席がやり直しに`});
-    if(hasFn("seWin")) seWin();
+    if(hasFn("mascotAb") && mascotAb(v, "trick")) moodSet(c.opp, -1, 7, v.mascot.name + "のいたずら");
+    state.news.unshift({mo:day, txt:`【覆った】${v.name}の${label}が成功。${c.flipText}（${sc}）`});
+    if(hasFn("seWin")) seWin(); crowd(1.2, 0.1);
   }else if(go){
-    moodSet(v, -0.8, 5, "リクエスト失敗");
+    moodSet(v, -0.8, 5, label + "失敗");
     v.rvLose = (v.rvLose || 0) + 1;
-    state.news.unshift({mo:day, txt:`【空振り】${v.name}の${c.kind === "abs" ? "ABSチャレンジ" : "リクエスト"}は判定どおり。ベンチが静まる`});
+    state.news.unshift({mo:day, txt:`【空振り】${v.name}の${label}は判定どおり。ベンチが静まる`});
     ping(160, 0.35, 0.09, "sawtooth");
   }
   if(hasFn("renderNews")) try{ renderNews(); }catch(e){}
-  $r("rv-foot").innerHTML = '<button type="button" class="btn" onclick="rvClose()">中継へ戻る</button>';
+  $r("rv-foot").innerHTML = '<button type="button" class="btn" onclick="rvClose()">試合へ戻る</button>';
   RV.phase = "done";
-  RV.timer = setTimeout(function(){ if(RV && RV.phase === "done") rvClose(); }, c.victim.cpu ? 3200 : 6500);
+  RV.timer = setTimeout(function(){ if(RV && RV.phase === "done") rvClose(); }, 7000);
 }
 window.rvClose = function(){
   if(!RV) return;
-  const scene = RV.c.standalone ? RV.c : null;
-  rvAbort();
-  if(scene){ rvSceneClose(scene); return; }
-  const c = liveCtx; if(!c) return;
-  if(c.i >= c.script.length){ liveFinish(); return; }
-  c.timer = setTimeout(liveStep, 500);
-};
-// 覆ったら: その打席のあとから半イニングの終わりまでを作り直す(得点は変えない)
-function rvApply(c){
-  const lc = liveCtx; if(!lc) return;
-  const s = lc.script, pa = c.pa;
-  const i = s.indexOf(pa); if(i < 0) return;
-  let j = i + 2; while(j < s.length && s[j].t !== "end") j++;
-  const r = c.res;
-  const outs = pa.preOuts + r.outsAdd, runs = pa.preRuns + r.runs;
-  const flipEv = {t:"pa", text:c.flipText + (r.runs ? `！ ${r.runs}点が入る` : ""), cls: r.runs ? "run" : (c.flip === "1B" ? "hit" : ""), runs:r.runs,
-    inn:pa.inn, top:pa.top, outs, on:[!!r.bases[0], !!r.bases[1], !!r.bases[2]],
-    bat:pa.bat, batNo:pa.batNo, batP:pa.batP, pit:pa.pit, pitP:pa.pitP, pitRole:pa.pitRole,
-    sit:`${pa.inn}回${pa.top?"表":"裏"}　${outs}死　${basesLabel(r.bases)}`, flipped:true};
-  const rest = rvHalfFrom(pa.batT, pa.pitInfo, pa.target, pa.idx, pa.inn, pa.top, {outs, bases:r.bases, runs});
-  s.splice(i + 2, j - (i + 2), flipEv, ...rest);
-}
-
-// ---------- ABS: 捕手の目線。球の縁がゾーンにかかるかどうか(規則どおり「一部でもかかればストライク」) ----------
-const ZB = {x:118, y:104, w:124, h:146};   // 基準のゾーン。高さは打者で少し変わる
-const BALL_R = 10;
-const CM_PER_PX = 43.2 / 124;              // ゾーン幅=本塁の幅17インチ
-function absTruth(c){
-  const h = Math.round(ZB.h * (0.92 + rnd() * 0.16));
-  const Z = {x:ZB.x, y:ZB.y + Math.round((ZB.h - h) / 2), w:ZB.w, h};
-  // 審判の判定がストライクなら、正しいときは球の縁がゾーンにかかる。間違いならかからない
-  const inside = c.callIsStrike ? !c.wrong : c.wrong;
-  const pen = inside ? rnd1(2, 11) : -rnd1(2, 11);        // 球の縁がゾーンの線を越えた深さ(px)。負なら外
-  const off = BALL_R - pen;                                 // 中心は線の外側にこれだけ
-  const side = c.zone.indexOf("外角") >= 0 ? "R" : c.zone.indexOf("内角") >= 0 ? "L" : c.zone.indexOf("低め") >= 0 ? "B" : "T";
-  let px, py;
-  if(side === "L"){ px = Z.x - off; py = rnd1(Z.y + 34, Z.y + Z.h - 34); }
-  else if(side === "R"){ px = Z.x + Z.w + off; py = rnd1(Z.y + 34, Z.y + Z.h - 34); }
-  else if(side === "T"){ py = Z.y - off; px = rnd1(Z.x + 30, Z.x + Z.w - 30); }
-  else { py = Z.y + Z.h + off; px = rnd1(Z.x + 30, Z.x + Z.w - 30); }
-  return {px, py, inside, pen, Z, side};
-}
-function absStage(c, tr){
-  const Z = tr.Z;
-  const lefty = c.pa.batP && c.pa.batP.bh === "左";
-  const bx = lefty ? 292 : 68;              // 左打者は捕手から見て右側に立つ
-  const batter = '<g class="rv-batter" opacity=".55" transform="translate(' + bx + ' 0)' + (lefty ? ' scale(-1 1) translate(-0 0)' : '') + '">' +
-    '<circle cx="0" cy="92" r="14" fill="#1b2a45"/><path d="M-16 106 h32 l6 70 h-44 z" fill="#1b2a45"/><path d="M-22 176 h44 v70 h-44 z" fill="#25355a"/>' +
-    '<path d="M14 118 l26 -44" stroke="#c9a15a" stroke-width="7" stroke-linecap="round"/></g>';
-  const grid = [1, 2].map(k => '<line x1="' + (Z.x + Z.w * k / 3) + '" y1="' + Z.y + '" x2="' + (Z.x + Z.w * k / 3) + '" y2="' + (Z.y + Z.h) + '" stroke="#e8f0ea" stroke-opacity=".18"/>' +
-    '<line x1="' + Z.x + '" y1="' + (Z.y + Z.h * k / 3) + '" x2="' + (Z.x + Z.w) + '" y2="' + (Z.y + Z.h * k / 3) + '" stroke="#e8f0ea" stroke-opacity=".18"/>').join("");
-  return '<svg viewBox="0 0 360 300" class="rv-svg" id="rv-svg">' +
-    '<defs><radialGradient id="rvBall" cx="40%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#e8e6dc"/><stop offset="1" stop-color="#9a978a"/></radialGradient>' +
-    '<linearGradient id="rvGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#173a2a"/><stop offset="1" stop-color="#0c2419"/></linearGradient></defs>' +
-    '<rect width="360" height="300" fill="url(#rvGround)"/>' +
-    '<path d="M0 300 L60 200 L300 200 L360 300 Z" fill="#3a2a1a" opacity=".9"/>' +
-    '<path d="M150 262 L210 262 L210 274 L180 288 L150 274 Z" fill="#f4f1e6" stroke="#222" stroke-width="1"/>' +
-    batter +
-    '<rect x="' + Z.x + '" y="' + Z.y + '" width="' + Z.w + '" height="' + Z.h + '" fill="rgba(255,255,255,.04)" stroke="#e8f0ea" stroke-width="1.6" stroke-dasharray="6 5" id="rv-zone"/>' + grid +
-    '<g id="rv-trail"></g>' +
-    '<circle id="rv-ball" cx="180" cy="26" r="2.5" fill="url(#rvBall)" stroke="#c9463a" stroke-width=".8" opacity="0"/>' +
-    '<circle id="rv-ring" cx="0" cy="0" r="0" fill="none" stroke="#ffd257" stroke-width="2" opacity="0"/>' +
-    '<g id="rv-measure" opacity="0"></g>' +
-    '<text id="rv-big" x="180" y="60" text-anchor="middle" font-family="Oswald,sans-serif" font-weight="700" font-size="36" fill="#fff" opacity="0" style="paint-order:stroke" stroke="#0b1f16" stroke-width="6"></text>' +
-    '<text x="10" y="292" text-anchor="start" font-family="Noto Sans JP,sans-serif" font-size="10" fill="#cfe0d4" letter-spacing="2" id="rv-cap">' + esc((c.kmh ? c.kmh + "km/h " : "") + (c.type || "") + (c.zone ? "　" + c.zone : "")) + '</text>' +
-    '</svg>';
-}
-function absPlay(c){
-  const tr = absTruth(c); RV.truth = tr;
-  $r("rv-stage").innerHTML = absStage(c, tr);
-  const ball = $r("rv-ball"), ring = $r("rv-ring"), trail = $r("rv-trail");
-  const sx = 180, sy = 26, ex = tr.px, ey = tr.py, bend = (rnd() < 0.5 ? -1 : 1) * rnd1(10, 26);
-  const DUR = 560;
-  let start = 0, lastGhost = 0;
-  function frame(ts){
-    if(!RV) return;
-    if(!start) start = ts;
-    const t = Math.min(1, (ts - start) / DUR);
-    const p = Math.pow(t, 1.55);                  // 近づくほど速く見える
-    const x = sx + (ex - sx) * p + Math.sin(p * Math.PI) * bend;
-    const y = sy + (ey - sy) * p;
-    ball.setAttribute("cx", x); ball.setAttribute("cy", y); ball.setAttribute("r", 2.5 + 7.5 * p); ball.setAttribute("opacity", 1);
-    if(ts - lastGhost > 45){                       // 軌跡。薄い残像を置いていく
-      lastGhost = ts;
-      const g = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      g.setAttribute("cx", x); g.setAttribute("cy", y); g.setAttribute("r", 2 + 6 * p); g.setAttribute("fill", "#fff"); g.setAttribute("fill-opacity", ".12");
-      trail.appendChild(g);
-    }
-    if(t < 1){ RV.raf = requestAnimationFrame(frame); return; }
-    ring.setAttribute("cx", ex); ring.setAttribute("cy", ey); ring.setAttribute("r", 14); ring.setAttribute("opacity", .9);
-    ping(520, 0.05, 0.06);
-    // 捕球の瞬間だけ見せて消す。見えたかどうかが勝負
-    RV.timer = setTimeout(function(){
-      if(!RV) return;
-      ball.style.transition = "opacity .45s"; ring.style.transition = "opacity .45s"; trail.style.transition = "opacity .45s";
-      ball.setAttribute("opacity", 0); ring.setAttribute("opacity", 0); trail.setAttribute("opacity", 0);
-      rvAsk();
-    }, 480);
-  }
-  RV.timer = setTimeout(function(){ RV.raf = requestAnimationFrame(frame); }, 700);
-}
-// ABSの図: ゾーンと球を重ね、縁との差をセンチで
-function absMark(tr, loud){
-  const ball = $r("rv-ball"), ring = $r("rv-ring"), zone = $r("rv-zone"), m = $r("rv-measure");
-  ball.style.transition = ""; ring.style.transition = "";
-  ball.setAttribute("cx", tr.px); ball.setAttribute("cy", tr.py); ball.setAttribute("r", BALL_R); ball.setAttribute("opacity", 1);
-  ring.setAttribute("cx", tr.px); ring.setAttribute("cy", tr.py); ring.setAttribute("r", loud ? 17 : 14); ring.setAttribute("opacity", loud ? 1 : .6);
-  ring.setAttribute("stroke", tr.inside ? "#6fe3a0" : "#ff6b5b");
-  zone.setAttribute("stroke", tr.inside ? "#6fe3a0" : "#ff6b5b"); zone.setAttribute("stroke-dasharray", ""); zone.setAttribute("stroke-width", 2.4);
-  const Z = tr.Z, cm = (Math.abs(tr.pen) * CM_PER_PX).toFixed(1);
-  // 縁と球の縁の間の線
-  let x1, y1, x2, y2, lx, ly;
-  if(tr.side === "L"){ x1 = Z.x; y1 = tr.py; x2 = tr.px + BALL_R; y2 = tr.py; lx = Z.x + 8; ly = tr.py - 14; }
-  else if(tr.side === "R"){ x1 = Z.x + Z.w; y1 = tr.py; x2 = tr.px - BALL_R; y2 = tr.py; lx = Z.x + Z.w - 8; ly = tr.py - 14; }
-  else if(tr.side === "T"){ x1 = tr.px; y1 = Z.y; x2 = tr.px; y2 = tr.py + BALL_R; lx = tr.px; ly = Z.y + 22; }
-  else { x1 = tr.px; y1 = Z.y + Z.h; x2 = tr.px; y2 = tr.py - BALL_R; lx = tr.px; ly = Z.y + Z.h - 12; }
-  const anchor = tr.side === "L" ? "start" : tr.side === "R" ? "end" : "middle";
-  m.innerHTML = '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#ffd257" stroke-width="2"/>' +
-    '<text x="' + lx + '" y="' + ly + '" text-anchor="' + anchor + '" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="13" fill="#ffd257" style="paint-order:stroke" stroke="#0b1f16" stroke-width="4">' +
-    (tr.inside ? cm + "cm かかった" : cm + "cm 外れ") + '</text>';
-  m.setAttribute("opacity", 1);
-}
-function absReveal(go){
-  const c = RV.c, tr = RV.truth;
-  const ball = $r("rv-ball"), big = $r("rv-big"), trail = $r("rv-trail");
-  if(!go){ RV.timer = setTimeout(function(){ if(!RV) return; absMark(tr, false); rvSettle(false); }, 500); return; }
-  // ゆっくり再生: 最後の三割をコマ送りで
-  const sx = 180, sy = 26, ex = tr.px, ey = tr.py;
-  const DUR = 1500; let start = 0, k = 0;
-  ball.style.transition = ""; trail.style.transition = ""; trail.innerHTML = ""; trail.setAttribute("opacity", 1);
-  ball.setAttribute("opacity", 1);
-  function frame(ts){
-    if(!RV) return;
-    if(!start) start = ts;
-    const t = Math.min(1, (ts - start) / DUR);
-    const p = 0.68 + 0.32 * t;
-    const x = sx + (ex - sx) * p, y = sy + (ey - sy) * p;
-    ball.setAttribute("cx", x); ball.setAttribute("cy", y); ball.setAttribute("r", 2.5 + 7.5 * p);
-    if(Math.floor(t * 8) > k){
-      k = Math.floor(t * 8);
-      const g = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-      g.setAttribute("cx", x); g.setAttribute("cy", y); g.setAttribute("r", 2.5 + 7.5 * p); g.setAttribute("fill", "none"); g.setAttribute("stroke", "#fff"); g.setAttribute("stroke-opacity", ".35");
-      trail.appendChild(g);
-    }
-    if(t < 1){ RV.raf = requestAnimationFrame(frame); return; }
-    absMark(tr, true);
-    big.textContent = tr.inside ? "STRIKE" : "BALL"; big.setAttribute("fill", tr.inside ? "#6fe3a0" : "#ff6b5b"); big.setAttribute("opacity", 1);
-    ping(tr.inside === c.callIsStrike ? 330 : 990, 0.25, 0.08, "triangle");
-    RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 1000);
-  }
-  RV.raf = requestAnimationFrame(frame);
-}
-
-// ---------- リクエスト ----------
-// 三つの場面: 一塁のクロスプレー / 二塁の盗塁 / 外野の捕球かワンバウンドか
-function reqPlay(c){
-  if(c.sub === "steal") return stealPlay(c);
-  if(c.sub === "catch") return catchPlay(c);
-  return firstPlay(c);
-}
-function reqReveal(go){
   const c = RV.c;
-  if(c.sub === "steal") return stealReveal(go);
-  if(c.sub === "catch") return catchReveal(go);
-  return firstReveal(go);
+  rvAbort();
+  const a = $r("rv-ann"); if(a) a.className = "";
+  rvSceneClose(c);
+};
+
+// ============================================================
+// 5. 舞台 ── どれも横からの絵。人が走り、滑り、伸び、飛び込む
+// ============================================================
+function stageOpen(h, sky){
+  return '<svg viewBox="0 0 360 ' + h + '" class="rv-svg" id="rv-svg"><defs>' +
+    '<linearGradient id="rvSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + (sky || "#0d1c2e") + '"/><stop offset="1" stop-color="#1b3b2f"/></linearGradient>' +
+    '<linearGradient id="rvGrass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2f7a48"/><stop offset="1" stop-color="#1f5b35"/></linearGradient></defs>' +
+    '<rect width="360" height="' + h + '" fill="url(#rvSky)"/>';
 }
-function teamColor(t, d){ return (t && t.color) || d; }
-function svgOpen(h){ return '<svg viewBox="0 0 360 ' + h + '" class="rv-svg" id="rv-svg"><defs><linearGradient id="rvGrass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1b4a33"/><stop offset="1" stop-color="#123424"/></linearGradient></defs><rect width="360" height="' + h + '" fill="url(#rvGrass)"/>'; }
-function bigText(x, y){ return '<text id="rv-big" x="' + x + '" y="' + y + '" text-anchor="middle" font-family="Oswald,sans-serif" font-weight="700" font-size="40" fill="#fff" opacity="0" style="paint-order:stroke" stroke="#0b1f16" stroke-width="6"></text>'; }
-function lblText(){ return '<text id="rv-lbl" x="180" y="18" text-anchor="middle" font-family="Noto Sans JP,sans-serif" font-size="10" fill="#9fbfa8" letter-spacing="3"></text>'; }
-function setPos(el, from, to, p){ el.setAttribute("cx", from.x + (to.x - from.x) * p); el.setAttribute("cy", from.y + (to.y - from.y) * p); }
-function showBig(txt, ok){ const big = $r("rv-big"); big.textContent = txt; big.setAttribute("fill", ok ? "#6fe3a0" : "#ff6b5b"); big.setAttribute("opacity", 1); }
-// 差(ms)。審判が正しければコール通り、間違いなら逆
-function timingTruth(c, gapMin, gapMax){
-  const safe = c.callOut ? c.wrong : !c.wrong;
-  const gap = rnd1(gapMin, gapMax);
-  return {safe, gap, delta: safe ? gap : -gap};   // delta>0: 守備の方が遅い
+function stands(y){  // 観客席の帯
+  let s = '<rect x="0" y="' + (y - 46) + '" width="360" height="46" fill="#22304a"/>';
+  for(let i = 0; i < 3; i++){ s += '<rect x="0" y="' + (y - 42 + i * 14) + '" width="360" height="1.5" fill="#33455f"/>'; }
+  for(let i = 0; i < 40; i++){ s += '<circle cx="' + (6 + i * 9) + '" cy="' + (y - 36 + (i % 3) * 12) + '" r="3" fill="' + ["#c9463a","#e8e6dc","#e0a600","#4f8fe8","#6fe3a0"][i % 5] + '" opacity=".55"/>'; }
+  return s;
 }
-// ゆっくり再生の共通部: 先に着いた瞬間で止め、続きを見せて結論
+function ground(y, h){ return '<rect x="0" y="' + y + '" width="360" height="' + h + '" fill="url(#rvGrass)"/>'; }
+function dirt(x, y, w, h){ return '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '" fill="#8a5a34"/>'; }
+function lbl(){ return '<text id="rv-lbl" x="180" y="18" text-anchor="middle" font-family="Noto Sans JP,sans-serif" font-size="10" fill="#cfe0d4" letter-spacing="3"></text>'; }
+function big(x, y){ return '<text id="rv-big" x="' + x + '" y="' + y + '" text-anchor="middle" font-family="Oswald,sans-serif" font-weight="700" font-size="42" fill="#fff" opacity="0" style="paint-order:stroke" stroke="#0b1f16" stroke-width="7"></text>'; }
+function showBig(txt, ok){ const b = $r("rv-big"); if(!b) return; b.textContent = txt; b.setAttribute("fill", ok ? "#6fe3a0" : "#ff6b5b"); b.setAttribute("opacity", 1); }
+function flashLine(x1, y1, x2, y2){ return '<line id="rv-flash" x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="#ffd257" stroke-width="3" opacity="0"/>'; }
+function setLbl(t){ const l = $r("rv-lbl"); if(l) l.textContent = t; }
+// 先に着いた瞬間で止める再生
 function slowReplay(draw, first, second, onDone){
-  const flash = $r("rv-flash"), lbl = $r("rv-lbl");
-  if(lbl) lbl.textContent = "REPLAY ── スロー再生";
-  const from = first - 300, SLOW = 6;
+  const flash = $r("rv-flash");
+  setLbl("REPLAY ── スロー再生");
+  const from = first - 320, SLOW = 6;
   let start = 0, frozen = false;
   function f1(ts){
     if(!RV) return;
@@ -553,7 +427,7 @@ function slowReplay(draw, first, second, onDone){
       frozen = true; draw(first);
       if(flash) flash.setAttribute("opacity", 1);
       ping(700, 0.08, 0.07);
-      RV.timer = setTimeout(function(){ if(!RV) return; if(flash) flash.setAttribute("opacity", 0); start = 0; RV.raf = requestAnimationFrame(f2); }, 900);
+      RV.timer = setTimeout(function(){ if(!RV) return; if(flash) flash.setAttribute("opacity", 0); start = 0; RV.raf = requestAnimationFrame(f2); }, 1000);
       return;
     }
     draw(t); RV.raf = requestAnimationFrame(f1);
@@ -568,182 +442,329 @@ function slowReplay(draw, first, second, onDone){
   }
   RV.raf = requestAnimationFrame(f1);
 }
-
-// ---- 一塁のクロスプレー ----
-const HOME = {x:64, y:222}, FIRST = {x:292, y:96}, FIELDER = {x:132, y:52};
-const RUN = 1150, THROW_AT = 380;
-function firstStage(c){
-  const col = teamColor(c.pa.batT, "#e0a600");
-  return svgOpen(260) +
-    '<path d="M20 250 Q180 -40 340 250 Z" fill="#6b4a2c" opacity=".55"/>' +
-    '<path d="M64 222 L292 96" stroke="#f4f1e6" stroke-width="2" stroke-opacity=".8"/>' +
-    '<path d="M180 20 L292 96" stroke="#f4f1e6" stroke-width="1" stroke-opacity=".35" stroke-dasharray="4 4"/>' +
-    '<path d="M152 214 L64 222 L72 234 Z" fill="#f4f1e6" opacity=".9"/>' +
-    '<rect x="' + (FIRST.x - 9) + '" y="' + (FIRST.y - 9) + '" width="18" height="18" fill="#f4f1e6" stroke="#222" transform="rotate(30 ' + FIRST.x + ' ' + FIRST.y + ')"/>' +
-    '<g><circle cx="' + (FIRST.x + 14) + '" cy="' + (FIRST.y - 6) + '" r="9" fill="#e8e6dc" stroke="#333"/><circle cx="' + (FIRST.x + 6) + '" cy="' + (FIRST.y + 2) + '" r="5" fill="#7a4a2a" stroke="#222"/></g>' +
-    '<circle cx="' + FIELDER.x + '" cy="' + FIELDER.y + '" r="9" fill="#e8e6dc" stroke="#333"/>' +
-    '<circle id="rv-runner" cx="' + HOME.x + '" cy="' + HOME.y + '" r="10" fill="' + col + '" stroke="#111" stroke-width="1.5"/>' +
-    '<circle id="rv-throw" cx="' + FIELDER.x + '" cy="' + FIELDER.y + '" r="4" fill="#fff" stroke="#c9463a" stroke-width=".8" opacity="0"/>' +
-    '<line id="rv-flash" x1="' + (FIRST.x - 40) + '" y1="' + FIRST.y + '" x2="' + (FIRST.x + 40) + '" y2="' + FIRST.y + '" stroke="#ffd257" stroke-width="3" opacity="0"/>' +
-    bigText(292, 212) + lblText() + '</svg>';
-}
-function firstDraw(t, tr){
-  const runner = $r("rv-runner"), th = $r("rv-throw");
-  setPos(runner, HOME, FIRST, Math.pow(Math.min(1, t / RUN), 0.92));
-  const tArr = RUN + tr.delta;
-  if(t >= THROW_AT){
-    const pt = Math.min(1, (t - THROW_AT) / (tArr - THROW_AT));
-    th.setAttribute("opacity", 1);
-    setPos(th, FIELDER, {x:FIRST.x + 6, y:FIRST.y + 2}, pt);
-    th.setAttribute("r", 4 + 2 * Math.sin(pt * Math.PI));
-  }
-}
-function firstPlay(c){
-  const tr = timingTruth(c, 45, 110); RV.truth = tr;
-  $r("rv-stage").innerHTML = firstStage(c);
-  $r("rv-lbl").textContent = "一塁のクロスプレー";
-  const end = Math.max(RUN, RUN + tr.delta) + 80;
+function realtime(draw, end, onDone){
   let start = 0;
-  function frame(ts){
-    if(!RV) return;
-    if(!start) start = ts;
-    const t = ts - start;
-    firstDraw(Math.min(t, end), tr);
-    if(t < end){ RV.raf = requestAnimationFrame(frame); return; }
-    ping(440, 0.06, 0.06);
-    RV.timer = setTimeout(rvAsk, 350);
-  }
-  RV.timer = setTimeout(function(){ RV.raf = requestAnimationFrame(frame); }, 600);
+  function f(ts){ if(!RV) return; if(!start) start = ts; const t = ts - start; draw(Math.min(t, end)); if(t < end){ RV.raf = requestAnimationFrame(f); return; } onDone(); }
+  RV.timer = setTimeout(function(){ RV.raf = requestAnimationFrame(f); }, 650);
 }
-function firstReveal(go){
-  const tr = RV.truth;
-  if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 500); return; }
-  const first = Math.min(RUN, RUN + tr.delta), second = Math.max(RUN, RUN + tr.delta);
-  slowReplay(t => firstDraw(t, tr), first, second, function(){
-    const sec = (tr.gap / 1000).toFixed(2);
-    showBig(tr.safe ? "SAFE" : "OUT", tr.safe);
-    $r("rv-lbl").textContent = tr.safe ? ("足が " + sec + " 秒 早い") : ("捕球が " + sec + " 秒 早い");
-    ping(tr.safe === !RV.c.callOut ? 330 : 990, 0.25, 0.08, "triangle");
-    RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 900);
-  });
+function timing(c, a, b){ const safe = c.callOut ? c.wrong : !c.wrong; const gap = rnd1(a, b); return {safe, gap, delta: safe ? gap : -gap}; }
+// 審判の宣告(舞台の中の審判)
+function umpCall(id, x, y, facing, safe, isHR){
+  const to = isHR ? (safe ? P.point : P.foul) : (safe ? P.safe : P.outB), via = safe ? P.stand : P.outA;
+  let start = 0;
+  function f(ts){ if(!RV) return; if(!start) start = ts; const t = Math.min(1, (ts - start) / 600);
+    const p = t < 0.5 ? lerpP(P.stand, via, ease(t * 2)) : lerpP(via, to, ease((t - 0.5) * 2));
+    setFig(id, p, x, y, 1, facing, "#2b2b30", "#111");
+    if(t < 1) RV.raf = requestAnimationFrame(f); }
+  RV.raf = requestAnimationFrame(f);
+}
+function finishReplay(c, tr, textSafe, textOut, isHR){
+  const safe = tr.safe;
+  showBig(isHR ? (safe ? "HOME RUN" : "FOUL") : (safe ? "SAFE" : "OUT"), safe === !c.callOut);
+  setLbl(safe ? textSafe : textOut);
+  announce("リクエストにより検証した結果、判定は" + (isHR ? (safe ? "本塁打" : "ファウル") : (safe ? "セーフ" : "アウト")) + "とします");
+  ping(safe === !c.callOut ? 330 : 990, 0.25, 0.08, "triangle");
+  verdictSign(safe, isHR, function(){ RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 700); });
 }
 
-// ---- 二塁の盗塁: 走者のスライディングと捕手からの送球、タッチが先か ----
-const SB_FROM = {x:330, y:214}, SB_BASE = {x:180, y:104}, SB_CATCHER = {x:180, y:262}, SB_GLOVE = {x:190, y:112};
-const SB_RUN = 1150, SB_THROW_AT = 300;
-function stealStage(c){
-  const col = teamColor(c.pa.batT, "#e0a600");
-  return svgOpen(280) +
-    '<path d="M10 270 Q180 -60 350 270 Z" fill="#6b4a2c" opacity=".55"/>' +
-    '<path d="M330 214 L180 104 L30 214" stroke="#f4f1e6" stroke-width="2" stroke-opacity=".8" fill="none"/>' +
-    '<rect x="' + (SB_BASE.x - 9) + '" y="' + (SB_BASE.y - 9) + '" width="18" height="18" fill="#f4f1e6" stroke="#222" transform="rotate(45 ' + SB_BASE.x + ' ' + SB_BASE.y + ')"/>' +
-    '<circle cx="' + (SB_BASE.x + 22) + '" cy="' + (SB_BASE.y - 14) + '" r="9" fill="#e8e6dc" stroke="#333"/>' +
-    '<circle id="rv-glove" cx="' + (SB_BASE.x + 14) + '" cy="' + (SB_BASE.y - 4) + '" r="5" fill="#7a4a2a" stroke="#222"/>' +
-    '<circle cx="' + SB_CATCHER.x + '" cy="' + SB_CATCHER.y + '" r="9" fill="#e8e6dc" stroke="#333"/>' +
-    '<circle id="rv-runner" cx="' + SB_FROM.x + '" cy="' + SB_FROM.y + '" r="10" fill="' + col + '" stroke="#111" stroke-width="1.5"/>' +
-    '<circle id="rv-throw" cx="' + SB_CATCHER.x + '" cy="' + SB_CATCHER.y + '" r="4" fill="#fff" stroke="#c9463a" stroke-width=".8" opacity="0"/>' +
-    '<line id="rv-flash" x1="' + (SB_BASE.x - 40) + '" y1="' + SB_BASE.y + '" x2="' + (SB_BASE.x + 40) + '" y2="' + SB_BASE.y + '" stroke="#ffd257" stroke-width="3" opacity="0"/>' +
-    bigText(180, 250) + lblText() + '</svg>';
-}
-function stealDraw(t, tr){
-  const runner = $r("rv-runner"), th = $r("rv-throw"), gl = $r("rv-glove");
-  const pr = Math.min(1, t / SB_RUN);
-  setPos(runner, SB_FROM, {x:SB_BASE.x + 6, y:SB_BASE.y + 6}, Math.pow(pr, 1.1));   // 滑り込む
-  const tArr = SB_RUN + tr.delta;
-  if(t >= SB_THROW_AT){
-    const pt = Math.min(1, (t - SB_THROW_AT) / (tArr - SB_THROW_AT));
-    th.setAttribute("opacity", 1);
-    setPos(th, SB_CATCHER, SB_GLOVE, pt);
-    th.setAttribute("r", 4 + 2 * Math.sin(pt * Math.PI));
-    if(pt >= 1){ setPos(gl, SB_GLOVE, {x:SB_BASE.x + 6, y:SB_BASE.y + 6}, Math.min(1, (t - tArr) / 120)); }   // タッチ
-  }
-}
-function stealPlay(c){
-  const tr = timingTruth(c, 40, 100); RV.truth = tr;
-  $r("rv-stage").innerHTML = stealStage(c);
-  $r("rv-lbl").textContent = "二塁への盗塁";
-  const end = Math.max(SB_RUN, SB_RUN + tr.delta) + 160;
-  let start = 0;
-  function frame(ts){
-    if(!RV) return;
-    if(!start) start = ts;
-    const t = ts - start;
-    stealDraw(Math.min(t, end), tr);
-    if(t < end){ RV.raf = requestAnimationFrame(frame); return; }
-    ping(440, 0.06, 0.06);
-    RV.timer = setTimeout(rvAsk, 350);
-  }
-  RV.timer = setTimeout(function(){ RV.raf = requestAnimationFrame(frame); }, 600);
-}
-function stealReveal(go){
-  const tr = RV.truth;
-  if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 500); return; }
-  const first = Math.min(SB_RUN, SB_RUN + tr.delta), second = Math.max(SB_RUN, SB_RUN + tr.delta) + 120;
-  slowReplay(t => stealDraw(t, tr), first, second, function(){
-    const sec = (tr.gap / 1000).toFixed(2);
-    showBig(tr.safe ? "SAFE" : "OUT", tr.safe);
-    $r("rv-lbl").textContent = tr.safe ? ("手がベースに " + sec + " 秒 早い") : ("タッチが " + sec + " 秒 早い");
-    ping(tr.safe === !RV.c.callOut ? 330 : 990, 0.25, 0.08, "triangle");
-    RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 900);
-  });
-}
+const SCENES = {};
 
-// ---- 外野の捕球かワンバウンドか: 横から。落ちてくる球とグラブ、どちらが先か ----
-const CT_FROM = {x:40, y:40}, CT_LAND = {x:210, y:196}, CT_GLOVE0 = {x:296, y:170}, CT_GLOVE1 = {x:214, y:190};
-const CT_FALL = 1100, CT_DIVE_AT = 450;
-function catchStage(c){
-  const col = teamColor(c.pa.batT === c.victim ? (c.opp || c.pa.batT) : c.victim, "#2f6fd6");
-  return svgOpen(240) +
-    '<rect x="0" y="196" width="360" height="44" fill="#2a6a3e"/><line x1="0" y1="196" x2="360" y2="196" stroke="#6fe3a0" stroke-opacity=".5"/>' +
-    '<g id="rv-fielder"><circle cx="' + (CT_GLOVE0.x + 14) + '" cy="' + (CT_GLOVE0.y - 22) + '" r="10" fill="' + col + '" stroke="#111" stroke-width="1.5"/><path d="M' + (CT_GLOVE0.x + 6) + ' ' + (CT_GLOVE0.y - 10) + ' l18 4 l4 30 l-24 2 z" fill="' + col + '" opacity=".85"/></g>' +
-    '<circle id="rv-glove" cx="' + CT_GLOVE0.x + '" cy="' + CT_GLOVE0.y + '" r="7" fill="#7a4a2a" stroke="#222"/>' +
-    '<circle id="rv-runner" cx="' + CT_FROM.x + '" cy="' + CT_FROM.y + '" r="5" fill="#fff" stroke="#c9463a" stroke-width=".8"/>' +
-    '<line id="rv-flash" x1="' + (CT_LAND.x - 40) + '" y1="196" x2="' + (CT_LAND.x + 40) + '" y2="196" stroke="#ffd257" stroke-width="3" opacity="0"/>' +
-    bigText(90, 150) + lblText() + '</svg>';
-}
-function catchDraw(t, tr){
-  const ball = $r("rv-runner"), gl = $r("rv-glove"), fd = $r("rv-fielder");
-  const pb = Math.min(1, t / CT_FALL);
-  // 放物線。地面に着いたら止まる
-  const x = CT_FROM.x + (CT_LAND.x - CT_FROM.x) * pb;
-  const y = CT_FROM.y + (CT_LAND.y - CT_FROM.y) * (pb * pb);
-  ball.setAttribute("cx", x); ball.setAttribute("cy", Math.min(CT_LAND.y, y));
-  const tArr = CT_FALL + tr.delta;
-  if(t >= CT_DIVE_AT){
-    const pg = Math.min(1, (t - CT_DIVE_AT) / (tArr - CT_DIVE_AT));
-    setPos(gl, CT_GLOVE0, CT_GLOVE1, pg);
-    fd.setAttribute("transform", "translate(" + ((CT_GLOVE1.x - CT_GLOVE0.x) * pg) + " " + ((CT_GLOVE1.y - CT_GLOVE0.y) * pg) + ")");
-    if(pg >= 1 && tr.safe === false){ ball.setAttribute("cx", CT_GLOVE1.x); ball.setAttribute("cy", CT_GLOVE1.y - 4); }   // 捕った
+// ---- 一塁のクロスプレー: 走者が右へ駆け、一塁手が伸びて送球を受ける ----
+SCENES.first = (function(){
+  const G = 232, BAG = 262, START = 20, RUNT = 1250, THROW = 420;
+  function stage(c){
+    return stageOpen(280) + stands(150) + ground(150, 130) + dirt(0, 214, 360, 22) +
+      '<rect x="' + (BAG - 10) + '" y="' + (G - 3) + '" width="22" height="7" fill="#f4f1e6" stroke="#333"/>' +
+      '<line x1="0" y1="' + (G + 4) + '" x2="360" y2="' + (G + 4) + '" stroke="#f4f1e6" stroke-opacity=".6" stroke-width="2"/>' +
+      figSvg("rv-ump", P.ready, 322, G, 0.95, -1, "#2b2b30", "#111") +
+      figSvg("rv-fb", P.ready, 306, G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      figSvg("rv-run", P.stand, START, G, 1, 1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(BAG - 30, G + 6, BAG + 30, G + 6) + big(120, 120) + lbl() + '</svg>';
   }
-}
-function catchPlay(c){
-  // safe = ヒット(ワンバウンド)。delta>0 はグラブが遅い
-  const tr = timingTruth(c, 40, 110); RV.truth = tr;
-  $r("rv-stage").innerHTML = catchStage(c);
-  $r("rv-lbl").textContent = "外野への浅い飛球";
-  const end = Math.max(CT_FALL, CT_FALL + tr.delta) + 120;
-  let start = 0;
-  function frame(ts){
-    if(!RV) return;
-    if(!start) start = ts;
-    const t = ts - start;
-    catchDraw(Math.min(t, end), tr);
-    if(t < end){ RV.raf = requestAnimationFrame(frame); return; }
-    ping(440, 0.06, 0.06);
-    RV.timer = setTimeout(rvAsk, 350);
+  function draw(t, tr, c){
+    const pr = Math.min(1, t / RUNT);
+    const x = START + (BAG - 16 - START) * Math.pow(pr, 0.92);
+    setFig("rv-run", pr < 1 ? run(t / 95) : lerpP(run(t / 95), P.stand, Math.min(1, (t - RUNT) / 250)), x, G, 1, 1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222");
+    const tArr = RUNT + tr.delta;
+    if(t >= THROW){
+      const pt = Math.min(1, (t - THROW) / (tArr - THROW));
+      const bx = 110 + (BAG + 10 - 110) * pt, by = 40 + (G - 26 - 40) * pt + Math.sin(pt * Math.PI) * -40;
+      ball("rv-ball", bx, by, 4.5 + pt * 1.5, pt < 1 || true);
+      ball("rv-sh", bx, G + 6, 0, true);
+      setFig("rv-fb", lerpP(P.ready, P.stretch, ease(Math.min(1, pt * 1.6))), 306 - 18 * Math.min(1, pt * 1.6), G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
+      if(pt >= 1) ball("rv-ball", BAG + 16, G - 30, 4.5, true);
+    }
   }
-  RV.timer = setTimeout(function(){ RV.raf = requestAnimationFrame(frame); }, 600);
-}
-function catchReveal(go){
-  const tr = RV.truth;
-  if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 500); return; }
-  const first = Math.min(CT_FALL, CT_FALL + tr.delta), second = Math.max(CT_FALL, CT_FALL + tr.delta) + 100;
-  slowReplay(t => catchDraw(t, tr), first, second, function(){
-    const cm = Math.round(tr.gap * 0.09);
-    showBig(tr.safe ? "HIT" : "OUT", tr.safe);
-    $r("rv-lbl").textContent = tr.safe ? ("グラブより " + (tr.gap / 1000).toFixed(2) + " 秒 早く地面に") : ("地面まで " + cm + "cm で捕球");
-    ping(tr.safe === !RV.c.callOut ? 330 : 990, 0.25, 0.08, "triangle");
-    RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 900);
-  });
-}
+  return {
+    play(c){ const tr = timing(c, 45, 110); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("一塁のクロスプレー");
+      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", 322, G, -1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+    reveal(go){ const tr = RV.truth, c = RV.c;
+      if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
+      const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 60;
+      slowReplay(t => draw(t, tr, c), first, second, function(){ const s = (tr.gap / 1000).toFixed(2); finishReplay(c, tr, "足がベースに " + s + " 秒 早い", "捕球が " + s + " 秒 早い", false); }); },
+  };
+})();
+
+// ---- 本塁のクロスプレー: 走者が左の本塁へ滑り、捕手がブロックしてタッチ ----
+SCENES.home = (function(){
+  const G = 232, PLATE = 70, START = 340, RUNT = 1250, THROW = 380;
+  function stage(c){
+    return stageOpen(280) + stands(150) + ground(150, 130) + dirt(0, 214, 360, 22) +
+      '<path d="M' + (PLATE - 10) + ' ' + (G - 2) + ' h20 v5 l-10 5 l-10 -5 z" fill="#f4f1e6" stroke="#333"/>' +
+      figSvg("rv-ump", P.ready, 22, G, 0.95, 1, "#2b2b30", "#111") +
+      figSvg("rv-cat", P.crouch, PLATE + 20, G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      figSvg("rv-run", P.stand, START, G, 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(PLATE - 34, G + 6, PLATE + 34, G + 6) + big(230, 120) + lbl() + '</svg>';
+  }
+  function draw(t, tr, c){
+    const pr = Math.min(1, t / RUNT);
+    const x = START - (START - PLATE - 6) * Math.pow(pr, 0.9);
+    const pose = pr < 0.72 ? run(t / 95) : lerpP(run(t / 95), P.slide, ease((pr - 0.72) / 0.28));
+    setFig("rv-run", pose, x, G - (pr > 0.72 ? 8 : 0), 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222");
+    const tArr = RUNT + tr.delta;
+    if(t >= THROW){
+      const pt = Math.min(1, (t - THROW) / (tArr - THROW));
+      const bx = 330 - (330 - PLATE - 14) * pt, by = 30 + (G - 22 - 30) * pt + Math.sin(pt * Math.PI) * -46;
+      ball("rv-ball", bx, by, 4.5, true); ball("rv-sh", bx, G + 6, 0, true);
+      setFig("rv-cat", pt < 1 ? P.crouch : lerpP(P.crouch, P.tag, ease(Math.min(1, (t - tArr) / 140))), PLATE + 20, G, 1, -1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
+      if(pt >= 1) ball("rv-ball", PLATE + 2, G - 12, 4.5, true);
+    }
+  }
+  return {
+    play(c){ const tr = timing(c, 40, 100); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("本塁のクロスプレー");
+      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", 22, G, 1, !c.callOut, false); crowd(0.6, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+    reveal(go){ const tr = RV.truth, c = RV.c;
+      if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
+      const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 140;
+      slowReplay(t => draw(t, tr, c), first, second, function(){ const s = (tr.gap / 1000).toFixed(2); finishReplay(c, tr, "手が本塁に " + s + " 秒 早い", "タッチが " + s + " 秒 早い", false); }); },
+  };
+})();
+
+// ---- 二塁の盗塁: 走者が滑り、遊撃手が捕手からの送球を受けてタッチ ----
+SCENES.steal = (function(){
+  const G = 232, BAG = 170, START = 340, RUNT = 1200, THROW = 260;
+  function stage(c){
+    return stageOpen(280) + stands(150) + ground(150, 130) + dirt(60, 214, 240, 22) +
+      '<rect x="' + (BAG - 10) + '" y="' + (G - 3) + '" width="22" height="7" fill="#f4f1e6" stroke="#333"/>' +
+      figSvg("rv-ump", P.ready, 250, G - 30, 0.9, -1, "#2b2b30", "#111") +
+      figSvg("rv-ss", P.ready, BAG - 26, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      figSvg("rv-run", P.stand, START, G, 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(BAG - 34, G + 6, BAG + 34, G + 6) + big(80, 120) + lbl() + '</svg>';
+  }
+  function draw(t, tr, c){
+    const pr = Math.min(1, t / RUNT);
+    const x = START - (START - BAG - 8) * Math.pow(pr, 0.9);
+    const pose = pr < 0.7 ? run(t / 95) : lerpP(run(t / 95), P.slide, ease((pr - 0.7) / 0.3));
+    setFig("rv-run", pose, x, G - (pr > 0.7 ? 8 : 0), 1, -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222");
+    const tArr = RUNT + tr.delta;
+    if(t >= THROW){
+      const pt = Math.min(1, (t - THROW) / (tArr - THROW));
+      const bx = -10 + (BAG - 18 + 10) * pt, by = 60 + (G - 30 - 60) * pt + Math.sin(pt * Math.PI) * -30;
+      ball("rv-ball", bx, by, 4.5, true); ball("rv-sh", bx, G + 6, 0, true);
+      setFig("rv-ss", pt < 1 ? lerpP(P.ready, P.stretch, pt * 0.5) : lerpP(P.stretch, P.tag, ease(Math.min(1, (t - tArr) / 140))), BAG - 26 + 10 * pt, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
+      if(pt >= 1) ball("rv-ball", BAG + 2, G - 10, 4.5, true);
+    }
+  }
+  return {
+    play(c){ const tr = timing(c, 40, 100); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("二塁への盗塁");
+      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", 250, G - 30, -1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+    reveal(go){ const tr = RV.truth, c = RV.c;
+      if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
+      const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 140;
+      slowReplay(t => draw(t, tr, c), first, second, function(){ const s = (tr.gap / 1000).toFixed(2); finishReplay(c, tr, "手がベースに " + s + " 秒 早い", "タッチが " + s + " 秒 早い", false); }); },
+  };
+})();
+
+// ---- 外野の捕球: 落ちてくる飛球に外野手が走って飛び込む。グラブが先か、地面が先か ----
+SCENES.catch = (function(){
+  const G = 236, LAND = {x:150, y:G}, FROM = {x:330, y:30}, FALL = 1200, DIVE = 520;
+  function stage(c){
+    return stageOpen(280) + stands(150) + ground(150, 130) +
+      '<rect x="0" y="120" width="360" height="30" fill="#254a6e"/><text x="180" y="140" text-anchor="middle" font-family="Oswald" font-size="12" fill="#cfe0d4" letter-spacing="4" opacity=".6">OUTFIELD</text>' +
+      figSvg("rv-ump", P.look, 40, G, 0.9, 1, "#2b2b30", "#111") +
+      figSvg("rv-of", P.ready, 20, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(LAND.x - 34, G + 4, LAND.x + 34, G + 4) + big(270, 100) + lbl() + '</svg>';
+  }
+  function draw(t, tr, c){
+    const pb = Math.min(1, t / FALL);
+    const bx = FROM.x + (LAND.x - FROM.x) * pb, by = FROM.y + (LAND.y - 6 - FROM.y) * (pb * pb);
+    const tArr = FALL + tr.delta;
+    const pg = t < DIVE ? 0 : Math.min(1, (t - DIVE) / (tArr - DIVE));
+    const fx = 20 + (LAND.x - 42 - 20) * pg;
+    const pose = pg < 0.7 ? run(t / 90) : lerpP(run(t / 90), P.dive, ease((pg - 0.7) / 0.3));
+    setFig("rv-of", pose, fx, G - (pg > 0.7 ? 6 : 0), 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
+    if(!tr.safe && pg >= 1) ball("rv-ball", LAND.x - 2, G - 14, 4.5, true);
+    else ball("rv-ball", bx, Math.min(LAND.y - 4, by), 4.5, true);
+    ball("rv-sh", bx, G + 3, 0, true);
+  }
+  return {
+    play(c){ const tr = timing(c, 40, 110); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("外野への浅い飛球");
+      realtime(t => draw(t, tr, c), Math.max(FALL, FALL + tr.delta) + 300, function(){ umpCall("rv-ump", 40, G, 1, !c.callOut, false); ping(440, 0.06, 0.06); RV.timer = setTimeout(rvAsk, 700); }); },
+    reveal(go){ const tr = RV.truth, c = RV.c;
+      if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
+      const first = Math.min(FALL, FALL + tr.delta), second = Math.max(FALL, FALL + tr.delta) + 80;
+      slowReplay(t => draw(t, tr, c), first, second, function(){ finishReplay(c, tr, "グラブより " + (tr.gap / 1000).toFixed(2) + " 秒 早く地面に", "地面まで " + Math.round(tr.gap * 0.09) + "cm で捕球", false); }); },
+  };
+})();
+
+// ---- ポール際: 高い打球がポールの内か外か。外野手は壁で見上げ、審判はポールを見る ----
+SCENES.hr = (function(){
+  const G = 236, POLE = 262, WALL = 178, FLY = 1500;
+  function stage(c){
+    return stageOpen(300, "#0b1626") + stands(120) +
+      '<rect x="0" y="' + WALL + '" width="360" height="' + (G - WALL) + '" fill="#1f3d2e"/><rect x="0" y="' + WALL + '" width="360" height="4" fill="#e0a600"/>' +
+      ground(G, 64) +
+      '<rect x="' + (POLE - 3) + '" y="40" width="6" height="' + (WALL - 40) + '" fill="#ffd257"/><rect x="' + POLE + '" y="40" width="26" height="' + (WALL - 40) + '" fill="#ffd257" opacity=".22"/>' +
+      '<text x="' + (POLE + 13) + '" y="34" text-anchor="middle" font-family="Oswald" font-size="9" fill="#ffd257" letter-spacing="2">FOUL POLE</text>' +
+      figSvg("rv-of", P.look, POLE - 40, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      figSvg("rv-ump", P.look, 60, G, 0.9, 1, "#2b2b30", "#111") +
+      ballSvg("rv-ball") + flashLine(POLE - 40, 60, POLE + 40, 60) + big(120, 110) + lbl() + '</svg>';
+  }
+  // 真実: fair なら打球はポールの内側(左)を通って壁を越える。差は数十センチ = 数px
+  function truthOf(c){ const fair = c.callOut ? c.wrong : !c.wrong; const px = rnd1(4, 14); return {safe:fair, gap:px, x: fair ? POLE - px : POLE + px}; }
+  function draw(t, tr, c){
+    const p = Math.min(1, t / FLY);
+    const x = -10 + (tr.x + 10) * p, y = 250 - 330 * p + 260 * p * p;   // 高い放物線。壁の上で落ちてくる
+    ball("rv-ball", x, y, 5 - p * 1.5, true);
+    setFig("rv-of", lerpP(P.look, P.leap, ease(Math.max(0, (p - 0.75) / 0.25))), POLE - 40, G - (p > 0.85 ? 16 * Math.sin((p - 0.85) / 0.15 * Math.PI) : 0), 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
+    setFig("rv-ump", Object.assign({}, P.look, {headx: 20 + 30 * p}), 60, G, 0.9, 1, "#2b2b30", "#111");
+  }
+  return {
+    play(c){ const tr = truthOf(c); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("ポール際の大飛球");
+      realtime(t => draw(t, tr, c), FLY + 350, function(){ umpCall("rv-ump", 60, G, 1, !c.callOut, true); crowd(0.9, 0.08); RV.timer = setTimeout(rvAsk, 700); }); },
+    reveal(go){ const tr = RV.truth, c = RV.c;
+      if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
+      // ポールの真上でコマ送り
+      slowReplay(t => draw(t, tr, c), FLY * 0.86, FLY, function(){
+        const cm = Math.round(tr.gap * 6);
+        const m = document.createElementNS(NS, "g"); m.innerHTML = '<line x1="' + POLE + '" y1="70" x2="' + tr.x + '" y2="70" stroke="#ffd257" stroke-width="2"/><text x="' + ((POLE + tr.x) / 2) + '" y="62" text-anchor="middle" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="12" fill="#ffd257" style="paint-order:stroke" stroke="#0b1626" stroke-width="4">' + cm + 'cm</text>';
+        $r("rv-svg").appendChild(m);
+        finishReplay(c, tr, "ポールの内側 " + cm + "cm を通過", "ポールの外側 " + cm + "cm", true);
+      }); },
+  };
+})();
+
+// ---- ABS: センターカメラ。投手が投げ、打者が見送り、球審が宣告。チャレンジでビデオボードのゾーン図へ ----
+SCENES.abs = (function(){
+  const ZB = {x:143, y:150, w:74, h:88};     // 捕手の目線ではなく、中継の構図(奥に捕手・球審)
+  const R = 6;
+  const CM = 43.2 / ZB.w;
+  function truthOf(c){
+    const h = Math.round(ZB.h * (0.92 + rnd() * 0.16));
+    const Z = {x:ZB.x, y:ZB.y + Math.round((ZB.h - h) / 2), w:ZB.w, h};
+    const inside = c.callIsStrike ? !c.wrong : c.wrong;
+    const pen = inside ? rnd1(1.2, 6.5) : -rnd1(1.2, 6.5);   // 球の縁が線を越える深さ(px)
+    const off = R - pen;
+    const side = c.zone.indexOf("外角") >= 0 ? "R" : c.zone.indexOf("内角") >= 0 ? "L" : c.zone.indexOf("低め") >= 0 ? "B" : "T";
+    const lefty = c.batP && c.batP.bh === "左";
+    const sideX = (side === "L") ? (lefty ? "L" : "R") : (lefty ? "R" : "L");   // 内角は打者のいる側。右打者は画面の右に立つ
+    let px, py;
+    if(side === "L" || side === "R"){ px = sideX === "L" ? Z.x - off : Z.x + Z.w + off; py = rnd1(Z.y + 20, Z.y + Z.h - 20); }
+    else if(side === "T"){ py = Z.y - off; px = rnd1(Z.x + 18, Z.x + Z.w - 18); }
+    else { py = Z.y + Z.h + off; px = rnd1(Z.x + 18, Z.x + Z.w - 18); }
+    return {px, py, inside, pen, Z, side:sideX === "L" ? "L" : side === "T" || side === "B" ? side : "R"};
+  }
+  function stage(c, tr){
+    const Z = tr.Z, lefty = c.batP && c.batP.bh === "左";
+    const bx = lefty ? 102 : 258;
+    return stageOpen(300, "#0b1626") + stands(120) +
+      '<rect x="0" y="120" width="360" height="180" fill="url(#rvGrass)"/>' +
+      '<path d="M120 300 L150 140 L210 140 L240 300 Z" fill="#8a5a34"/>' +
+      '<ellipse cx="180" cy="128" rx="40" ry="8" fill="#8a5a34"/>' +
+      '<path d="M170 258 h20 v6 l-10 6 l-10 -6 z" fill="#f4f1e6" stroke="#333"/>' +
+      figSvg("rv-ump", P.crouch, 180, 268, 1.3, 1, "#2b2b30", "#111") +
+      figSvg("rv-cat", P.crouch, 180, 262, 1.2, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      figSvg("rv-bat", P.bat, bx, 262, 1.15, lefty ? 1 : -1, teamCol(c.batting ? c.victim : c.opp, "#e0a600"), "#222") +
+      '<rect id="rv-zone" x="' + Z.x + '" y="' + Z.y + '" width="' + Z.w + '" height="' + Z.h + '" fill="rgba(255,255,255,.05)" stroke="#e8f0ea" stroke-width="1.4" stroke-dasharray="5 4"/>' +
+      figSvg("rv-pit", P.stand, 180, 120, 0.8, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
+      '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
+      '<text x="10" y="292" text-anchor="start" font-family="Noto Sans JP,sans-serif" font-size="10" fill="#cfe0d4" letter-spacing="2" id="rv-cap">' + esc((c.kmh ? c.kmh + "km/h " : "") + (c.type || "") + "　" + c.zone) + '</text>' + lbl() + '</svg>';
+  }
+  function play(c){
+    const tr = truthOf(c); RV.truth = tr;
+    $r("rv-stage").innerHTML = stage(c, tr);
+    setLbl("満塁 フルカウント");
+    const col = teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
+    const trail = $r("rv-trail");
+    let start = 0, lastGhost = 0;
+    function f(ts){
+      if(!RV) return;
+      if(!start) start = ts;
+      const t = ts - start;
+      // 投球動作 0-900ms、球の飛行 900-1500
+      if(t < 900){ const q = t / 900; const pose = q < 0.55 ? lerpP(P.stand, P.wind, ease(q / 0.55)) : lerpP(P.wind, P.release, ease((q - 0.55) / 0.45)); setFig("rv-pit", pose, 180, 120, 0.8, 1, col, "#222"); }
+      else{
+        const p = Math.min(1, (t - 900) / 600);
+        setFig("rv-pit", lerpP(P.release, P.follow, Math.min(1, p * 2)), 180, 120, 0.8, 1, col, "#222");
+        const x = 180 + (tr.px - 180) * p, y = 112 + (tr.py - 112) * (p * p * 0.7 + p * 0.3);
+        ball("rv-ball", x, y, 2 + R * p, true);
+        if(ts - lastGhost > 40 && p < 1){ lastGhost = ts; const g = document.createElementNS(NS, "circle"); g.setAttribute("cx", x); g.setAttribute("cy", y); g.setAttribute("r", 1.5 + 4 * p); g.setAttribute("fill", "#fff"); g.setAttribute("fill-opacity", ".14"); trail.appendChild(g); }
+      }
+      if(t < 1500){ RV.raf = requestAnimationFrame(f); return; }
+      ping(520, 0.05, 0.06);
+      RV.timer = setTimeout(function(){
+        if(!RV) return;
+        // 捕球の瞬間だけ見せて消す。球審が宣告
+        const b = $r("rv-ball"); b.style.transition = "opacity .4s"; b.setAttribute("opacity", 0);
+        trail.style.transition = "opacity .4s"; trail.setAttribute("opacity", 0);
+        const to = c.callIsStrike ? P.outB : P.crouch;
+        let s2 = 0; function u(ts2){ if(!RV) return; if(!s2) s2 = ts2; const q = Math.min(1, (ts2 - s2) / 500); setFig("rv-ump", lerpP(P.crouch, c.callIsStrike ? (q < 0.5 ? P.outA : to) : P.stand, ease(q)), 180, 268, 1.3, 1, "#2b2b30", "#111"); if(q < 1) RV.raf = requestAnimationFrame(u); }
+        RV.raf = requestAnimationFrame(u);
+        RV.timer = setTimeout(rvAsk, 600);
+      }, 420);
+    }
+    RV.timer = setTimeout(function(){ RV.raf = requestAnimationFrame(f); }, 500);
+  }
+  // ビデオボードの図: ゾーンを大きく、球を重ね、縁との差
+  function board(tr){
+    const Z = tr.Z, scale = 2.2, ox = 180 - (Z.x + Z.w / 2) * scale, oy = 160 - (Z.y + Z.h / 2) * scale;
+    const zx = Z.x * scale + ox, zy = Z.y * scale + oy, zw = Z.w * scale, zh = Z.h * scale;
+    const bx = tr.px * scale + ox, by = tr.py * scale + oy, br = R * scale;
+    const col = tr.inside ? "#6fe3a0" : "#ff6b5b";
+    const cm = (Math.abs(tr.pen) * CM).toFixed(1);
+    let mx1, my1, mx2, my2, lx, ly, anchor = "middle";
+    if(tr.side === "L"){ mx1 = zx; my1 = by; mx2 = bx + br; my2 = by; lx = zx + 10; ly = by - 16; anchor = "start"; }
+    else if(tr.side === "R"){ mx1 = zx + zw; my1 = by; mx2 = bx - br; my2 = by; lx = zx + zw - 10; ly = by - 16; anchor = "end"; }
+    else if(tr.side === "T"){ mx1 = bx; my1 = zy; mx2 = bx; my2 = by + br; lx = bx; ly = zy + 26; }
+    else { mx1 = bx; my1 = zy + zh; mx2 = bx; my2 = by - br; lx = bx; ly = zy + zh - 14; }
+    const grid = [1, 2].map(k => '<line x1="' + (zx + zw * k / 3) + '" y1="' + zy + '" x2="' + (zx + zw * k / 3) + '" y2="' + (zy + zh) + '" stroke="#fff" stroke-opacity=".15"/><line x1="' + zx + '" y1="' + (zy + zh * k / 3) + '" x2="' + (zx + zw) + '" y2="' + (zy + zh * k / 3) + '" stroke="#fff" stroke-opacity=".15"/>').join("");
+    return '<g id="rv-abs" opacity="0"><rect x="0" y="0" width="360" height="300" fill="#05070c" opacity=".92"/>' +
+      '<text x="180" y="30" text-anchor="middle" font-family="Oswald" font-weight="700" font-size="14" fill="#fff" letter-spacing="6">ABS CHALLENGE</text>' +
+      '<rect x="' + zx + '" y="' + zy + '" width="' + zw + '" height="' + zh + '" fill="rgba(255,255,255,.04)" stroke="' + col + '" stroke-width="3"/>' + grid +
+      '<circle cx="' + bx + '" cy="' + by + '" r="' + br + '" fill="url(#rvBallG)" stroke="' + col + '" stroke-width="2"/>' +
+      '<line x1="' + mx1 + '" y1="' + my1 + '" x2="' + mx2 + '" y2="' + my2 + '" stroke="#ffd257" stroke-width="2"/>' +
+      '<text x="' + lx + '" y="' + ly + '" text-anchor="' + anchor + '" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="14" fill="#ffd257" style="paint-order:stroke" stroke="#05070c" stroke-width="4">' + (tr.inside ? cm + "cm かかった" : cm + "cm 外れ") + '</text>' +
+      '<text id="rv-absres" x="180" y="272" text-anchor="middle" font-family="Oswald" font-weight="700" font-size="40" fill="' + col + '" opacity="0" style="paint-order:stroke" stroke="#05070c" stroke-width="6">' + (tr.inside ? "STRIKE" : "BALL") + '</text>' +
+      '<text x="180" y="290" text-anchor="middle" font-family="Noto Sans JP,sans-serif" font-size="10" fill="#cfe0d4">球の一部でもゾーンにかかればストライク</text>' +
+      '<line id="rv-scan" x1="0" y1="' + zy + '" x2="360" y2="' + zy + '" stroke="#6fe3a0" stroke-width="2" opacity=".8"/></g>';
+  }
+  function reveal(go){
+    const c = RV.c, tr = RV.truth;
+    if(!go){ RV.timer = setTimeout(function(){ if(RV) rvSettle(false); }, 400); return; }
+    const svg = $r("rv-svg");
+    const defs = svg.querySelector("defs"); defs.insertAdjacentHTML("beforeend", '<radialGradient id="rvBallG" cx="40%" cy="35%"><stop offset="0" stop-color="#fff"/><stop offset=".7" stop-color="#e8e6dc"/><stop offset="1" stop-color="#9a978a"/></radialGradient>');
+    const g = document.createElementNS(NS, "g"); g.innerHTML = board(tr); svg.appendChild(g.firstChild);
+    setLbl("");
+    const panel = $r("rv-abs"), scan = $r("rv-scan"), res = $r("rv-absres");
+    const Z = tr.Z, scale = 2.2, oy = 160 - (Z.y + Z.h / 2) * scale, zy = Z.y * scale + oy, zh = Z.h * scale;
+    let start = 0;
+    function f(ts){
+      if(!RV) return;
+      if(!start) start = ts;
+      const t = ts - start;
+      panel.setAttribute("opacity", Math.min(1, t / 300));
+      const q = Math.min(1, t / 1400);
+      scan.setAttribute("y1", zy + zh * q); scan.setAttribute("y2", zy + zh * q);
+      if(t < 1500){ RV.raf = requestAnimationFrame(f); return; }
+      scan.setAttribute("opacity", 0);
+      res.setAttribute("opacity", 1);
+      ping(tr.inside === c.callIsStrike ? 330 : 990, 0.25, 0.08, "triangle");
+      crowd(0.8, 0.07);
+      RV.timer = setTimeout(function(){ if(RV) rvSettle(true); }, 1100);
+    }
+    RV.raf = requestAnimationFrame(f);
+  }
+  return {play, reveal};
+})();
 })();

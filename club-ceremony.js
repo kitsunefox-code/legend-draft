@@ -57,6 +57,13 @@ const PARK_ERA = {
   'hiroshima-old':{y:1975,n:'広島カープ、球団創設26年目の初優勝。赤ヘル元年'},
   nissei:{y:1979,n:'近鉄バファローズ、球団創設30年目で初のリーグ優勝の年'},
   polo:{y:1951,n:'ボビー・トムソン「世界中に響いた一発」の年'},
+  komazawa:{y:1962,n:'東映フライヤーズ、初の日本一の年'},
+  susaki:{y:1937,n:'沢村栄治が初のMVPに輝いた年'},
+  ebbets:{y:1955,n:'ブルックリン・ドジャースが初めて世界一になった年'},
+  tigerstadium:{y:1968,n:'デニー・マクレインが31勝、タイガース世界一の年'},
+  astrodome:{y:1986,n:'マイク・スコットがノーヒッターで地区優勝を決めた年'},
+  kingdome:{y:1995,n:'グリフィーの生還でヤンキースを破り、球団初のプレーオフ進出の年'},
+  forbes:{y:1960,n:'マゼロスキーのサヨナラ本塁打で世界一の年'},
 };
 function ldParkEra(pk){return (pk&&PARK_ERA[pk.id])||null;}
 function ldWareki(y){
@@ -95,6 +102,7 @@ const PARK_CITY = {
   'hiroshima-old':'広島・基町', nissei:'大阪・森ノ宮', dodger:'ロサンゼルス', gabp:'オハイオ・シンシナティ', tropicana:'フロリダ・セントピーターズバーグ',
   polo:'ニューヨーク・マンハッタン', sunmarine:'宮崎', kitakyushu:'福岡・北九州', ishikawa:'石川・金沢', komachi:'秋田',
   hardoff:'新潟', kusanagi:'静岡', obihiro:'北海道・帯広', abira:'北海道・安平',
+  komazawa:'東京・駒沢', susaki:'東京・洲崎', kobe:'兵庫・神戸', gifu:'岐阜', camden:'ボルティモア', pnc:'ピッツバーグ', daikin:'ヒューストン', globelife:'アーリントン', tmobile:'シアトル', citi:'ニューヨーク・クイーンズ', cbp:'フィラデルフィア', chase:'フェニックス', busch:'セントルイス', kauffman:'カンザスシティ', comerica:'デトロイト', ebbets:'ブルックリン', tigerstadium:'デトロイト', astrodome:'ヒューストン', kingdome:'シアトル', forbes:'ピッツバーグ',
 };
 function ldParkRegion(pk){
   const g=PARK_GEO[pk.id];if(!g)return '';

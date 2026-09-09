@@ -116,6 +116,79 @@ function rvInsert(script, g){
   script.splice(c.i + 1, 0, {t:"review", cand:c});
 }
 
+// ---------- 中継のない日の「いい場面」 ----------
+// 接戦の試合(2点差以内)の終盤に、人間の球団へ判定の場面を出す。首位攻防・終盤戦・連勝連敗中ほど出やすい
+function rvFindScene(rolled){
+  if(state.day < 5 || !state.opts || state.opts.review === false || !state.parts) return null;
+  const s = (typeof standingsSorted === "function") ? standingsSorted() : state.parts.slice();
+  const rem = state.schedule ? state.schedule.length - state.day : 99;
+  for(const r of rolled){
+    for(const side of ["A","B"]){
+      const t = r[side], opp = side === "A" ? r.B : r.A;
+      if(!t || t.cpu) continue;
+      const my = side === "A" ? r.rA : r.rB, op = side === "A" ? r.rB : r.rA;
+      if(Math.abs(my - op) > 2) continue;
+      if(t.rvCool && state.day < t.rvCool) continue;
+      let p = state.skipping ? 0.10 : 0.22;
+      if(rem <= 30) p += 0.08;
+      if(s.indexOf(t) <= 1 && s.indexOf(opp) <= 1) p += 0.12;
+      if(Math.abs(t.stk || 0) >= 4) p += 0.05;
+      if(rnd() > p) continue;
+      t.rvCool = state.day + 12;
+      return rvBuildScene(r, side, t, opp, my, op);
+    }
+  }
+  return null;
+}
+function rvPickFrom(arr){ return arr.length ? arr[Math.floor(rnd() * arr.length)] : null; }
+function rvBuildScene(r, side, t, opp, my, op){
+  const kind = rnd() < 0.5 ? "abs" : "req";
+  const batting = rnd() < 0.5;                       // 人間の球団が攻撃側か
+  const batT = batting ? t : opp, defT = batting ? opp : t;
+  const lineup = (typeof lineupOf === "function") ? lineupOf(batT).filter(Boolean) : Object.values(batT.slots).filter(p => p && p.cat === "B");
+  const batP = rvPickFrom(lineup) || Object.values(batT.slots).find(p => p && p.cat === "B");
+  const pitP = defT.slots.CL || defT.slots.RP1 || defT.slots.SP1 || Object.values(defT.slots).find(p => p && p.cat === "P");
+  if(!batP || !pitP) return null;
+  const inn = rnd() < 0.5 ? 9 : rnd() < 0.6 ? 8 : 7;
+  const top = (batT === r.A);                        // Aが先攻
+  const preOuts = Math.floor(rnd() * 3);
+  const others = lineup.filter(p => p !== batP);
+  const preBases = [rnd() < 0.45 ? rvPickFrom(others) : null, rnd() < 0.35 ? rvPickFrom(others) : null, rnd() < 0.25 ? rvPickFrom(others) : null];
+  const c = {kind, victim:t, standalone:true, game:r, side, my, op, opp, wrong: rnd() < 0.5,
+    pa:{inn, top, preOuts, preBases, bat:batP.name, batP, pit:pitP.name, pitP, batT}};
+  const bat = batP.name, pit = pitP.name;
+  if(kind === "abs"){
+    const pt = (typeof pickPitchType === "function") ? pickPitchType(pitP) : {name:"ストレート", kmh:145};
+    c.zone = pick1(EDGE_ZONES); c.type = pt.name; c.kmh = pt.kmh;
+    if(batting){ c.flip = "BB"; c.call = "ストライク！"; c.callSub = "見逃し三振"; c.callIsStrike = true;
+      c.flipText = `ABSの判定はボール。四球で出塁！ ${bat}が胸をなで下ろす`; c.holdText = `ABSの判定もストライク。三振は変わらず`; }
+    else { c.flip = "K"; c.call = "ボール"; c.callSub = "四球"; c.callIsStrike = false;
+      c.flipText = `ABSの判定はストライク！ 判定が覆って${bat}は三振`; c.holdText = `ABSの判定もボール。四球は変わらず`; }
+  }else{
+    if(batting){ c.flip = "1B"; c.call = "アウト！"; c.callSub = "一塁の判定"; c.callOut = true;
+      c.flipText = `リプレー検証の結果、セーフ！ 判定が覆って${bat}は内野安打`; c.holdText = `リプレー検証の結果もアウト。判定どおり`; }
+    else { c.flip = "GO"; c.call = "セーフ！"; c.callSub = "一塁の判定"; c.callOut = false;
+      c.flipText = `リプレー検証の結果、アウト！ 判定が覆って${bat}は一塁で憤死`; c.holdText = `リプレー検証の結果もセーフ。判定どおり`; }
+  }
+  return c;
+}
+function rvStartScene(c){
+  c.resume = !!state.playing;
+  stopTimer();
+  const sp = $r("s-play"), sk = $r("s-skip"); if(sp) sp.disabled = true; if(sk) sk.disabled = true;
+  if(hasFn("telop")) try{ telop(`【${c.kind === "abs" ? "ABSチャレンジ" : "リクエスト"}】${c.victim.name}、${c.pa.inn}回の際どい判定`); }catch(e){}
+  rvStart(c);
+}
+function rvSceneClose(c){
+  const sp = $r("s-play"), sk = $r("s-skip"); if(sp) sp.disabled = false; if(sk) sk.disabled = false;
+  const day = state.pendingDay; state.pendingDay = null;
+  if(day) finishDay(day);
+  if(hasFn("renderLive")) renderLive();
+  if(c.resume) startTimer();
+}
+
+window.rvFindScene = rvFindScene; window.rvStartScene = rvStartScene; window.rvBuildScene = rvBuildScene;
+
 // ---------- game.js への差し込み ----------
 const _buildGameScript = buildGameScript;
 buildGameScript = function(g){
@@ -165,7 +238,7 @@ function rvStart(c){
   const bg = rvBox();
   $r("rv-k").textContent = c.kind === "abs" ? "ABSチャレンジ" : "リクエスト";
   $r("rv-sit").textContent = `${pa.inn}回${pa.top ? "表" : "裏"}　${pa.preOuts}死　${basesLabel(pa.preBases)}`;
-  $r("rv-who").innerHTML = teamEmblem(c.victim, 22) + '<span>' + esc(c.victim.name) + ' の監督' + (mgr ? '　<b>' + esc(mgr.name) + '</b>' : '') + '</span>';
+  $r("rv-who").innerHTML = teamEmblem(c.victim, 22) + '<span>' + esc(c.victim.name) + ' の監督' + (mgr ? '　<b>' + esc(mgr.name) + '</b>' : '') + (c.standalone && c.opp ? '　<small>vs ' + esc(c.opp.name) + (state.schedule ? '・' + esc(dateLabel(state.day)) : '') + '</small>' : '') + '</span>';
   $r("rv-call").innerHTML = ""; $r("rv-call").className = "rv-call";
   $r("rv-q").innerHTML = ""; $r("rv-btns").innerHTML = ""; $r("rv-verdict").innerHTML = ""; $r("rv-foot").innerHTML = "";
   $r("rv-verdict").className = "rv-verdict";
@@ -214,7 +287,7 @@ function rvSettle(go){
   const c = RV.c, v = c.victim;
   const over = go && c.wrong;
   let head, body, cls;
-  if(go && over){ head = "判定が覆った！"; body = c.flipText + "。打席はやり直し。+1点"; cls = "win"; }
+  if(go && over){ head = "判定が覆った！"; body = c.flipText + (c.standalone ? "。+1点" : "。打席はやり直し。+1点"); cls = "win"; }
   else if(go){ head = "判定どおり"; body = c.holdText + "。チームの士気が少し落ちる"; cls = "lose"; }
   else if(c.wrong){ head = "……実は誤審だった"; body = "覆せたのに見送った。判定はそのまま"; cls = "miss"; }
   else { head = "正しい判定だった"; body = "受け入れて正解。無駄なチャレンジをしなかった"; cls = "ok"; }
@@ -222,8 +295,15 @@ function rvSettle(go){
   $r("rv-verdict").className = "rv-verdict show " + cls;
   $r("rv-q").innerHTML = "";
   const day = state.schedule ? dateLabel(Math.max(0, Math.min(state.day, state.schedule.length) - 1)) : "";
+  if(c.standalone){
+    const t = c.victim, won = c.my > c.op, tie = c.my === c.op;
+    const sc = `${t.name} ${c.my}-${c.op} ${c.opp.name}`;
+    body += (go && over) ? (won ? `。流れを引き寄せ、${sc} で勝利` : tie ? `。試合は ${sc} の引き分け` : `。それでも試合は ${sc} で落とした`)
+          : (won ? `。試合は ${sc} で勝利` : tie ? `。試合は ${sc} の引き分け` : `。試合は ${sc} で敗れた`);
+    $r("rv-verdict").innerHTML = '<b>' + esc(head) + '</b><span>' + esc(body) + '</span>';
+  }
   if(go && over){
-    rvApply(c);
+    if(!c.standalone) rvApply(c);
     addPts(v, 1, c.kind === "abs" ? "ABSチャレンジ成功" : "リクエスト成功");
     moodSet(v, 0.8, 7, "判定を覆した勢い");
     v.rvWin = (v.rvWin || 0) + 1;
@@ -242,7 +322,9 @@ function rvSettle(go){
 }
 window.rvClose = function(){
   if(!RV) return;
+  const scene = RV.c.standalone ? RV.c : null;
   rvAbort();
+  if(scene){ rvSceneClose(scene); return; }
   const c = liveCtx; if(!c) return;
   if(c.i >= c.script.length){ liveFinish(); return; }
   c.timer = setTimeout(liveStep, 500);

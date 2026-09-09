@@ -1,0 +1,61 @@
+/* 開幕前の球団紹介 */
+#intro-bg{position:fixed;inset:0;z-index:170;display:none;background:rgba(8,12,20,.9);padding:12px;align-items:center;justify-content:center;}
+#intro-bg.show{display:flex;}
+#intro{width:100%;max-width:820px;max-height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--paper2,#f4efe2);color:var(--ink,#1a1206);border-top:6px solid var(--tc,#22456b);border-radius:10px;padding:14px 16px 12px;box-shadow:0 20px 50px rgba(0,0,0,.5);}
+.in-head{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.in-emblem img,.in-emblem svg{width:56px;height:56px;}
+.in-title small{font:600 10px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.3em;color:#6b6a63;}
+.in-title h2{margin:2px 0 4px;font-size:22px;letter-spacing:.04em;}
+.in-power{display:inline-flex;align-items:baseline;gap:8px;font-size:12px;color:#4d4a42;}
+.in-power b{font-size:14px;padding:2px 8px;border-radius:4px;background:#1b2a45;color:#fff;}
+.in-power.bat b{background:#c9463a;} .in-power.pit b{background:#2f6fd6;} .in-power.bal b{background:#2a9a5b;}
+.in-trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px;}
+.in-card{display:flex;gap:8px;align-items:flex-start;background:#fff;border:1px solid #d9d2c0;border-radius:8px;padding:8px;min-width:0;}
+.in-card small{display:block;font-size:9.5px;letter-spacing:.15em;color:#8a8577;}
+.in-card b{display:block;font-size:13px;line-height:1.3;}
+.in-card span{display:block;font-size:10.5px;color:#4d4a42;margin-top:2px;line-height:1.4;}
+.in-card em{display:block;font-style:normal;font-size:10px;color:#6b6a63;line-height:1.35;margin-top:2px;}
+.in-card .f-th{width:44px;height:54px;border-radius:4px;overflow:hidden;flex:none;}
+.in-card .f-th img{width:100%;height:100%;object-fit:cover;}
+.in-card .in-face{width:44px;height:54px;border-radius:4px;background:#ddd6c4;flex:none;display:block;}
+.in-card .in-face.wide{width:64px;height:44px;}
+.in-mph{width:52px;height:60px;object-fit:cover;border-radius:6px;flex:none;border:2px solid #8a8a96;}
+.in-card.mascot.r-SS .in-mph{border-color:#e0a600;} .in-card.mascot.r-S .in-mph{border-color:#c9d3e2;} .in-card.mascot.r-A .in-mph{border-color:#e4432c;} .in-card.mascot.r-B .in-mph{border-color:#2f6fd6;}
+.in-pph{width:76px;height:52px;object-fit:cover;border-radius:6px;flex:none;}
+.in-ab i{font-style:normal;margin-right:4px;}
+.in-yaku{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;font-size:12px;}
+.in-yaku .in-k{font-weight:700;color:#b8860b;}
+.in-yaku .yk-chip{background:#fff7dc;border:1px solid #e0c36a;border-radius:12px;padding:2px 9px;font-size:12px;}
+.in-yaku .yk-chip b{color:#c9463a;margin-left:3px;}
+.in-sec{margin-top:8px;}
+.in-sec h3{margin:0 0 6px;font-size:12px;letter-spacing:.12em;color:#4d4a42;border-left:4px solid var(--tc,#22456b);padding-left:6px;}
+.in-grid{display:grid;gap:6px;}
+.in-grid.nine{grid-template-columns:repeat(9,minmax(0,1fr));}
+.in-grid.five{grid-template-columns:repeat(6,minmax(0,1fr));}
+.in-chip{position:relative;background:#fff;border:1.5px solid #cfc8b4;border-radius:7px;padding:16px 3px 5px;text-align:center;min-width:0;}
+.in-chip.r-SS{border-color:#e0a600;} .in-chip.r-S{border-color:#9aa8bb;} .in-chip.r-A{border-color:#e4432c;} .in-chip.r-B{border-color:#2f6fd6;} .in-chip.r-C{border-color:#2a9a5b;}
+.in-chip.empty{opacity:.6;border-style:dashed;}
+.in-pos{position:absolute;top:0;left:0;font:700 9.5px/1 "Noto Sans JP",sans-serif;background:#1b2a45;color:#fff;padding:3px 5px;border-radius:5px 0 5px 0;}
+.in-pos em{font-style:normal;color:#ffd257;margin-left:3px;font-family:"Oswald",sans-serif;}
+.in-rk{position:absolute;top:1px;right:2px;line-height:0;}
+.in-chip .in-face{display:flex;justify-content:center;}
+.in-chip .f-th{width:44px;height:54px;border-radius:4px;overflow:hidden;display:block;margin:0 auto;}
+.in-chip .f-th img{width:100%;height:100%;object-fit:cover;}
+.in-chip i.in-face{display:block;width:44px;height:54px;margin:0 auto;background:#ddd6c4;border-radius:4px;}
+.in-chip b{display:block;font-size:11px;line-height:1.25;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.in-chip small{display:block;font-size:9px;color:#6b6a63;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.in-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:12px;}
+.in-foot .btn.primary{background:#c9463a;color:#fff;border-color:#8a2c22;min-height:44px;padding:0 20px;}
+@media (max-width:700px){
+  #intro-bg{padding:0;align-items:stretch;}
+  #intro{max-width:none;border-radius:0;padding:calc(10px + env(safe-area-inset-top,0px)) 10px calc(10px + env(safe-area-inset-bottom,0px));}
+  .in-title h2{font-size:19px;}
+  .in-trio{grid-template-columns:1fr;gap:6px;}
+  .in-card{padding:6px 8px;align-items:center;}
+  .in-grid.nine{grid-template-columns:repeat(5,minmax(0,1fr));}
+  .in-grid.five{grid-template-columns:repeat(4,minmax(0,1fr));}
+  .in-chip .f-th,.in-chip i.in-face{width:40px;height:50px;}
+  .in-chip b{font-size:10.5px;}
+  .in-foot .btn{flex:1;min-height:46px;}
+  .in-foot span{display:none;}
+}

@@ -101,7 +101,7 @@ function costOf(ovr, cat, isMlb){
 function devMult(t){
   const m = t.slots.MGR;
   if(!m) return 1;
-  return clamp(1 + (88 - m.ovr)*0.04, 0.6, 1.6);
+  return clamp(1 + (88 - m.ovr)*0.04, 0.6, 1.6) * (mascotAb(t, "growth") ? 1.3 : 1);   // 育成のマスコットは覚醒を後押し
 }
 function devStars(m){
   const d = clamp(1 + (88 - m.ovr)*0.04, 0.6, 1.6);
@@ -219,12 +219,25 @@ function assignRanks(list){
     if(LEGEND_SS.has(p.name)){ p.rank = "SS"; p.ovr = Math.max(p.ovr, 92); p.cost = costOf(p.ovr, p.cat, !!p.mlb); return; }
     p.legend = legendScore(p); rest[eraBucket(p)].push(p);
   });
+  // Sは「一年だけ凄かった」では足りない。タイトル複数か通算の節目かMVP、救援はさらに厳しく
+  const sWorthy = p => {
+    const c = p.car || {}, t = p.titles || 0;
+    const mvp = typeof MARK_MVP !== "undefined" && MARK_MVP.has(p.name.replace("(MLB)","") + "@" + p.year);
+    if(p.cat === "P" && p.role !== "SP") return t >= 3 || (c.sv||0) >= 150 || mvp;
+    const mile = p.cat === "B" ? ((c.h||0) >= 2000 || (c.hr||0) >= 300 || p.tc) : ((c.w||0) >= 150 || (c.so||0) >= 2000);
+    return t >= 2 || mile || mvp || p.ovr >= 92;
+  };
   rest.forEach(bucket => {
     bucket.sort((a, b) => b.legend - a.legend);
     const n = bucket.length;
+    let sLeft = Math.round(n * 0.08);
     bucket.forEach((p, i) => {
       const q = i / n;
-      p.rank = q < 0.08 ? "S" : q < 0.24 ? "A" : q < 0.56 ? "B" : "C";
+      let r = q < 0.08 ? "S" : q < 0.24 ? "A" : q < 0.56 ? "B" : "C";
+      if(r === "S" && !sWorthy(p)) r = "A";
+      else if(r === "A" && q < 0.11 && sLeft > 0 && sWorthy(p)) r = "S";   // 外れたぶんは次点の実績者へ
+      if(r === "S") sLeft--;
+      p.rank = r;
       if(p.rank === "S" && p.ovr < 88){ p.ovr = 88; p.cost = costOf(p.ovr, p.cat, !!p.mlb); }
     });
   });
@@ -1066,6 +1079,7 @@ const GACHA_ROUNDS = [
   {k:"M", label:"監督ガチャ", note:"球団の頭脳。優勝回数の多い名将が出るか", grps:["MGR"]},
   {k:"B", label:"野手ガチャ", note:"打線と控え、15人ぶんのカプセルが一気に落ちる。<br>日米の名選手が混ざる", grps:["捕","一","二","三","遊","外","DH","BN"]},
   {k:"P", label:"投手ガチャ", note:"先発・中継ぎ・抑え、11人ぶん", grps:["SP","RP","CL"]},
+  {k:"C", label:"マスコットガチャ", note:"最後に球団の顔。<br>特殊能力がシーズンに効く", grps:["MASCOT"]},
 ];
 const RANK_ORDER = ["SS", "S", "A", "B", "C", "D"];   // D = デンジャー(残念助っ人)
 function startGacha(){
@@ -1077,6 +1091,7 @@ function gachaTeam(){ return state.parts[state.gacha.order[state.gacha.ptr]]; }
 function gachaRound(){ return GACHA_ROUNDS[state.gacha.round]; }
 function gachaOpenFor(t, R){
   if(R.k === "K") return t.park ? [] : [{key:"PARK", grp:"PARK", label:"本拠地"}];
+  if(R.k === "C") return t.mascot ? [] : [{key:"MASCOT", grp:"MASCOT", label:"マスコット"}];
   return openSlots(t).filter(d => R.grps.indexOf(d.grp) >= 0);
 }
 function gachaNext(){
@@ -1139,6 +1154,9 @@ function gachaPull(auto){
     const pk = free[Math.floor(rnd() * free.length)] || PARKS[0];
     t.park = pk;
     pulls.push({d:{label:"本拠地", grp:"PARK"}, park: pk, open: !!auto, rank: parkRank(pk)});
+  }else if(R.k === "C"){
+    const m = mascotDraw();
+    if(m){ t.mascot = m; pulls.push({d:{label:"マスコット", grp:"MASCOT", key:"MASCOT"}, mascot: m, open: !!auto, rank: m.rank}); }
   }else{
     // 守備位置の順に並べて引く(捕→一→二→三→遊→左→中→右→指→控え / 先発→中継→抑え)
     const ORDER = ["C","B1","B2","B3","SS","OF1","OF2","OF3","DH"].concat(BENCH_KEYS, SP_KEYS, RP_KEYS, ["CL"]);
@@ -1249,7 +1267,7 @@ function gachaSummaryHtml(G){
   const best = G.pulls.slice().sort((a, b) => RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank))[0];
   return '<div class="gc-sum">' +
     RANK_ORDER.filter(r => cnt[r]).map(r => '<span class="gc-sum-r r-' + r + '">' + r + '<i>' + cnt[r] + '</i></span>').join("") +
-    '<b>目玉 ' + esc(best.p ? best.p.name : parkShort(best.park)) + '</b></div>';
+    '<b>目玉 ' + esc(pullName(best)) + '</b></div>';
 }
 // Sの一撃。銀の光輪と大きな「S」が一瞬出て消える
 function gachaSplash(rank, x){
@@ -1445,7 +1463,50 @@ function gachaCapHtml(x, i, big){
     '<span class="gc-cap-glow"></span><span class="gc-cap-top"></span><span class="gc-cap-bot"></span><span class="gc-cap-shine"></span>' +
     '<span class="gc-cap-l">' + esc(x.d.label) + '</span></button>';
 }
+// マスコットの抽選。ランクの確率は選手と同じ。他の球団と同じ子は出ない
+function mascotDraw(){
+  if(typeof MASCOTS === "undefined") return null;
+  const taken = new Set(state.parts.map(x => x.mascot && x.mascot.id).filter(Boolean));
+  const cands = MASCOTS.filter(m => !taken.has(m.id));
+  if(!cands.length) return null;
+  const byTier = {};
+  cands.forEach(m => { (byTier[m.rank] = byTier[m.rank] || []).push(m); });
+  let roll = rnd() * 100, tier = "C";
+  for(const [r, w] of GACHA_TIERS){ if(roll < w){ tier = r; break; } roll -= w; }
+  let i = RANK_ORDER.indexOf(tier);
+  while(i < RANK_ORDER.length && !(byTier[RANK_ORDER[i]] && byTier[RANK_ORDER[i]].length)) i++;
+  if(i >= RANK_ORDER.length){ i = RANK_ORDER.indexOf(tier); while(i >= 0 && !(byTier[RANK_ORDER[i]] && byTier[RANK_ORDER[i]].length)) i--; }
+  const list = byTier[RANK_ORDER[i]];
+  return list[Math.floor(rnd() * list.length)];
+}
+// ドラフトで球団を作ったときは、球団の系譜に合うマスコットを付ける(無ければ抽選)
+function assignMascots(){
+  if(typeof MASCOTS === "undefined") return;
+  state.parts.forEach(t => {
+    if(t.mascot) return;
+    const taken = new Set(state.parts.map(x => x.mascot && x.mascot.id).filter(Boolean));
+    const own = MASCOTS.filter(m => !taken.has(m.id) && t.fr && m.fr === t.fr);
+    t.mascot = own.length ? own[Math.floor(rnd() * own.length)] : mascotDraw();
+  });
+}
+function mascotAb(t, ab){ return !!(t && t.mascot && t.mascot.ab === ab); }
+function mascotCardHtml(m, size){
+  if(!m) return "";
+  const ph = (typeof MASCOT_PHOTO !== "undefined") ? MASCOT_PHOTO[m.id] : null;
+  const ab = (typeof MASCOT_ABILITY !== "undefined" && MASCOT_ABILITY[m.ab]) || {};
+  return '<div class="gc-card mascot r-' + m.rank + ' sz-' + (size || "m") + '">' +
+    '<div class="gc-burst"></div>' +
+    '<div class="gc-rk"><span class="rank rank-' + m.rank + '">' + m.rank + '</span></div>' +
+    '<div class="gc-face tall">' + (ph ? '<img src="assets/mascot/' + m.id + '.jpg" alt="" decoding="async" onerror="this.remove()">' : '<span class="mc-none">' + esc(m.name.slice(0, 1)) + '</span>') + '</div>' +
+    '<div class="gc-nm">' + esc(m.name) + '</div>' +
+    '<div class="gc-meta">' + esc(m.team) + (m.since ? '・' + m.since + '年〜' : '') + '</div>' +
+    '<div class="mc-ab"><i>' + (ab.icon || "") + '</i><b>' + esc(ab.name || "") + '</b><span>' + esc(ab.desc || "") + '</span></div>' +
+    (size === "l" && m.desc ? '<div class="mc-desc">' + esc(m.desc) + '</div>' : '') +
+  '</div>';
+}
+function pullName(x){ return x.p ? x.p.name : x.mascot ? x.mascot.name : x.park ? parkShort(x.park) : ""; }
 function gachaCardHtml(x, big){
+  if(x.mascot) return mascotCardHtml(x.mascot, big ? "l" : "m");
   if(x.park){
     const pk = x.park, ph = PARK_PHOTO[pk.id];
     return '<div class="gc-card park r-' + x.rank + '">' +
@@ -2585,7 +2646,10 @@ function mgrBonus(t){
   if(t.mgrRest) return -1.0; // 監督休養中はヘッドコーチ代行
   return (m.ovr-85)*0.10;
 }
-function morale(t){ return (t.mood && state.day < t.mood.until) ? t.mood.val : 0; }
+function morale(t){
+  const v = (t.mood && state.day < t.mood.until) ? t.mood.val : 0;
+  return mascotAb(t, "cheer") ? Math.max(v, -0.5) : v;   // 応援団長: 士気は底を割らない
+}
 function moodSet(t, val, days, label){ t.mood = {until: state.day + days, val, label}; }
 function fw(p){ return (p && p.form ? p.form : 0) * 1.3; } // 調子の波
 // 離脱中の選手は数えない。抜けた枠は控えが埋め、控えも尽きれば戦力が落ちる
@@ -2624,6 +2688,7 @@ function rollForms(){
       if(tr.crowd <= 0.7 && rnd() < 0.15) p.form = Math.max(-2, p.form - 1);        // 客が少なく気が入らない
       if(tr.fatigue >= 1.3 && state.schedule && state.day > state.schedule.length * 0.55 && rnd() < 0.18)
         p.form = Math.max(-2, p.form - 1);                                           // 長距離移動の疲れが出る
+      if(mascotAb(t, "rally") && (t.stk||0) <= -4 && rnd() < 0.5) p.form = Math.min(2, p.form + 1);   // 反撃: 連敗中こそ燃える
     }
   }
 }
@@ -2749,6 +2814,7 @@ function startSeason(){
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
   state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; });
   awardYaku();   // 開幕オーダーの役
+  state.parts.forEach(t => { if(mascotAb(t, "luck") && !t.cpu) t.saihai = (t.saihai||0) + 2; t.crowdMark = 0; });   // 幸運: 采配権+2
   state.eventQueue = [];
   state.weekTarget = null; state.weekNo = 0; state.weekSnapData = null; state.huddle = null;
   // 月末のGMの決断(人間の球団だけ)。月報のすぐ後に来るよう、ルーレットより先に積む
@@ -2763,6 +2829,7 @@ function startSeason(){
   const wokeCount = rollAwakenings();
   initSeasonStats();
   rollForms();
+  state.parts.forEach(t => { if(mascotAb(t, "fortune")) lineupOf(t).forEach(p => { if(p) p.form = Math.min(2, (p.form||0) + 1); }); });   // 福の神: 開幕は打線が好調
   state.rosterTab = 0;
   show("scr-season");
   renderSeasonTabs();
@@ -2935,6 +3002,7 @@ const PARK_GEO = {
   "hiroshima-old":[34.394,132.456], nissei:[34.680,135.480], dodger:[34.074,-118.240], gabp:[39.097,-84.507], tropicana:[27.768,-82.653],
   polo:[40.831,-73.938], sunmarine:[31.829,131.421], kitakyushu:[33.868,130.861], ishikawa:[36.594,136.628], komachi:[39.712,140.093],
   hardoff:[37.881,139.040], kusanagi:[34.985,138.421], obihiro:[42.931,143.198], abira:[42.766,141.820],
+  komazawa:[35.626,139.66], susaki:[35.667,139.813], kobe:[34.677,135.101], gifu:[35.428,136.76], camden:[39.284,-76.622], pnc:[40.447,-80.006], daikin:[29.757,-95.355], globelife:[32.747,-97.084], tmobile:[47.591,-122.332], citi:[40.757,-73.846], cbp:[39.906,-75.166], chase:[33.445,-112.067], busch:[38.623,-90.193], kauffman:[39.051,-94.48], comerica:[42.339,-83.049], ebbets:[40.665,-73.958], tigerstadium:[42.332,-83.069], astrodome:[29.685,-95.408], kingdome:[47.595,-122.332], forbes:[40.442,-79.953],
 };
 // 正距円筒図法(地図画像は 2:1)。左上が (経度-180, 緯度90)
 function parkMapXY(pk){
@@ -3145,6 +3213,67 @@ const PARKS = [
   {id:"abira", cat:"草野球", name:"安平ときわ球場", type:"屋外・天然芝／北海道安平町", hr:1.30, run:1.16,
    note:"ときわ公園の中にある町営の球場。両翼94mに対して中堅がわずか108mという浅さで、平凡な当たりが柵を越える。夜間照明あり、3時間2,000円。使えるのは雪の消える4月下旬から10月まで",
    good:"打線全般", bad:"中堅手の心臓"},
+  // ---- 追加(2026-09-09): 日本の歴史球場・地方球場とMLBの名球場 ----
+  {id:"komazawa", cat:"歴史", name:"駒沢野球場", type:"屋外・天然芝／1953-1962", hr:1.06, run:1.03,
+   note:"東映フライヤーズの本拠地。1962年の日本一の舞台。東京五輪の会場整備で取り壊された",
+   good:"打線全般", bad:"投手陣"},
+  {id:"susaki", cat:"歴史", name:"洲崎球場", type:"屋外・天然芝／1936-1938", hr:1.15, run:1.08,
+   note:"職業野球の草創期、巨人と大阪タイガースが覇を争った。満潮で外野が水浸しになることも",
+   good:"打線全般", bad:"外野手の足元"},
+  {id:"kobe", cat:"地方", name:"ほっともっとフィールド神戸", type:"屋外・天然芝", hr:0.94, run:0.97,
+   note:"両翼99m・中堅122m。天然芝の美しい球場。オリックスが準本拠地として使う",
+   good:"投手陣", bad:"長距離砲"},
+  {id:"gifu", cat:"地方", name:"岐阜長良川球場", type:"屋外・天然芝", hr:0.98, run:0.99,
+   note:"両翼101m・中堅122m。長良川のほとりの広い球場",
+   good:"投手陣", bad:"長距離砲"},
+  {id:"camden", cat:"MLB", name:"オリオール・パーク・アット・カムデン・ヤーズ", type:"屋外・天然芝", hr:1.10, run:1.05,
+   note:"1992年開場。レンガ倉庫を残した「新古典派」球場の元祖。右中間が近く本塁打が出やすかった",
+   good:"左の長距離砲", bad:"投手陣"},
+  {id:"pnc", cat:"MLB", name:"PNCパーク", type:"屋外・天然芝", hr:0.88, run:0.95,
+   note:"川と橋を望む全米屈指の景観。左中間が深く本塁打が出にくい",
+   good:"投手陣", bad:"右の長距離砲"},
+  {id:"daikin", cat:"MLB", name:"ダイキン・パーク", type:"開閉屋根・天然芝", hr:1.04, run:1.00,
+   note:"旧ミニッツメイド・パーク。左翼の「クロフォード・ボックス」が近い",
+   good:"右の長距離砲", bad:"―"},
+  {id:"globelife", cat:"MLB", name:"グローブライフ・フィールド", type:"開閉屋根・人工芝", hr:0.97, run:0.97,
+   note:"2020年開場。屋根つきで夏の暑さをしのぐ。2023年レンジャーズ初の世界一",
+   good:"投手陣", bad:"―"},
+  {id:"tmobile", cat:"MLB", name:"T-モバイル・パーク", type:"開閉屋根・天然芝", hr:0.90, run:0.92,
+   note:"旧セーフコ・フィールド。海風で打球が伸びず投手有利。イチローが駆けた外野",
+   good:"投手陣", bad:"長距離砲"},
+  {id:"citi", cat:"MLB", name:"シティ・フィールド", type:"屋外・天然芝", hr:0.95, run:0.95,
+   note:"2009年開場。エベッツ・フィールドを模した正面。広い外野で投手有利",
+   good:"投手陣", bad:"長距離砲"},
+  {id:"cbp", cat:"MLB", name:"シチズンズ・バンク・パーク", type:"屋外・天然芝", hr:1.12, run:1.04,
+   note:"本塁打が出やすい打者天国。フィリー・ファナティックが暴れる",
+   good:"長距離砲", bad:"投手陣"},
+  {id:"chase", cat:"MLB", name:"チェイス・フィールド", type:"開閉屋根・人工芝", hr:1.05, run:1.06,
+   note:"外野にプールがある砂漠の球場。乾いた空気で打球が飛ぶ",
+   good:"打線全般", bad:"投手陣"},
+  {id:"busch", cat:"MLB", name:"ブッシュ・スタジアム", type:"屋外・天然芝", hr:0.95, run:0.96,
+   note:"2006年開場の3代目。ゲートウェイ・アーチを望む。カージナルスの赤に染まる",
+   good:"投手陣", bad:"―"},
+  {id:"kauffman", cat:"MLB", name:"カウフマン・スタジアム", type:"屋外・天然芝", hr:0.90, run:1.00,
+   note:"外野の噴水が名物。広い外野で二塁打・三塁打が多い",
+   good:"俊足の打者", bad:"長距離砲"},
+  {id:"comerica", cat:"MLB", name:"コメリカ・パーク", type:"屋外・天然芝", hr:0.93, run:0.97,
+   note:"中堅が深く、三塁打が出やすい。タイガースの本拠地",
+   good:"投手陣", bad:"右の長距離砲"},
+  {id:"ebbets", cat:"MLB", name:"エベッツ・フィールド", type:"屋外・天然芝／1913-1957", hr:1.15, run:1.06,
+   note:"ブルックリン・ドジャースの本拠地。ジャッキー・ロビンソンがデビューした球場。狭くて親密",
+   good:"打線全般", bad:"投手陣"},
+  {id:"tigerstadium", cat:"MLB", name:"タイガー・スタジアム", type:"屋外・天然芝／1912-1999", hr:1.10, run:1.03,
+   note:"右翼の張り出した二階席に本塁打が飛び込んだ。タイ・カッブから88年",
+   good:"左の長距離砲", bad:"投手陣"},
+  {id:"astrodome", cat:"MLB", name:"アストロドーム", type:"ドーム・人工芝／1965-1999", hr:0.85, run:0.90,
+   note:"世界初のドーム球場「世界八番目の不思議」。打球が飛ばず投手天国",
+   good:"投手陣", bad:"長距離砲"},
+  {id:"kingdome", cat:"MLB", name:"キングドーム", type:"ドーム・人工芝／1977-1999", hr:1.12, run:1.05,
+   note:"マリナーズ初期の本拠地。グリフィーJr.の本塁打が屋根に響いた",
+   good:"長距離砲", bad:"投手陣"},
+  {id:"forbes", cat:"MLB", name:"フォーブス・フィールド", type:"屋外・天然芝／1909-1970", hr:0.80, run:1.00,
+   note:"中堅140mの広大な外野。ノーヒッターが一度も出なかった球場",
+   good:"投手陣・俊足", bad:"長距離砲"},
 ];
 // その試合だけ球場の癖が変わる(球場イベント)ときは parkTmp を見る
 function parkOf(t){ return t.parkTmp || t.park || PARKS[0]; }
@@ -3189,7 +3318,7 @@ function parkTraitChips(pk){
 // 重み付きの球団選び。不祥事は記者の多い本拠地へ、怪我は移動の多い本拠地へ寄る
 function pickW(list, wf){
   if(!list || !list.length) return null;
-  const ws = list.map(x => Math.max(0.05, wf(x)));
+  const ws = list.map(x => Math.max(0.05, wf(x)) * (x && x.mascot && x.mascot.ab === "guard" ? 0.5 : 1));   // 守り神は的になりにくい
   let r = rnd() * ws.reduce((a,b)=>a+b, 0);
   for(let i = 0; i < list.length; i++){ r -= ws[i]; if(r <= 0) return list[i]; }
   return list[list.length-1];
@@ -3515,6 +3644,8 @@ function afterDay(){
       if(broadcast.opening && broadcast.opening.length){ showOpeningGogai(broadcast.opening, broadcast.g, afterLive); return; }
       if(broadcast.top){
         const gg = broadcast.g, lose = gg.rA > gg.rB ? gg.B : gg.rB > gg.rA ? gg.A : null;
+        const winT = lose ? (lose === gg.A ? gg.B : gg.A) : null;
+        if(lose && winT && mascotAb(winT, "trick")) moodSet(lose, -1, 7, winT.mascot.name + "のいたずら");
         if(lose){ const txt = `【痛恨】${lose.name}、首位攻防戦を落とす`; state.news.unshift({mo:dateLabel(state.day-1), txt}); telop(txt); }
       }
       if(broadcast.clinch){ showDoage(broadcast.clinch, afterLive); return; }
@@ -4106,6 +4237,11 @@ function playDay(){
   // 勝負どころがあれば、確定させる前に本人へ委ねる
   const cand = state.opts.saihai ? findSaihai(rolled) : null;
   if(cand){ state.pendingDay = rolled; startSaihai(cand); return false; }
+  // 接戦の終盤に際どい判定(review.js)。中継の日でなくても、いい場面なら監督に問う
+  if(typeof rvFindScene === "function"){
+    const sc = rvFindScene(rolled);
+    if(sc){ state.pendingDay = rolled; rvStartScene(sc); return false; }
+  }
   finishDay(rolled);
   return true;
 }
@@ -4117,6 +4253,8 @@ function finishDay(rolled){
     const A = r.A, B = r.B;
     const g = {rA:r.rA, rB:r.rB};
     applyGame(A, B, g.rA, g.rB);
+    // 集客のマスコット: 貯金が5・10・15・20に届くたびに+1点
+    [A, B].forEach(t => { if(!mascotAb(t, "crowd")) return; const mark = Math.floor(Math.max(0, t.W - t.L) / 5); if(mark > (t.crowdMark||0)){ t.crowdMark = mark; addPts(t, 1, "集客 貯金" + (mark*5)); } });
     const spA = starterOf(A), spB = starterOf(B);
     A.rotIdx = ((A.rotIdx||0) + 1) % rotKeys(A).length;
     B.rotIdx = ((B.rotIdx||0) + 1) % rotKeys(B).length;
@@ -4969,6 +5107,7 @@ function optimizeRoster(t){
   autoOrderFor(t);
 }
 function startCamp(){
+  assignMascots();   // ドラフトで作った球団にも球団の顔を
   // ガチャで作った球団は、力の順にレギュラーを並べ直してから編成へ
   if(state.opts.gacha) state.parts.forEach(optimizeRoster);
   // CPUは自動で組む
@@ -4984,9 +5123,13 @@ function campNext(){
   if(!c) return;
   if(c.ptr >= c.pending.length){
     state.campCtx = null;
-    curtain("開幕", "全球団の編成が決まりました。<br>一四四試合の長い戦いが始まります。" +
-      '<div class="c-odds"><span>下馬評</span>' + oddsLine() + '</div>', "開幕する",
-      function(){ startSeason(); });
+    const open = function(){
+      curtain("開幕", "全球団の編成が決まりました。<br>一四四試合の長い戦いが始まります。" +
+        '<div class="c-odds"><span>下馬評</span>' + oddsLine() + '</div>', "開幕する",
+        function(){ startSeason(); });
+    };
+    // 開幕の前に、全球団の顔ぶれを一つずつ確かめる
+    if(typeof showTeamIntro === "function") showTeamIntro(open); else open();
     return;
   }
   const idx = c.pending[c.ptr];
@@ -5143,7 +5286,7 @@ function renderOrder(){
     (state.campCtx && c.tab !== "pol" ? powerLineHtml(t) : "") +
     (state.opts.points !== false && c.tab === "field" ? yakuLineHtml(t, c) : "") +
     '<div class="od-tabs">' + tabs + '</div>' +
-    '<div class="od-body">' + body + '</div>' +
+    '<div class="od-body" data-tab="' + c.tab + '">' + body + '</div>' +
     '<div id="od-pick" class="od-pick" hidden></div>';
 }
 function odTab(k){ const c = state.orderCtx; if(!c) return; c.tab = k; c.sel = null; odPickClose(); seTap(); renderOrder(); }
@@ -5403,7 +5546,8 @@ function openTeamStats(idx){
   const t = state.parts[idx];
   if(!t || !state.seasonStats) return;
   const m = t.slots.MGR;
-  $("ts-title").innerHTML = `<span style="color:${t.color}">●</span> ${esc(t.name)} ── ここまでの成績（${t.W}勝${t.L}敗${t.T?t.T+"分":""}）`;
+  $("ts-title").innerHTML = `<span style="color:${t.color}">●</span> ${esc(t.name)} ── ここまでの成績（${t.W}勝${t.L}敗${t.T?t.T+"分":""}）` +
+    (typeof showTeamIntroOf === "function" ? ` <button class="btn ghost sm" style="margin-left:8px" onclick="showTeamIntroOf(${idx})">球団紹介</button>` : "");
   $("ts-body").innerHTML = (m ? `<div class="rl-mgr light">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
     + statTables(t, true);
   $("team-bg").classList.add("show");
@@ -5568,11 +5712,22 @@ function gmRender(){
     '<div class="gm-wrap">' +
     '<h2><span class="kicker">' + (MONTH_LABEL[c.no] || "") + '末</span>GMの決断</h2>' +
     '<div class="gm-team-line">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b><span>' + rank + '位　' + t.W + '勝' + t.L + '敗' + (stk ? '　' + (stk > 0 ? stk + '連勝中' : (-stk) + '連敗中') : '') + '</span><span class="gm-pts">総合 <i>' + (t.pts||0) + '</i>点</span></div>' +
-    (c.report.length ? '<div class="gm-report">' + c.report.map(r => '<div class="' + (r.ok ? "ok" : "ng") + '">' + esc(r.txt) + '</div>').join("") + '</div>' : '') +
+    gmMonthReport(t, c) +
     (state.opts.points === false ? '' : oshiHtml + rivalHtml) +
     '<div class="gm-sec"><div class="gm-h">今月の施策<small>一つだけ。必ず得と損が抱き合わせ</small></div><div class="gm-cards">' + cards + '</div></div>' +
     (state.opts.points === false ? '' : '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月、いちばん勝つ球団は？ 的中で+2点（首位当てより難しい）</small></div><div class="gm-teams">' + preds + '</div></div>') +
     '<div class="gm-foot"><span>' + (c.idx+1) + ' / ' + c.queue.length + '球団</span><button class="btn rl-go" ' + (ready ? '' : 'disabled') + ' onclick="gmCommit()">決定</button></div>' +
+    '</div>';
+}
+// 先月の答え合わせ(予想・勝負の月)と、先月に入った得点の内訳を一枚で
+function gmMonthReport(t, c){
+  const since = t.ptsMark || 0;
+  const log = (t.ptsLog || []).slice(since);
+  const sum = log.reduce((a, x) => a + (x.v || 0), 0);
+  if(!c.report.length && !log.length) return "";
+  return '<div class="gm-report2"><div class="gm-rh">先月の答え合わせ' + (log.length ? '<b class="' + (sum >= 0 ? "up" : "dn") + '">' + (sum >= 0 ? "+" : "") + sum + '点</b>' : '') + '</div>' +
+    c.report.map(r => '<div class="gm-rr ' + (r.ok ? "ok" : "ng") + '"><i>' + (r.ok ? "◎" : "×") + '</i>' + esc(r.txt) + '</div>').join("") +
+    (log.length ? '<div class="gm-rlog">' + log.map(x => '<span class="' + ((x.v||0) >= 0 ? "up" : "dn") + '"><b>' + ((x.v||0) >= 0 ? "+" : "") + x.v + '</b>' + esc(x.why) + '</span>').join("") + '</div>' : '') +
     '</div>';
 }
 function gmPick(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pick = i; seTap(); gmRender(); }
@@ -5593,8 +5748,12 @@ function gmCommit(){
   state.news.unshift({mo: (MONTH_LABEL[c.no] || "") + "末", txt}); telop(txt);
   seWin();
   renderRosterLive(); renderTeamStrip();
+  t.ptsMark = (t.ptsLog || []).length;   // 次の月の答え合わせはここから
   c.idx++;
-  gmNext();
+  // 決断の結果を一枚で見せてから次の球団へ
+  $("event-bg").classList.remove("show");
+  curtain(t.name + " の決断", '<b>「' + esc(card.label) + '」</b><br>' + esc(msg || card.eff || "") +
+    (t.pred ? '<br><small>番記者予想: 来月いちばん勝つのは ' + esc(t.pred.name) + '</small>' : ''), "次へ", gmNext);
 }
 
 // ============================================================
@@ -5743,8 +5902,8 @@ function renderTradeTable(){
   const cards = s.map(function(t){
     const rank = s.indexOf(t)+1;
     const need = teamNeeds(t), off = teamOffers(t);
-    const line = x => '<div class="ng-p"><span class="ng-pos">' + x.d.label + '</span>' +
-      '<span class="ng-nm">' + esc(x.p.name) + '</span>' + rankIcon(x.o, 16) + '</div>';
+    const line = x => '<div class="ng-p">' + faceThumb(x.p, 24, 30) + '<span class="ng-pos">' + x.d.label + '</span>' +
+      '<span class="ng-nm">' + esc(x.p.name) + '</span>' + rankIcon(x.p, 16) + '</div>';
     return '<div class="ng-card' + (t.cpu ? " cpu" : "") + '">' +
       '<div class="ng-h"><span class="ng-r">' + rank + '</span>' + teamEmblem(t, 19) +
         '<b>' + esc(t.name) + '</b>' +
@@ -5758,10 +5917,27 @@ function renderTradeTable(){
     ? '<div class="ng-done"><div class="ng-done-h">成立したトレード</div>' +
       ctx.done.map(function(d){ return '<div class="ng-done-i">' + esc(d) + '</div>'; }).join("") + '</div>'
     : "";
+  // 成立しやすい組み合わせ: 一方の「補強したい」守備位置を、もう一方が「出せる」
+  const pairs = [];
+  s.forEach(function(a){ s.forEach(function(b){
+    if(a === b) return;
+    teamNeeds(a).forEach(function(na){ teamOffers(b).forEach(function(ob){
+      if(!eligibleGrp(ob.p, na.d.grp)) return;
+      const back = teamOffers(a).find(function(oa){ return teamNeeds(b).some(function(nb){ return eligibleGrp(oa.p, nb.d.grp); }); });
+      pairs.push({a, b, want:ob, give:back, score:(ob.o - na.o) + (back ? 3 : 0)});
+    }); });
+  }); });
+  pairs.sort(function(x, y){ return y.score - x.score; });
+  const seenPair = new Set();
+  const tips = pairs.filter(function(x){ const k = [x.a.name, x.b.name].sort().join("|"); if(seenPair.has(k)) return false; seenPair.add(k); return true; }).slice(0, 4);
+  const tipHtml = tips.length ? '<div class="ng-tips"><div class="ng-lb">成立しやすい組み合わせ</div>' + tips.map(function(x){
+      return '<div class="ng-tip">' + teamEmblem(x.a, 16) + '<b>' + esc(x.a.name) + '</b> が ' + teamEmblem(x.b, 16) + '<b>' + esc(x.b.name) + '</b> の <span class="ng-nm">' + esc(x.want.p.name) + '</span>(' + esc(x.want.d.label) + ')を欲しがっている' +
+        (x.give ? '。見返りは <span class="ng-nm">' + esc(x.give.p.name) + '</span>(' + esc(x.give.d.label) + ')' : '') + '</div>';
+    }).join("") + '</div>' : '';
   $("event-panel").innerHTML =
     '<h2><span class="kicker">7月31日</span>トレード期限日 ── 駆け込み交渉</h2>' +
-    '<div class="sub">画面はお互いの手の内だけを映します。<b>交渉は卓上で口頭で</b>。' +
-    '話がついたら「成立させる」で入力してください。何件でも成立します。</div>' +
+    '<div class="sub"><b>1.</b> 下の札で各球団の「補強したい」「出せる」を見る　<b>2.</b> 卓上で口頭交渉　<b>3.</b> 話がついたら「成立させる」で入力。何件でも成立します</div>' +
+    tipHtml +
     '<div class="ng-grid">' + cards + '</div>' + done +
     '<div class="ng-foot">' +
       '<button class="btn" onclick="tradeOpenInput()">話がついた ── 成立させる</button>' +

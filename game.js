@@ -317,12 +317,12 @@ function buildFrontPage(){
   if(dt) dt.textContent = d.getFullYear() + "年 編";
   if(iss) iss.textContent = "開幕前";
 
-  const withPic = PARTY_LORE.filter(e => EVENT_PIC.has(e.id));
+  const withPic = PARTY_LORE.filter(e => hasEventPic(e.id));
   if(withPic.length){
     const e = pick1(withPic);
     const img = $("fp-img"), cap = $("fp-cap");
     if(img){
-      img.src = "assets/event/" + e.id + ".jpg";
+      img.src = eventPicUrl(e.id);
       img.onerror = function(){ const f = this.closest(".bk-zu"); if(f) f.style.display = "none"; };
     }
     if(cap){
@@ -4591,7 +4591,7 @@ function renderPartyLog(){
   box.style.display = "";
   const log = state.partyLog || [];
   el.innerHTML = log.length ? log.slice(0,24).map((x,i)=>{
-    const pic = x.id && EVENT_PIC.has(x.id);
+    const pic = x.id && hasEventPic(x.id);
     const ev = x.id ? PARTY_LORE.find(v=>v.id===x.id) : null;
     const note = ev && ev.note ? ev.note : "";
     return `
@@ -4600,7 +4600,7 @@ function renderPartyLog(){
         <span class="pl-icon">${x.icon}</span>
         <span class="pl-d">${x.d}</span>
         <span class="pl-t">${esc(x.txt)}</span>
-        ${pic?`<img class="pl-pic" src="assets/event/${x.id}.jpg" alt="" loading="lazy">`:""}
+        ${pic?`<img class="pl-pic" src="${eventPicUrl(x.id)}" alt="" loading="lazy">`:""}
         ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
       </div>
       ${note?`<div class="pl-src"><b>元ネタ</b>${esc(note)}${pic?`<button class="btn ghost sm" onclick="event.stopPropagation();replayEventPic(${i})">図を見る</button>`:""}</div>`:""}
@@ -4908,7 +4908,7 @@ function fileList(){
   const q = ($("file-q") && $("file-q").value || "").trim();
   const cat = state.fileCat || "all";
   return PARTY_LORE.filter(function(e){
-    if(cat === "pic"){ if(!EVENT_PIC.has(e.id)) return false; }
+    if(cat === "pic"){ if(!hasEventPic(e.id)) return false; }
     else if(cat !== "all" && fileCatOf(e) !== cat) return false;
     if(q && (plainText(e.text) + " " + (e.note||"")).indexOf(q) < 0) return false;
     return true;
@@ -4916,7 +4916,7 @@ function fileList(){
 }
 function fileCatCount(k){
   if(k === "all") return PARTY_LORE.length;
-  if(k === "pic") return PARTY_LORE.filter(function(e){ return EVENT_PIC.has(e.id); }).length;
+  if(k === "pic") return PARTY_LORE.filter(function(e){ return hasEventPic(e.id); }).length;
   return PARTY_LORE.filter(function(e){ return fileCatOf(e) === k; }).length;
 }
 // 事件簿も本拠地の選択と同じ組み方にする。
@@ -4946,9 +4946,9 @@ function renderFile(){
   }
   // 見ている事件。指定が無ければ、この分類の先頭(挿絵があるものを優先)
   let pv = list.find(function(e){ return e.id === state.filePv; });
-  if(!pv) pv = list.find(function(e){ return EVENT_PIC.has(e.id); }) || list[0];
+  if(!pv) pv = list.find(function(e){ return hasEventPic(e.id); }) || list[0];
   state.filePv = pv.id;
-  const hasPic = EVENT_PIC.has(pv.id);
+  const hasPic = hasEventPic(pv.id);
 
   const preview =
     '<div class="fv">' +
@@ -4959,7 +4959,7 @@ function renderFile(){
       '<div class="fv-body">' +
         (hasPic
           ? '<button class="fv-shot" onclick="showFilePic(&quot;' + pv.id + '&quot;)" title="挿絵を大きく見る">' +
-            '<img src="assets/event/' + pv.id + '.jpg" alt=""><span class="fv-zoom">拡大</span></button>'
+            '<img src="' + eventPicUrl(pv.id) + '" alt=""><span class="fv-zoom">拡大</span></button>'
           : '<div class="fv-shot fv-noimg">挿絵はまだありません</div>') +
         '<div class="fv-text">' +
           '<div class="fv-cat">' + esc(fileCatLabel(pv)) + '</div>' +
@@ -4970,10 +4970,10 @@ function renderFile(){
     '</div>';
 
   const tiles = list.map(function(e){
-    const pic = EVENT_PIC.has(e.id);
+    const pic = hasEventPic(e.id);
     const now = e.id === pv.id;
     return '<button class="fl-tile' + (now ? " now" : "") + '" onclick="filePick(&quot;' + e.id + '&quot;)">' +
-      (pic ? '<img src="assets/event/' + e.id + '.jpg" alt="" loading="lazy" onerror="this.remove()">'
+      (pic ? '<img src="' + eventPicUrl(e.id) + '" alt="" loading="lazy" onerror="this.remove()">'
            : '<span class="fl-no ' + e.cls + '">' + esc(e.icon) + '</span>') +
       '<span class="fl-n">' + esc(fileHead(e)) + '</span>' +
       '</button>';
@@ -6240,14 +6240,14 @@ function teamLogHtml(ti){
   const rows = log.slice().reverse().map(function(x){   // 起きた順に並べ直す
     const ev = x.id ? PARTY_LORE.find(function(v){ return v.id === x.id; }) : null;
     const note = ev && ev.note ? ev.note : "";
-    const pic = x.id && EVENT_PIC.has(x.id);
+    const pic = x.id && hasEventPic(x.id);
     return '<div class="tr-ev ' + x.cls + (note ? " has-src" : "") + '"' +
         (note ? ' onclick="toggleLogSrc(this)"' : '') + '>' +
       '<div class="tr-ev-line">' +
         '<span class="tr-d">' + esc(x.d) + '</span>' +
         '<span class="tr-i">' + esc(x.icon) + '</span>' +
         '<span class="tr-t">' + esc(x.txt) + '</span>' +
-        (pic ? '<img class="tr-pic" src="assets/event/' + x.id + '.jpg" alt="" loading="lazy">' : '') +
+        (pic ? '<img class="tr-pic" src="' + eventPicUrl(x.id) + '" alt="" loading="lazy">' : '') +
         (note ? '<span class="tr-more">元ネタ</span>' : '') +
       '</div>' +
       (note ? '<div class="tr-src"><b>元ネタ</b>' + esc(note) + '</div>' : '') +
@@ -6284,7 +6284,7 @@ function buildTimeline(){
   log.forEach(function(x){ (byCls[x.cls] || byCls.fun).push(x); });
   // 挿絵のある事件はその年の顔なので先に拾う
   Object.keys(byCls).forEach(function(k){
-    byCls[k].sort(function(a,b){ return (EVENT_PIC.has(b.id)?1:0) - (EVENT_PIC.has(a.id)?1:0); });
+    byCls[k].sort(function(a,b){ return (hasEventPic(b.id)?1:0) - (hasEventPic(a.id)?1:0); });
   });
   const keep = new Set();
   const order = ["bad","good","warn","fun"];
@@ -8045,6 +8045,97 @@ const EVENT_PIC = new Set([
   "suketto-mikikoku","suketto-rainichi-kyohi","trade-dengeki",
   "two-out-comeback","uniform-wasure","yon-shissaku","zanryu-dengeki"
 ]);
+// 球界事件簿のローカル挿絵(assets/event-ai/<id>.webp)。ChatGPT側で史実メモから生成した340枚(2026-09-11取り込み)。
+// 追加したら node tools/sync-event-pics.cjs で一覧を作り直す
+const LOCAL_EVENT_PIC = new Set([
+  "26-inning-marathon","accessory-chuui","ama-sesshoku","are-ryukogo",
+  "bakkin-bako","ball-kizu","ball-stuck-glove","ball-tobanai",
+  "base_chokugeki","bat-cork","bat-nukiuchi","bat-shard",
+  "bat-tatakitsuke","beanball-brawl","bee-swarm","beer-tansansui",
+  "benchi-inemuri","bird-strike","blackout-delay","blown-perfect",
+  "bosshu-jiai","boushi_ni_ball","button_tobu","cat-run",
+  "cycle-hit","dairi-nin-hosyu","dairinin-kyouki","daiyaku-suketto",
+  "dame-4ban-koho","dame-50save","dame-futotte","dame-kaimaku-dake",
+  "dame-keimusho","dame-kokyu-hatsugen","dame-nigun-kyohi","dame-saisoku-kaiko",
+  "dame-season-kikoku","dame-shussan-kikoku","dame-yasui-suketto","dame-yonoku-oomono",
+  "deadline_trade","dekidaka-momeru","dengeki-trade","dougu-keri",
+  "dust-storm","enchou-hikiwake","enjin-dogou","enman-taidan-okusoku",
+  "fa-kakehiki","fa_zanryu","fan-rannyu","fan-shiotaiou",
+  "faul-fusho","flag-rescue","foreign-chousei-busoku","foreign-goyaku-enjou",
+  "foreign-vanish","fukusou-kitei","fukusuunen-youkyu","futari-nasuriai",
+  "gaijin-bat-kikakugai","gaijin-raichi-kyohi","gaijin_daiyaku","gaijin_hatsukyuryo",
+  "gaijin_kaimaku3","gaijin_meigen","gaijin_mushi","gaijin_otsuge",
+  "gaijin_sebangou","gaijin_shissou","gaijin_shokuji","gaijin_sokukega",
+  "gaijin_taijo","gaikoku-fukki-kyousou","gaikokujin-waku","gappei-uwasa",
+  "gekokujo-cs","geneki_draft","genpou-fufuku","genueki-draft",
+  "glove-hade","glove-kitei-gai","glove-yasuri","glove_hasamaru",
+  "go-bench-aho","go-daigen-sougo","go-draft-namida","go-fan-shomei",
+  "go-game-furin","go-goods-hazusare","go-hikinuki","go-jibun-de-kaiken",
+  "go-jibun-jitsumei","go-jishin-kaifuku","go-kaigai-omoide","go-kami-otsuge2",
+  "go-kansen-hodo","go-kantoku-mekku","go-kekkon-kaiken","go-kinshin-kaijo",
+  "go-kisha-kaisan","go-kuji-hazure","go-kyudan-shacho-jinin","go-kyudan-shazaikoukoku",
+  "go-live-oto","go-mama-san","go-mask-kaiken","go-mie-hatsugen",
+  "go-mikkai-shashin","go-nidome-hodo","go-nikki-ryushutsu","go-ob-kugen",
+  "go-online-casino","go-oyakata-genkotsu","go-pachinko-kitsuen","go-pachinko-wakate",
+  "go-ranking-happyo","go-sain-kaimaku","go-sebangou-negai","go-shazai-kaiken-nakama",
+  "go-shinya-hodo-kaiken","go-shobun-nashi","go-shukanshi-tsuiseki","go-shukanshi-yosou",
+  "go-sns-ura","go-strike-kettei","go-suketto-bakuro","go-taijou-mitsuka",
+  "go-taijuu-keiyaku","go-tokei-jiman","go-tokorode-shitsumon","go-uno-ijiri",
+  "go-uwasa-hitori-aruki","go-yomiuri-kokuhatsu","go-yowai-hatsugen","godaseki-renzoku",
+  "gyaku-shimei-kinsen","habatsu-houdou","helmet-nage","helmet_tobu",
+  "hibou-hanron","hidden-ball","hon-60gou","hoyu-ken-momeru",
+  "ichi_inning_2hr","ikusei-nukeana","ikusei-shihaika","ikusei_nariagari",
+  "jinteki-hosho","jinteki-hoshou","jishu-tore-sabori","jiyu_fukkatsu",
+  "jiyuu-fukki","kaihen-strike","kaiken-fukigen","kake-shobun",
+  "kake-uwasa","kakushidama","kamigata-chuui","kankyaku-mizumashi",
+  "kantoku-fukki-yousei","kantoku-jinji-moto","kantoku-kouron","kantoku-kyuyou",
+  "kantoku-taijou","kantoku_fukki","kantoku_kyuyou","kanzen-koutai",
+  "keien-title","keien_zeme","keiyaku-kaijo","keiyaku-kaiken-enki",
+  "kensei_shiai_shuryo","kigen-girigiri","kinsen_trade","kinshin-ake-kaishin",
+  "kiroku_henko","kitsuen-hakkaku","koso-aisatsu","koso-kiba",
+  "kouban-yaruki","kouki-shukusei","kousai-giwaku","kuroi-kiri",
+  "kuuhaku-no-ichinichi","kyakuhon-kokoku","kyudan-miuri","kyukai_nishi_dai",
+  "kyunen-hukkatsu-keiyaku","live-haishin-jiko","manager-return","meeting-funkyuu",
+  "megahon-nagekomi","mgr-fukki","mgr-mokougi","mgr-taijou",
+  "midge-attack","minor_break","mongen-yaburi","mukankyaku",
+  "nebou","nekki-offer","nenpou-chotei","nigun_teiou",
+  "nyudan-kyohi-kousho","off-butori","ongaeshi-touban","otadai-choushinori",
+  "otokogi-zanryu","ouendan-trouble","oyagaisha-tettai","pepper-mill",
+  "pinch-run-specialist","pine-tar","pitch-clock","pitch-matsuyani",
+  "pitch-nenchaku","pitch-shojihin","pitcher-turns-hitter","posting-mousikomi",
+  "protect-more","protect_more","rain-erased","ranto-sunzen",
+  "renshu-chikoku","ryou-nukedashi","sakenomi-kaigou","sanmen-trade",
+  "sayonara_bouto","sc-bakkin","sc-bouzu-shazai","sc-camp-chikoku",
+  "sc-dm-ryushutsu","sc-fan-atamasage","sc-fan-trouble","sc-foreign-hodo",
+  "sc-furin-hodo","sc-futsukayoi","sc-gossip-shuzai","sc-goukon",
+  "sc-hachiawase","sc-hade-shifuku","sc-haishin-yofukashi","sc-jijitsu-mukon",
+  "sc-jishuku-gaishutsu","sc-jishutore-kesseki","sc-kaiken-koukando","sc-kakushigo",
+  "sc-kantoku-fukki","sc-kantoku-hihan","sc-kantoku-kaishoku","sc-kantoku-kyuyo",
+  "sc-kinen-area","sc-kiritori","sc-kisha-kakushitsu","sc-kokyusha",
+  "sc-kyudan-kitsuen","sc-kyukyu-kaiken","sc-mascomi-taiou","sc-mongen-yaburi",
+  "sc-mukigen-kinshin","sc-namida-kaiken","sc-nettai-goal","sc-nettai-happyo",
+  "sc-nigun-koukaku","sc-nikyudan-uwasa","sc-rikon-hodo","sc-rikon-kiki",
+  "sc-ryo-madonuke","sc-shazai-kaiken","sc-shimatsusho","sc-shinya-nomiaruki",
+  "sc-shiseikatsu-midare","sc-shitsugen","sc-shukanshi-direct","sc-sign-kyohi",
+  "sc-sns-enjo","sc-taiju-chouka","sc-tanimachi","sc-toshinosa-kon",
+  "sc-ura-account","scout-kanetsu","sebangou-fuman","seisai-kin",
+  "senpai-kouhai","senshukai-kousho","senshukai-tairitsu","shin-kyujo-konran",
+  "shinjin-ibiri","shinkansen-noriokure","shinkoku-keien","shinpan-bougen",
+  "shinpan-goshin","shinpan-soshiki-kougi","shinsai-kaimaku-enki","shinya-gaishutsu",
+  "shouka-fushizen","shuki-nokori","sign-bench-aizu","sign-camera",
+  "sign-futari-shougen","sign-gaijin-bakuro","sign-kenpaku","sign-kokuhatsu-naibu",
+  "sign-kyohi","sign-minoshi","sign-nusumi-giwaku","sign-runner-shigusa",
+  "sign-sougankyou","silly-injury","sns-enjo","spike-kitei",
+  "spike-wasure","squirrel-run","sticky-stuff","strike-cancel",
+  "strike-sunzen","sunglass_wasure","taidan-kaiken-honne","taijuu-choka",
+  "tenjou-choku","tiny-pinch-hitter","title-dangou","toitsukyu-mondai",
+  "tousei_shippai","toushu-mongen","trade-aite-fumei","trade-intai-honomekashi",
+  "trade-kinsen","trade-kyohi","trade-nakayasumi","tryout",
+  "tsuyaku_goyaku","uniform-ihan","veteran-kugen","visa-okure",
+  "wakate-zouhan","wild-pitch-loss","yaji-gassen","yon_shissaku"
+]);
+function hasEventPic(id){ return EVENT_PIC.has(id) || LOCAL_EVENT_PIC.has(id); }
+function eventPicUrl(id){ return LOCAL_EVENT_PIC.has(id) ? "assets/event-ai/" + id + ".webp" : "assets/event/" + id + ".jpg"; }
 function showEventPic(e, txt, after){
   const wasPlaying = state.playing;
   stopTimer();
@@ -8059,7 +8150,7 @@ function showEventPic(e, txt, after){
   const img = $("pic-img");
   img.onerror = function(){ this.parentNode.style.display = "none"; };
   img.parentNode.style.display = "";
-  img.src = "assets/event/" + e.id + ".jpg";
+  img.src = eventPicUrl(e.id);
   $("pic-bg").classList.add("show");
   seTap();
 }
@@ -8096,14 +8187,14 @@ function runLore(e){
       const m = /^【([^】]{1,10})】/.exec(e.text || "");
       const reason = m ? m[1] + "の余波でチームを離れた" : "球界を揺るがす事態でチームを離れた";
       const go = () => { startEmergency(t, x.slotKey, reason); renderRosterLive(); };
-      if(EVENT_PIC.has(e.id)) showEventPic(e, txt, go); else go();
+      if(hasEventPic(e.id)) showEventPic(e, txt, go); else go();
       return true;
     }
     default: break;
   }
   partyNews(e.icon || "報", e.cls || "fun", txt, e.id, t);
   if(["formUp","formDown","formUpTeam","formDownTeam","ovrUp","ovrDown"].includes(e.effect)) renderRosterLive();
-  if(EVENT_PIC.has(e.id)) showEventPic(e, txt);
+  if(hasEventPic(e.id)) showEventPic(e, txt);
   return true;
 }
 

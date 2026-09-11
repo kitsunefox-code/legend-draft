@@ -350,7 +350,7 @@ function gesture(c, done){
   const col = teamCol(c.victim, "#e0a600");
   if(c.kind === "abs"){
     if(!c.batting && SCENES.abs.challengePitcher){SCENES.abs.challengePitcher(c,done);return;}
-    const lefty=c.lefty, bx=c.batting?(lefty?116:258):92, by=c.batting?290:312, sc=c.batting?1.8:1.55;
+    const lefty=c.lefty, bx=c.batting?(lefty?138:272):66, by=c.batting?290:298, sc=c.batting?1.8:1.9;
     const initial=c.batting?P.bat:P.stand, facing=c.batting?(lefty?1:-1):1;
     g.innerHTML=figSvg("rv-gfig",initial,bx,by,sc,facing,col,"#192a37");svg.appendChild(g);
     const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
@@ -907,12 +907,12 @@ SCENES.hr = (function(){
 //   ゾーンの線は引かない。打者の膝〜胸の高さとベースの幅、ミットの位置で判断してもらう。
 //   宣告のあとは球審が立ち上がって拳を上げ、打者が振り返る(誤審集の定番の絵)。
 SCENES.abs = (function(){
-  const CAT = {x:186, y:290, sc:1.55};             // 捕手の足元(奥・中央)
-  const ZB = {x:171, y:219, w:30, h:33};           // ゾーン(描かない): 打者の膝〜胸 × ベースの幅
+  const CAT = {x:200, y:290, sc:1.55};             // 捕手の足元(奥・中央)
+  const ZB = {x:185, y:219, w:30, h:33};           // ゾーン(描かない): 打者の膝〜胸 × ベースの幅
   const R = 3.65 / 43.18 * ZB.w;                                     // 奥での球の大きさ
   const CM = 43.18 / ZB.w;
-  const MITT0 = {x:194, y:250};                    // 構えたミットの位置
-  const PIT = {x:94, y:297, sc:1.42};               // 投手の足元(手前・左下、一塁側にずれたカメラ)
+  const MITT0 = {x:208, y:250};                    // 構えたミットの位置
+  const PIT = {x:66, y:298, sc:1.9};               // 投手の足元(手前・左下、一塁側にずれたカメラ)
   function truthOf(c){
     // MLB 2026: midpoint of plate; width 17 inches; top 53.5%, bottom 27% of height.
     // Legacy data has no measured height: a fixed 180 cm model is used, never a random zone.
@@ -939,11 +939,11 @@ SCENES.abs = (function(){
   //   4 リリース: 上体が前へ倒れ始め、腕が頭の上から前へ 5 フォロースルー: 上体が深く倒れ、腕は左腰へ、軸足が跳ね上がる 6 構え直し
   const PK = [
     [ 0,-32,  0,-58,  0,-73, -8,-16,-11, 0,  9,-16, 11, 0,   8,-46,  2,-38,  -3,-40,-10,-46, 0],
-    [ 1,-35,  1,-61,  1,-76,-14,-46, -3,-30, 8,-17, 10, 0,   9,-49,  1,-45,  -2,-47,-10,-49, 0],
-    [ 3,-33,  3,-59,  2,-74,-18,-26,-30,-16, 9,-17, 12, 0,  18,-38, 26,-28, -24,-68,-13,-59, .45],
-    [ 5,-33,  6,-60,  5,-75,-18,-24,-30,-16,10,-16, 12, 0,  20,-63, 16,-87, -17,-63,-11,-61, 1],
-    [ 7,-35,  9,-62,  8,-70,-19,-24,-30,-16,12,-14, 14,-4,  12,-71,  4,-85,  -4,-50, -8,-56, .7],
-    [ 8,-34, 12,-50, 13,-58,-20,-24,-30,-16,16,-30, 26,-40,  4,-40,-12,-30, -12,-44, -8,-48, .2],
+    [ 1,-35,  1,-61,  1,-76,-17,-50, -2,-34, 8,-17, 10, 0,   9,-49,  1,-45,  -2,-47,-10,-49, 0],
+    [ 3,-33,  3,-59,  2,-74,-20,-27,-34,-19, 9,-17, 12, 0,  18,-38, 26,-28, -24,-68,-13,-59, .45],
+    [ 5,-33,  6,-60,  5,-75,-20,-25,-34,-19,10,-16, 12, 0,  20,-63, 16,-87, -17,-63,-11,-61, 1],
+    [ 7,-35,  9,-62,  8,-70,-21,-25,-34,-19,12,-14, 14,-4,  12,-71,  4,-85,  -4,-50, -8,-56, .7],
+    [ 9,-33, 13,-46, 15,-53,-22,-25,-34,-19,17,-32, 28,-46,  3,-38,-13,-28, -13,-42, -8,-46, .2],
     [ 4,-32,  4,-56,  4,-70,-15,-18,-22,-7, 10,-16, 12, 0,  12,-46, 10,-38, -14,-44,-12,-50, 0]
   ].map(a=>Object.fromEntries(keys.map((k,i)=>[k,a[i]])));
   const KT=[0,520,820,1010,1130,1400,1700];
@@ -953,7 +953,7 @@ SCENES.abs = (function(){
     for(let i=1;i<KT.length;i++)if(t<=KT[i])return lerpK(PK[i-1],PK[i],ease((t-KT[i-1])/(KT[i]-KT[i-1])));
     return PK[PK.length-1];
   }
-  function pitchOffset(k,rhp){return rhp?0:24*clampN((k.fx+12)/20,0,1);}
+  function pitchOffset(k,rhp){return rhp?0:10*clampN((k.fx+12)/20,0,1);}
   function pitchHand(k,rhp){return{x:PIT.x+(pitchOffset(k,rhp)+k.tx*(rhp?1:-1))*PIT.sc,y:PIT.y+k.ty*PIT.sc};}
   function pitcherBack(id,x,y,sc,col,k,rhp){
     x+=pitchOffset(k,rhp)*sc;
@@ -1025,28 +1025,45 @@ SCENES.abs = (function(){
     s += '<rect x="0" y="172" width="360" height="6" fill="#3a4a5e"/>';
     return s;
   }
+  function scoreBug(c){
+    const home = c.top ? (c.side === "A" ? c.opp : c.victim) : (c.side === "A" ? c.victim : c.opp);
+    const away = home === c.victim ? c.opp : c.victim;
+    const sc = t => t === c.victim ? c.my : c.op;
+    const ab = t => esc(String(t.name).replace(/[\s　]/g, "").slice(0, 3));
+    const dots = (n, on, col) => Array.from({length:n}, (_, i) => '<circle cx="' + (i * 7) + '" cy="0" r="2.4" fill="' + (i < on ? col : "#2a3a3e") + '"/>').join("");
+    const t = (x, y, s, col, txt, w) => '<text x="' + x + '" y="' + y + '" font-family="Noto Sans JP,Oswald,sans-serif" font-weight="' + (w || 700) + '" font-size="' + s + '" fill="' + col + '">' + txt + '</text>';
+    return '<g transform="translate(262 236)">' +
+      '<rect width="92" height="58" rx="2" fill="#0b1417" opacity=".9" stroke="#3a4c52" stroke-width=".8"/>' +
+      '<rect width="92" height="13" fill="#1c2b31"/>' + t(6, 10, 8.5, "#ffd257", c.inn + "回" + (c.top ? "表" : "裏")) +
+      '<rect x="0" y="13" width="54" height="22" fill="' + (away === c.victim ? "#243b48" : "#111b20") + '"/>' + t(5, 29, 12, "#fff", ab(away)) + '<text x="49" y="30" text-anchor="end" font-family="Oswald,sans-serif" font-weight="700" font-size="16" fill="#ffd257">' + sc(away) + '</text>' +
+      '<rect x="0" y="35" width="54" height="22" fill="' + (home === c.victim ? "#243b48" : "#111b20") + '"/>' + t(5, 51, 12, "#fff", ab(home)) + '<text x="49" y="52" text-anchor="end" font-family="Oswald,sans-serif" font-weight="700" font-size="16" fill="#ffd257">' + sc(home) + '</text>' +
+      '<g transform="translate(60 22)">' + t(0, 3, 8, "#cfe0d4", "S") + '<g transform="translate(11 0)">' + dots(2, 2, "#ffd257") + '</g></g>' +
+      '<g transform="translate(60 36)">' + t(0, 3, 8, "#cfe0d4", "B") + '<g transform="translate(11 0)">' + dots(3, 3, "#6fe3a0") + '</g></g>' +
+      '<g transform="translate(60 50)">' + t(0, 3, 8, "#cfe0d4", "O") + '<g transform="translate(11 0)">' + dots(2, c.outs, "#ff6b5b") + '</g></g>' +
+      '</g>';
+  }
   function stage(c, tr){
     const lefty = c.lefty, rhp = !(c.pitP && c.pitP.th === "左");
-    const bx = lefty ? 116 : 258;                    // センターから見て右打者は右(三塁側)
+    const bx = lefty ? 138 : 272;                    // センターから見て右打者は右(三塁側)。本塁の一団は画面のやや右
     const defCol = teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), batCol = teamCol(c.batting ? c.victim : c.opp, "#e0a600");
     return stageOpen(300, "#0b1626") + stands(120) + boards() +
       '<rect x="0" y="178" width="360" height="122" fill="url(#rvGrass)"/>' +
-      '<ellipse cx="186" cy="280" rx="130" ry="26" fill="#8a5a34"/>' +
+      '<ellipse cx="200" cy="280" rx="130" ry="26" fill="#8a5a34"/>' +
       '<path d="M0 300 Q120 268 240 300 Z" fill="#7a4d2a"/>' +
-      '<line x1="20" y1="296" x2="134" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/><line x1="352" y1="296" x2="238" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/>' +
-      '<path d="M171 286 l15 -7 l15 7 v5 h-30 z" fill="#f4f1e6" stroke="#333" stroke-width=".8"/>' +
-      '<rect x="110" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="222" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
+      '<line x1="34" y1="296" x2="148" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/><line x1="360" y1="294" x2="252" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/>' +
+      '<path d="M185 286 l15 -7 l15 7 v5 h-30 z" fill="#f4f1e6" stroke="#333" stroke-width=".8"/>' +
+      '<rect x="124" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="236" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
       umpFront(CAT.x + (lefty ? -18 : 18), CAT.y - 8, 1.45, 0, 0) +
       catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
       figSvg("rv-bat", P.bat, bx, 290, 1.8, lefty ? 1 : -1, batCol, "#222") +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
       pitcherBack("rv-pit", PIT.x, PIT.y, PIT.sc, defCol, PK[0], rhp) +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
-      // 左上: カウント(中継のスコア表示)
-      '<g transform="translate(8 28)"><rect width="104" height="15" rx="2" fill="#06110b" opacity=".8"/><text x="6" y="11" font-family="Oswald,sans-serif" font-weight="700" font-size="9.5" fill="#6fe3a0" letter-spacing="1">B ●●●</text><text x="44" y="11" font-family="Oswald,sans-serif" font-weight="700" font-size="9.5" fill="#ffd257" letter-spacing="1">S ●●</text><text x="74" y="11" font-family="Oswald,sans-serif" font-weight="700" font-size="9.5" fill="#ff6b5b" letter-spacing="1">O ' + "●".repeat(c.outs) + "○".repeat(3 - c.outs) + '</text></g>' +
-      // 右下: 球速と球種
-      '<g transform="translate(246 278)"><rect width="106" height="16" rx="2" fill="#06110b" opacity=".8"/><text id="rv-cap" x="53" y="11.5" text-anchor="middle" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="9.5" fill="#fff" letter-spacing="1">' + esc((c.kmh ? c.kmh + "km/h " : "") + (c.type || "")) + '</text></g>' +
-      lbl() + '<text x="10" y="292" font-family="Noto Sans JP,sans-serif" font-size="9" fill="#cfe0d4" letter-spacing="1.5" opacity=".8">センターカメラ</text></svg>';
+      // 右下: 中継のスコア表示(回、チームと得点、S/B/Oの灯)
+      scoreBug(c) +
+      // 左下: 球速(投球のあとに出る)
+      '<text id="rv-cap" x="14" y="291" font-family="Oswald,sans-serif" font-weight="700" font-size="13" fill="#fff" letter-spacing="1" style="paint-order:stroke" stroke="#06110b" stroke-width="3"></text>' +
+      lbl() + '</svg>';
   }
   function play(c){
     const tr=truthOf(c); RV.truth=tr;
@@ -1078,7 +1095,7 @@ SCENES.abs = (function(){
         ball("rv-ball",tr.px,tr.py+2*q,R,t<received);
       }
       if(t<received){RV.raf=rvFrame(f);return;}
-      drawCat(mitt);$r("rv-cap").textContent=(c.kmh||148)+" km/h　"+(c.type||"");
+      drawCat(mitt);$r("rv-cap").textContent=(c.kmh||148)+"km　"+(c.type||"");
       crowd(.045,.018);ping(155,.045,.025,"triangle");
       RV.timer=rvLater(()=>{
         const u=$r("rv-ump");if(u)u.outerHTML=umpFront(CAT.x+(lefty?-18:18),CAT.y-8,1.45,c.callIsStrike?1:0,c.callIsStrike?1:0);
@@ -1086,7 +1103,7 @@ SCENES.abs = (function(){
         RV.timer=rvLater(rvAsk,380);
       },280);
     }
-    $r("rv-cap").textContent="投球を見極める";
+    $r("rv-cap").textContent="";
     RV.timer=rvLater(()=>{RV.raf=rvFrame(f);},450);
   }
   // ビデオボードの図: ゾーンを大きく、球を重ね、縁との差(メジャーの球場表示に倣う)

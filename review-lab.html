@@ -63,7 +63,7 @@ function launch(play){
   rvStartScene(c);
 }
 </script>
-<script src="./review.js?v=16"></script>
+<script src="./review.js?v=17"></script>
 <script>
 const labels = {first:'一塁のクロスプレー', home:'本塁のクロスプレー', steal:'二塁への盗塁', catch:'外野の捕球', hr:'ポール際', abs:'ABSチャレンジ'};
 Object.entries(labels).forEach(([k, v]) => { const b = document.createElement('button'); b.className = 'lab'; b.textContent = v; b.onclick = () => launch(k); document.getElementById('choices').appendChild(b); });

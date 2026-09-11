@@ -207,6 +207,9 @@ const P = {
   release: {lean:36, la:-40, lb:-60, ra:118, rb:-6,  lu:58,  lk:-16, ru:-48, rk:8, glove:"L"},        // 踏み出して腕を振る
   follow:  {lean:62, la:-30, lb:-40, ra:20,  rb:-24, lu:56,  lk:-10, ru:-64, rk:40, glove:"L"},       // 振り切って上体が倒れる
   look:    {lean:-6, la:15,  lb:6,   ra:-15, rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, headx:28, glove:"L"},
+  pset:    {lean:3,  la:38,  lb:-96, ra:30,  rb:-98, lu:10,  lk:-10, ru:-8,  rk:-8, glove:"L"},        // セット: 横向きで両手を胸で合わせる
+  plift:   {lean:-5, la:40,  lb:-98, ra:32,  rb:-100,lu:96,  lk:-104,ru:-2,  rk:-6, glove:"L"},        // 前脚の膝を胸の高さへ
+  pstride: {lean:6,  la:92,  lb:-6,  ra:-76, rb:-12, lu:58,  lk:-18, ru:-30, rk:10, glove:"L"},        // 踏み出し: グラブは的へ、投げる腕は下へ引く
   leap:    {lean:4,  la:170, lb:2,   ra:162, rb:2,   lu:40,  lk:-80, ru:12,  rk:-60, glove:"L"},      // 跳ぶ。腕を上げ、膝を畳む
 };
 function run(t, amp){ // 走り。t=位相。脚と逆に腕を振り、肘は90度。前へ振り出す脚の膝は曲がる
@@ -937,21 +940,27 @@ SCENES.abs = (function(){
   //   0 セット(両手を胸の前で合わせる) 1 左脚を高く上げる(軸足一本で立つ) 2 踏み出し: 左足が奥へ着地(画面では左上へ)、
   //   グラブは的へ、投げる手は腰の後ろで下がる 3 テイクバック: 肘が肩の高さ、前腕が立ちボールが頭の上
   //   4 リリース: 上体が前へ倒れ始め、腕が頭の上から前へ 5 フォロースルー: 上体が深く倒れ、腕は左腰へ、軸足が跳ね上がる 6 構え直し
+  //  0 着地(腕は下へ引いた位置、グラブは的へ) 1 テイクバック(肘が肩、前腕が立つ) 2 リリース(上体が倒れ、腕が頭の上から前へ)
+  //  3 フォロースルー(上体が深く倒れ、腕は左腰、軸足が真横へ跳ね上がる) 4 軸足の着地 5 構え直し
   const PK = [
-    [ 0,-32,  0,-58,  0,-73, -8,-16,-11, 0,  9,-16, 11, 0,   8,-46,  2,-38,  -3,-40,-10,-46, 0],
-    [ 1,-35,  1,-61,  1,-76,-17,-50, -2,-34, 8,-17, 10, 0,   9,-49,  1,-45,  -2,-47,-10,-49, 0],
-    [ 3,-33,  3,-59,  2,-74,-20,-27,-34,-19, 9,-17, 12, 0,  18,-38, 26,-28, -24,-68,-13,-59, .45],
-    [ 5,-33,  6,-60,  5,-75,-20,-25,-34,-19,10,-16, 12, 0,  20,-63, 16,-87, -17,-63,-11,-61, 1],
-    [ 7,-35,  9,-62,  8,-70,-21,-25,-34,-19,12,-14, 14,-4,  12,-71,  4,-85,  -4,-50, -8,-56, .7],
-    [ 9,-33, 13,-46, 15,-53,-22,-25,-34,-19,17,-32, 28,-46,  3,-38,-13,-28, -13,-42, -8,-46, .2],
-    [ 4,-32,  4,-56,  4,-70,-15,-18,-22,-7, 10,-16, 12, 0,  12,-46, 10,-38, -14,-44,-12,-50, 0]
+    [ 2,-33,  4,-58,  3,-73,-16,-26,-22,-20, 12,-16, 14, 0,  18,-40, 26,-28, -18,-60,-12,-56, .5],
+    [ 5,-33,  7,-60,  6,-75,-17,-25,-22,-20, 13,-15, 14,-2,  30,-58, 28,-84, -12,-58, -9,-54, 1],
+    [ 8,-35, 10,-56,  9,-63,-18,-25,-22,-20, 15,-13, 16,-5,  12,-72,  5,-84,  -5,-50, -7,-52, .8],
+    [10,-33, 12,-42, 14,-46,-19,-26,-22,-20, 24,-30, 42,-36,  0,-36,-14,-28, -20,-46,-10,-44, .3],
+    [ 6,-32,  8,-52,  8,-66,-16,-22,-22,-16, 14,-16, 18,-8,  12,-42, 14,-34, -14,-52,-12,-50, 0],
+    [ 4,-32,  4,-58,  4,-73,-14,-18,-18,-6,  12,-16, 14, 0,  12,-46, 10,-40, -14,-50,-12,-52, 0]
   ].map(a=>Object.fromEntries(keys.map((k,i)=>[k,a[i]])));
-  const KT=[0,520,820,1010,1130,1400,1700];
-  const RELEASE=1130;
+  const KT=[950,1100,1220,1450,1750,2000];
+  const RELEASE=1220;
   function lerpK(a,b,t){const o={};for(const k of keys)o[k]=a[k]+(b[k]-a[k])*t;return o;}
   function pitching(t){
+    if(t<=KT[0]) return PK[0];
     for(let i=1;i<KT.length;i++)if(t<=KT[i])return lerpK(PK[i-1],PK[i],ease((t-KT[i-1])/(KT[i]-KT[i-1])));
     return PK[PK.length-1];
+  }
+  // 回転前(横向き)のポーズ。0-380 セット、380-620 足上げ、620-760 保持、760-960 踏み出し
+  function sidePose(t){
+    return t<380 ? P.pset : t<620 ? lerpP(P.pset,P.plift,ease((t-380)/240)) : t<760 ? P.plift : lerpP(P.plift,P.pstride,ease((t-760)/200));
   }
   function pitchOffset(k,rhp){return rhp?0:10*clampN((k.fx+12)/20,0,1);}
   function pitchHand(k,rhp){return{x:PIT.x+(pitchOffset(k,rhp)+k.tx*(rhp?1:-1))*PIT.sc,y:PIT.y+k.ty*PIT.sc};}
@@ -1057,7 +1066,7 @@ SCENES.abs = (function(){
       catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
       figSvg("rv-bat", P.bat, bx, 290, 1.8, lefty ? 1 : -1, batCol, "#222") +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
-      pitcherBack("rv-pit", PIT.x, PIT.y, PIT.sc, defCol, PK[0], rhp) +
+      figSvg("rv-pit", P.pset, PIT.x + 8 * (rhp ? 1 : -1), PIT.y, PIT.sc * 0.98, rhp ? 1 : -1, defCol, "#192a37") +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
       // 右下: 中継のスコア表示(回、チームと得点、S/B/Oの灯)
       scoreBug(c) +
@@ -1071,18 +1080,29 @@ SCENES.abs = (function(){
     setLbl("満塁　フルカウント");
     const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左");
     const defCol=teamCol(c.batting?c.opp:c.victim,"#4f8fe8");
-    const rel=pitchHand(PK[4],rhp), flight=16800/(clampN(c.kmh||148,90,175)/3.6);
+    const rel=pitchHand(PK[2],rhp), flight=16800/(clampN(c.kmh||148,90,175)/3.6);
     const received=RELEASE+flight+25, mitt={x:tr.px,y:tr.py+2};
+    const facing=rhp?1:-1, SX=PIT.x+8*facing;
     const drawPit=k=>{const el=$r("rv-pit");if(el)el.outerHTML=pitcherBack("rv-pit",PIT.x,PIT.y,PIT.sc,defCol,k,rhp);};
+    // 横向きの絵(セット〜踏み出し)と背中の絵(着地〜)を、体が回る 880-1000ms で溶かしてつなぐ
+    const drawPitcher=(t,k)=>{
+      const el=$r("rv-pit"); if(!el) return;
+      if(t<880){ el.outerHTML=figSvg("rv-pit",sidePose(t),SX,PIT.y,PIT.sc*0.98,facing,defCol,"#192a37"); return; }
+      const q=clampN((t-880)/120,0,1);
+      if(q>=1){ drawPit(k); return; }
+      const side=figSvg("rv-pit-side",sidePose(t),SX,PIT.y,PIT.sc*0.98,facing,defCol,"#192a37").replace('<g id="rv-pit-side"','<g id="rv-pit-side" opacity="'+(1-q).toFixed(2)+'"');
+      const back=pitcherBack("rv-pit-back",PIT.x,PIT.y,PIT.sc,defCol,k,rhp).replace('<g id="rv-pit-back"','<g id="rv-pit-back" opacity="'+q.toFixed(2)+'"');
+      el.outerHTML='<g id="rv-pit">'+side+back+'</g>';
+    };
     const drawCat=m=>{const el=$r("rv-cat");if(el)el.outerHTML=catcherFront("rv-cat",CAT.x,CAT.y,CAT.sc,defCol,m);};
     let start=0;
     function f(ts){
       if(!start)start=ts;
-      const t=ts-start,k=pitching(t);drawPit(k);
+      const t=ts-start,k=pitching(t);drawPitcher(t,k);
       const follow=ease((t-RELEASE-110)/(flight-110));
       drawCat(lerpPt(MITT0,mitt,follow));
       const hand=pitchHand(k,rhp);
-      if(t<RELEASE)ball("rv-ball",hand.x,hand.y,3.5,t>KT[2]);
+      if(t<RELEASE)ball("rv-ball",hand.x,hand.y,3.5,t>=KT[0]);
       else if(t<RELEASE+flight){
         const q=(t-RELEASE)/flight;
         // Late break varies by pitch type; endpoint is exactly the plate measurement.
@@ -1158,7 +1178,7 @@ SCENES.abs = (function(){
   }
   function challengePitcher(c,done){
     const rhp=c.pitP.th!=="左",col=teamCol(c.victim,"#4f8fe8");
-    const initial=PK[6],raised={...PK[6],sx:10,sy:-57,nx:10,ny:-71,ex:28,ey:-62,tx:12,ty:-78};
+    const initial=PK[5],raised={...PK[5],sx:10,sy:-57,nx:10,ny:-71,ex:28,ey:-62,tx:12,ty:-78};
     let start=0;
     function f(ts){if(!start)start=ts;const t=ts-start,k=lerpK(initial,raised,ease(t/430));
       if(t>430)k.ty+=Math.sin(Math.min(1,(t-430)/450)*Math.PI*4)*1.8;

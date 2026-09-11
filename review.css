@@ -1,84 +1,37 @@
-/* リクエスト／ABSチャレンジ ── 中継の上に重なる判定席 */
-#rv-bg{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;background:rgba(6,12,9,.82);padding:12px;}
-#rv-bg.show{display:flex;}
-#rv{width:100%;max-width:440px;background:linear-gradient(180deg,#0f2c20,#0b1f16);border:2px solid #0b1f16;outline:1px solid #2c5742;outline-offset:-5px;color:#e6efe8;padding:14px 14px 12px;box-shadow:inset 0 0 40px rgba(0,0,0,.4),6px 8px 0 rgba(0,0,0,.45);animation:rvIn .22s ease-out;}
-@keyframes rvIn{from{transform:translateY(12px);opacity:0}to{transform:none;opacity:1}}
-.rv-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
-.rv-k{display:inline-block;background:#e0a600;color:#1a1206;font:700 11px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:4px;padding:5px 10px 5px 12px;}
-#rv-bg.req .rv-k{background:#4f8fe8;color:#fff;}
-.rv-sit{font-size:12px;color:#9fbfa8;letter-spacing:1px;}
-.rv-who{display:flex;align-items:center;gap:8px;font-size:13px;color:#cfe0d4;margin-bottom:8px;}
-.rv-who b{color:#ffd257;font-size:14px;}
-.rv-stage{border:1px solid #2c5742;background:#0c2419;}
-.rv-svg{display:block;width:100%;height:auto;}
-.rv-call{display:none;margin-top:10px;align-items:baseline;gap:10px;padding:8px 12px;background:rgba(0,0,0,.3);border-left:4px solid #e8f0ea;}
-.rv-call.show{display:flex;animation:rvIn .18s ease-out;}
-.rv-call small{font-size:10px;color:#9fbfa8;letter-spacing:2px;}
-.rv-call b{font:700 26px/1 "Oswald","Noto Sans JP",sans-serif;color:#fff;letter-spacing:2px;}
-.rv-call span{font-size:12px;color:#cfe0d4;}
-.rv-q{margin-top:10px;min-height:1.4em;font-size:14px;letter-spacing:1px;font-family:"Zen Old Mincho","Yu Mincho",serif;color:#ffd257;display:flex;align-items:center;gap:10px;}
-.rv-q i{font:700 20px/1 "Oswald",sans-serif;color:#fff;background:#c9463a;border-radius:50%;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-style:normal;}
-.rv-btns{display:grid;grid-template-columns:1.3fr 1fr;gap:8px;margin-top:8px;}
-.rv-btns:empty{display:none;}
-.rv-btns .btn{min-height:48px;font-size:15px;}
-.rv-btns .rv-go{background:#c9463a;color:#fff;border-color:#8a2c22;box-shadow:0 4px 0 #6e1f17;}
-.rv-btns .rv-no{color:#cfe0d4;border-color:#2c5742;background:transparent;}
-.rv-verdict{display:none;margin-top:10px;padding:10px 12px;border-radius:6px;background:rgba(0,0,0,.28);border-left:4px solid #9fbfa8;}
-.rv-verdict.show{display:block;animation:rvIn .18s ease-out;}
-.rv-verdict b{display:block;font:700 20px/1.2 "Zen Old Mincho","Yu Mincho",serif;color:#fff;margin-bottom:4px;}
-.rv-verdict span{font-size:12.5px;color:#cfe0d4;line-height:1.55;}
-.rv-verdict.win{border-left-color:#6fe3a0;background:linear-gradient(90deg,rgba(111,227,160,.16),rgba(0,0,0,.28));}
-.rv-verdict.win b{color:#6fe3a0;}
-.rv-verdict.lose{border-left-color:#ff6b5b;}
-.rv-verdict.lose b{color:#ff6b5b;}
-.rv-verdict.miss{border-left-color:#e0a600;}
-.rv-verdict.miss b{color:#ffd257;}
-.rv-foot{margin-top:10px;display:flex;justify-content:flex-end;}
-.rv-foot:empty{display:none;}
-.rv-foot .btn{min-height:42px;}
-@media (max-width:700px){
-  #rv-bg{padding:0;align-items:stretch;}
-  /* 下に余白を残さず、内容を縦の中央へ。ボタンは内容の直後 */
-  #rv{max-width:none;display:flex;flex-direction:column;justify-content:center;overflow-y:auto;padding:calc(10px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px));}
-  .rv-stage{flex:none;}
-  .rv-head{margin-bottom:10px;}
-  .rv-who{margin-bottom:12px;}
-  .rv-call{margin-top:14px;}
-  .rv-q{margin-top:14px;font-size:15px;}
-  .rv-btns{margin-top:12px;}
-  .rv-verdict{margin-top:14px;}
-  .rv-foot{margin-top:16px;}
-  .rv-foot .btn{width:100%;min-height:48px;}
-}
+/* Broadcast review desk: isolated from the rest of the game. */
+#rv-bg{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;background:rgba(4,9,12,.92);padding:12px;overscroll-behavior:contain}
+#rv-bg.show{display:flex}#rv-bg *{box-sizing:border-box}
+#rv{width:100%;max-width:480px;max-height:calc(100dvh - 24px);overflow-y:auto;background:#101b20;border:1px solid #3d4c50;border-radius:3px;color:#edf0ea;padding:15px;font-family:"Noto Sans JP",sans-serif;box-shadow:0 24px 90px #0008}
+.rv-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:9px;border-bottom:1px solid #465254;padding-bottom:9px}
+.rv-k{font-size:12px;font-weight:800;letter-spacing:.1em;white-space:nowrap;border-left:3px solid #cdb97e;padding-left:8px;color:#f0e8d1}
+.rv-sit{font-size:10px;color:#abb7b8;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rv-sb{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;background:#080f13;border:1px solid #334249;padding:9px 8px}
+.rv-sb-t{display:flex;align-items:center;gap:5px;min-width:0}.rv-sb-t b{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#b7c1c4}.rv-sb-t.me b{color:#fff}
+.rv-sb-t i{font:600 25px/1 "Oswald",sans-serif;font-style:normal;color:#f4f1e8;margin-left:auto}.rv-sb-t:last-child{flex-direction:row-reverse}.rv-sb-t:last-child i{margin-right:auto;margin-left:0}
+.rv-sb-mid{text-align:center;font-size:10px;line-height:1.5;color:#b4c1c1}.rv-sb-mid small{display:block;font-size:12px;color:#edf1ee}
+.rv-stake{display:flex;justify-content:space-between;align-items:center;gap:7px;margin:8px 0 9px;font-size:12px;color:#e4d6b2}.rv-stake small{max-width:42%;text-align:right;font-size:9px;color:#a5b4b5;line-height:1.5}
+.rv-stage{flex:none;overflow:hidden;border:1px solid #465458;background:#0b1626}.rv-svg{display:block;width:100%;height:auto}
+.rv-call{display:none;align-items:center;flex-wrap:wrap;gap:4px 10px;padding:9px 0;border-bottom:1px solid #34434a;margin-top:3px}.rv-call.show{display:flex}.rv-call small{font-size:10px;color:#a8b6ba}.rv-call b{font-size:23px;line-height:1.2;font-weight:800;color:#fff}.rv-call span{font-size:11px;color:#b5c4c7}
+.rv-q{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;line-height:1.55;color:#e8dec3;min-height:0;margin-top:10px}.rv-q:empty{display:none}.rv-q i{flex-shrink:0;display:grid;place-items:center;width:30px;height:30px;border:1px solid #ab9671;color:#f2e5c6;font:600 21px/1 "Oswald",sans-serif;font-style:normal}
+.rv-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.rv-btns:empty,.rv-foot:empty{display:none}
+#rv .btn{font:700 13px/1.35 "Noto Sans JP",sans-serif;min-height:48px;border:1px solid #566269;border-radius:2px;padding:10px 8px;cursor:pointer;box-shadow:none;letter-spacing:.03em;touch-action:manipulation}
+#rv .rv-go{background:#ddcfab;color:#152129;border-color:#ddcfab}#rv .rv-no{background:#17252c;color:#d4dfdf}#rv .btn:active{transform:translateY(1px);filter:brightness(.88)}#rv .btn:focus-visible{outline:3px solid #9fd0e8;outline-offset:3px}
+.rv-tbar{grid-column:1/-1;height:3px;background:#35434a;overflow:hidden}.rv-tbar i{display:block;height:100%;background:#d4b575;transform-origin:left;animation:rvTbar 8s linear forwards}@keyframes rvTbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+#rv-ann{display:none;margin-top:9px;padding:7px 9px;background:#1e2c32;border-left:2px solid #a1afb1;font-size:11px;line-height:1.6;color:#dce4e1}#rv-ann.show{display:block}#rv-ann i{font-style:normal;font-size:9px;letter-spacing:.1em;margin-right:8px;color:#c8bd9c}
+.rv-verdict{display:none;margin-top:10px;border-left:3px solid #778a90;padding:3px 0 3px 10px}.rv-verdict.show{display:block}.rv-verdict b{display:block;font-size:19px;font-weight:800;line-height:1.4;margin-bottom:4px}.rv-verdict span{font-size:11.5px;line-height:1.65;color:#b9c9cd}
+.rv-verdict.win{border-color:#a5cdb5}.rv-verdict.win b{color:#b7d6c3}.rv-verdict.lose{border-color:#bca38c}.rv-verdict.lose b{color:#ddcbb8}
+.rv-foot{margin-top:12px;display:flex;justify-content:flex-end}#rv .rv-foot .btn{background:#2f434c;color:#fff;min-height:44px}
+@media(max-width:700px){#rv-bg{padding:0;align-items:stretch}#rv{max-width:none;max-height:100dvh;min-height:100dvh;display:flex;flex-direction:column;justify-content:flex-start;border:0;border-radius:0;padding:calc(12px + env(safe-area-inset-top,0px)) 12px calc(12px + env(safe-area-inset-bottom,0px))}.rv-head,.rv-board,.rv-call,.rv-q,.rv-btns,.rv-verdict,.rv-foot,#rv-ann{flex-shrink:0}#rv .rv-foot .btn{width:100%}}
+@media(max-height:730px){#rv{justify-content:flex-start}.rv-head{margin-bottom:6px;padding-bottom:6px}.rv-stake{margin:5px 0;font-size:11px}.rv-q,.rv-btns,.rv-foot,.rv-verdict,#rv-ann{margin-top:7px}#rv .btn{min-height:44px}.rv-verdict span{font-size:11px;line-height:1.5}}
 
-/* ---- 作り直し(2026-09-09): スコアボード・賭け・場内アナウンス ---- */
-.rv-board{margin-top:8px;}
-.rv-sb{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;background:#06110b;border:1px solid #2c5742;border-radius:6px;padding:6px 8px;}
-.rv-sb-t{display:flex;align-items:center;gap:6px;min-width:0;}
-.rv-sb-t b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#cfe0d4;}
-.rv-sb-t i{font:700 22px/1 "Oswald",sans-serif;color:#ffd257;font-style:normal;margin-left:auto;}
-.rv-sb-t.me b{color:#fff;}
-.rv-sb-t:last-child{flex-direction:row-reverse;} .rv-sb-t:last-child i{margin-left:0;margin-right:auto;}
-.rv-sb-mid{text-align:center;font-size:11px;color:#9fbfa8;line-height:1.3;padding:0 6px;}
-.rv-sb-mid small{display:block;font:700 12px/1.2 "Oswald","Noto Sans JP",sans-serif;color:#fff;}
-.rv-stake{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:6px 0 2px;font-size:12.5px;color:#ffd257;}
-.rv-stake small{color:#9fbfa8;font-size:10.5px;white-space:nowrap;}
-#rv-ann{display:none;margin-top:8px;background:#f4efe2;color:#1a1206;border-left:5px solid #c9463a;padding:6px 10px;font-size:12px;line-height:1.5;border-radius:4px;}
-#rv-ann.show{display:block;animation:rvIn .2s ease-out;}
-#rv-ann i{font-style:normal;font-size:10px;letter-spacing:.2em;background:#c9463a;color:#fff;padding:1px 6px;border-radius:3px;margin-right:6px;}
-.rv-stage{background:#0b1626;}
-@media (max-width:700px){
-  .rv-sb-t i{font-size:20px;}
-}
+.rv-matchup{display:flex;justify-content:space-between;gap:10px;padding:0 0 8px;font-size:10px;line-height:1.6;color:#b4c3c6}.rv-matchup span{max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
-/* v4: 中継風の仕上げ */
-.rv-stage{box-shadow:inset 0 0 40px rgba(0,0,0,.45);border-radius:6px;overflow:hidden;}
-.rv-btns .rv-tbar{grid-column:1/-1;height:4px;background:rgba(255,255,255,.12);border-radius:2px;overflow:hidden;}
-.rv-btns .rv-tbar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#ffd257,#c9463a);animation:rvTbar 8s linear forwards;}
-@keyframes rvTbar{from{width:100%}to{width:0}}
-.rv-btns .rv-go{font-family:"Zen Old Mincho","Yu Mincho",serif;letter-spacing:2px;}
-.rv-verdict{padding:12px 14px;}
-.rv-verdict b{font-size:22px;letter-spacing:1px;}
-.rv-call{border-radius:4px;}
-.rv-call b{font-size:26px;white-space:nowrap;}
-.rv-call small{white-space:nowrap;}
+/* smooth: 出るものは溶け込むように、消えるものはすっと */
+@keyframes rvIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+@keyframes rvPop{0%{transform:scale(.86)}60%{transform:scale(1.06)}100%{transform:scale(1)}}
+.rv-call.show,#rv-ann.show,.rv-verdict.show,.rv-foot:not(:empty){animation:rvIn .28s ease-out}
+.rv-btns:not(:empty){animation:rvIn .32s ease-out}
+.rv-q{transition:color .2s}
+#rv .btn{transition:transform .08s,filter .12s,opacity .2s}
+.rv-pop{transform-box:fill-box;transform-origin:center;animation:rvPop .34s cubic-bezier(.2,.9,.3,1.2)}
+@media(prefers-reduced-motion:reduce){.rv-call.show,#rv-ann.show,.rv-verdict.show,.rv-foot:not(:empty),.rv-btns:not(:empty),.rv-pop{animation:none}}

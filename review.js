@@ -167,7 +167,7 @@ function figSvg(id, p, x, y, sc, facing, col, cap){
   const number = RV && (id.includes("run") ? (RV.c.play === "first" ? RV.c.batP : RV.c.runner) : id.includes("bat") ? RV.c.batP : id.includes("pit") ? RV.c.pitP : slot ? def.slots[slot] : RV.c.fielder);
   let gear="";
   if(p.glove&&!ump){const h=g.arms[p.glove==="R"?1:0].h; gear+=`<g transform="translate(${h.x} ${h.y})"><path d="M-4 3 Q-7-2-3-6 L0-4 L4-6 Q8 0 3 5 Z" fill="#a56938" stroke="#4e301e" stroke-width="1"/><path d="M-3-2 Q0 4 4-2 M-3-4 L2 3 M0-4 L4 1" fill="none" stroke="#dfae6f" stroke-width=".7"/></g>`;}
-  if(typeof p.bat==="number"){const h=g.arms[0].h,ex=h.x+Math.sin(deg(p.bat))*34,ey=h.y+Math.cos(deg(p.bat))*34;gear+=line(`M${h.x} ${h.y} L${ex} ${ey}`,"#b9935e",3.5)+line(`M${h.x} ${h.y} l${(ex-h.x)*.25} ${(ey-h.y)*.25}`,"#282a29",2.2);}
+  if(typeof p.bat==="number"){const h=g.arms[p.batHand==="R"?1:0].h,ex=h.x+Math.sin(deg(p.bat))*34,ey=h.y+Math.cos(deg(p.bat))*34;gear+=line(`M${h.x} ${h.y} L${ex} ${ey}`,"#b9935e",3.5)+line(`M${h.x} ${h.y} l${(ex-h.x)*.25} ${(ey-h.y)*.25}`,"#282a29",2.2);}
   if(p.gesture==="review")gear+=line(`M${g.sh.x-4} ${g.sh.y+11} v-3 h3 m2 0 h3 v3 m0 3 v3 h-3 m-2 0 h-3 v-3`,skin,1.4);
   if(p.signal==="hr")gear+=line(`M${g.arms[0].h.x} ${g.arms[0].h.y} l1 -5`,skin,1.8);
   if(catcher) gear+=line(g.torso,"#202a33",10)+line(`M${g.sh.x-3} ${g.sh.y+3} L-3 -2`,"#66717b",1.4)+g.legs.map(a=>line(`M${a.e.x} ${a.e.y} L${a.h.x} ${a.h.y}`,"#26333e",6)).join("");
@@ -198,7 +198,8 @@ const P = {
   safe:    {lean:6,  la:95,  lb:0,   ra:-95, rb:0,   lu:28,  lk:-2,  ru:-28, rk:-2},                  // 両腕を横へ
   point:   {signal:"hr",lean:4,  la:168, lb:8,   ra:-15, rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 人差し指を上げて回す(本塁打)
   foul:    {lean:0,  la:162, lb:0,   ra:-162,rb:0,   lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 両手を上げてファウル
-  helmet:  {lean:6,  la:140, lb:92,  ra:-20, rb:-40, lu:8,   lk:-2,  ru:-8,  rk:-2},                  // ヘルメットの上を叩く
+  batRest: {lean:4,  la:24,  lb:-14, ra:14,  rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:12, batHand:"R"}, // バットを下ろし、後ろの手で脇に
+  helmet:  {lean:6,  la:140, lb:92,  ra:14,  rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:12, batHand:"R"}, // 後ろの手にバット、前の手でヘルメットの上を叩く
   square:  {gesture:"review",lean:2,  la:60,  lb:-100,ra:-60, rb:100, lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 胸の前で両手の四角(リクエスト)
   bat:     {lean:12, la:-40, lb:-70, ra:-30, rb:-80, lu:16,  lk:-4,  ru:-20, rk:-4, bat:-155},        // 構え。手は後ろの肩の高さ、バットは立てる
   swing:   {lean:-6, la:82,  lb:8,   ra:70,  rb:18,  lu:34,  lk:-10, ru:-36, rk:-4, bat:100},         // インパクト。両腕を伸ばしバットは前へ
@@ -355,9 +356,11 @@ function gesture(c, done){
     const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
     let start=0;
     function f(ts){if(!start)start=ts;const t=ts-start;
-      const q=ease(Math.min(1,t/430)),pose=lerpP(initial,P.helmet,q);
+      // 見逃しなのでバットは振らない: まず下ろして後ろの手に持ち替え、それから前の手でヘルメットを叩く
+      const pose = !c.batting ? lerpP(initial,P.helmet,ease(Math.min(1,t/430)))
+        : t<300 ? lerpP(initial,P.batRest,ease(t/300)) : lerpP(P.batRest,P.helmet,ease(Math.min(1,(t-300)/350)));
       // Two small taps, then hold the challenge gesture.
-      if(t>430)pose.la+=Math.sin(Math.min(1,(t-430)/450)*Math.PI*4)*4;
+      if(t>650)pose.la+=Math.sin(Math.min(1,(t-650)/300)*Math.PI*4)*4;
       setFig("rv-gfig",pose,bx,by,sc,facing,col,"#192a37");
       if(t<950)RV.raf=rvFrame(f);else RV.timer=rvLater(done,180);
     }

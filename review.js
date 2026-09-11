@@ -669,15 +669,28 @@ function throwPose(t, release){
   return lerpP(P.release,P.follow,ease((t-release)/280));
 }
 function runnerPose(t, arrival, slide){
-  const contact=slide?P.slide:{...P.stand,lean:20,la:-45,lb:90,ra:45,rb:90,lu:32,lk:-12,ru:-38,rk:-50};
+  if(!slide){
+    // 駆け抜け: ベースで止まらない。全力の走りのまま通過し、通過後は歩幅と前傾を徐々に緩める
+    const a = t <= arrival ? 1 : Math.max(0.3, 1 - (t - arrival) / 1000);
+    const p = run(t / 92, a); if(t > arrival) p.lean = 16 * a;
+    return p;
+  }
+  const contact=P.slide;
   if(t<arrival-230) return run(t/92);
   if(t<=arrival) return lerpP(run((arrival-230)/92),contact,ease((t-arrival+230)/230));
-  return slide?contact:lerpP(contact,run(t/92),ease((t-arrival)/210));
+  return contact;
 }
 function drawRunner(id,t,arrival,from,target,sliding,col){
   const q=Math.max(0,t/arrival), pose=runnerPose(t,arrival,sliding);
   // The leading cleat reaches the actual near edge of the base at arrival.
-  const foot=q<=1?lerpPt(from,target,q):{x:target.x+(t-arrival)*(sliding?.018:.085),y:target.y-(sliding?0:(t-arrival)*.035)};
+  let foot;
+  if(q<=1) foot=lerpPt(from,target,q);
+  else if(sliding) foot={x:target.x+(t-arrival)*.018,y:target.y};
+  else { // 駆け抜け: 走路の延長へ、減速しながら
+    const dt=t-arrival, len=Math.hypot(target.x-from.x,target.y-from.y), ux=(target.x-from.x)/len, uy=(target.y-from.y)/len;
+    const v=len/arrival, dist=v*dt*Math.max(0.35,1-dt/1800);
+    foot={x:target.x+ux*dist,y:target.y+uy*dist};
+  }
   const sc=dsc(foot.y), pos=anchorFig(pose,foot,sc,1,"toe");
   setFig(id,pose,pos.x,pos.y,sc,1,col,"#192a37");
   const el=$r(id); if(el){el.dataset.toeX=foot.x;el.dataset.toeY=foot.y;}
@@ -732,7 +745,8 @@ SCENES.first = (function(){
   }
   return {
     play(c){ const tr = timing(c, 25, 75); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("一塁のクロスプレー");
-      realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", UMP.x, hipY(UMP), -1, !c.callOut, false, dsc(UMP.y)); ping(440, 0.06, 0.06); RV.timer = rvLater(rvAsk, 420); }); },
+      let called = false; const tEnd = Math.max(RUNT, RUNT + tr.delta);
+      realtime(t => { draw(t, tr, c); if(!called && t >= tEnd + 200){ called = true; umpCall("rv-ump", UMP.x, hipY(UMP), -1, !c.callOut, false, dsc(UMP.y)); ping(440, 0.06, 0.06); } }, tEnd + 900, function(){ RV.timer = rvLater(rvAsk, 120); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = rvLater(function(){ if(RV) rvSettle(false); }, 400); return; }
       const first = Math.min(RUNT, RUNT + tr.delta), second = Math.max(RUNT, RUNT + tr.delta) + 60;

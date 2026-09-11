@@ -1,0 +1,70 @@
+<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>球史 判定シーン 動作確認</title>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho:wght@400;700;900&family=Oswald:wght@500;600;700&family=Noto+Sans+JP:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./review.css?v=6">
+<style>
+body{margin:0;background:#0c1418;color:#eef0ec;font-family:"Noto Sans JP",sans-serif;padding:18px 16px 40px}
+h1{font:700 18px/1.3 "Zen Old Mincho",serif;margin:0 0 6px;letter-spacing:.06em}
+p{font-size:12px;line-height:1.7;color:#aab6b8;margin:0 0 14px}
+.row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px}
+button.lab{font:700 14px "Noto Sans JP",sans-serif;padding:14px 6px;background:#17252c;color:#eef0ec;border:1px solid #3d4c50;border-radius:3px}
+button.lab:active{filter:brightness(.85)}
+.opts{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:6px 0 14px;color:#dfe6e3}
+.opts label{display:flex;align-items:center;gap:6px}
+#log{font-size:12px;color:#d4b575;min-height:1.6em}
+.hide{display:none}
+</style>
+<h1>判定シーンの動作確認</h1>
+<p>リクエスト／ABSチャレンジの6場面をその場で再生します。球団・選手は確認用のダミーで、本体のデータには触れません。場面を選ぶと決断→検証→結果まで通しで動きます。</p>
+<div class="opts">
+  <label><input type="radio" name="w" value="rand" checked>誤審かどうかは伏せる</label>
+  <label><input type="radio" name="w" value="1">必ず誤審(覆る)</label>
+  <label><input type="radio" name="w" value="0">必ず正しい判定</label>
+</div>
+<div class="opts">
+  <label><input type="radio" name="b" value="any" checked>攻守どちらも</label>
+  <label><input type="radio" name="b" value="1">自軍が攻撃側</label>
+  <label><input type="radio" name="b" value="0">自軍が守備側</label>
+  <label><input type="checkbox" id="lefty">左打者</label>
+</div>
+<div class="row" id="choices"></div>
+<p id="log"></p>
+<button id="s-play" class="hide">自動進行</button><button id="s-skip" class="hide">スキップ</button>
+<script>
+let seed = (Date.now() % 100000) + 481516;
+function rnd(){ seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }
+function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+const keys = ['C','B1','B2','B3','SS','OF1','OF2','OF3','DH','SP1','RP1','CL','MGR'];
+const NAMES = {
+  A: ['城島健司','王貞治','落合博満','長嶋茂雄','松井稼頭央','イチロー','秋山幸二','松井秀喜','大谷翔平','金田正一','佐々木主浩','岩瀬仁紀','野村克也'],
+  B: ['古田敦也','駒田徳広','高木豊','衣笠祥雄','立浪和義','張本勲','福本豊','山本浩二','清原和博','稲尾和久','江夏豊','藤川球児','野村克也'],
+};
+function team(name, color, prefix, names){ return {name, color, cpu:false, pts:0, W:0, L:0, slots:Object.fromEntries(keys.map((k, i) => [k, {name:names[i], cat:i < 9 ? 'B' : i < 12 ? 'P' : 'M', bh:'右', th:'右', no:i + 1}]))}; }
+const state = {parts:[team('東京レジェンズ', '#d9dad5', '東京', NAMES.A), team('大阪クラブ', '#294d70', '大阪', NAMES.B)], opts:{review:true}, day:8, schedule:new Array(143), playing:false, skipping:false, news:[], pendingDay:null};
+function lineupOf(t){ return keys.slice(0, 9).map(k => t.slots[k]); }
+function teamEmblem(t){ return '<span style="display:inline-block;width:10px;height:10px;flex-shrink:0;background:' + t.color + '"></span>'; }
+function basesLabel(b){ return b.every(Boolean) ? '満塁' : (b.map((p, i) => p ? ['一','二','三'][i] : '').filter(Boolean).join('・') || '走者なし') + (b.some(Boolean) ? '塁' : ''); }
+function dateLabel(d){ return (4 + Math.floor(d / 26)) + '月' + (1 + d % 26) + '日'; }
+function pickPitchType(){ const t = [['ストレート',151],['スライダー',138],['フォーク',141],['カーブ',122],['チェンジアップ',133]][Math.floor(rnd() * 5)]; return {name:t[0], kmh:t[1]}; }
+function stopTimer(){ state.playing = false; } function startTimer(){ state.playing = true; } function renderLive(){} function renderNews(){}
+function addPts(t, n){ t.pts += n; } function moodSet(){}
+function finishDay(day){ state.day++; document.getElementById('log').textContent = '試合へ戻った: ' + day[0].A.name + ' ' + day[0].rA + ' - ' + day[0].rB + ' ' + day[0].B.name + '　次の日付 ' + dateLabel(state.day); }
+function launch(play){
+  if(document.getElementById('rv-bg')?.classList.contains('show')) rvClose();
+  const w = document.querySelector('input[name=w]:checked').value, bsel = document.querySelector('input[name=b]:checked').value, lefty = document.getElementById('lefty').checked;
+  window.rvForcePlay = play;
+  const t = state.parts[0], opp = state.parts[1], game = {A:t, B:opp, rA:2, rB:3};
+  let c = null;
+  for(let i = 0; i < 200; i++){ c = rvBuildScene(game, 'A', t, opp, 2, 3); if(c && c.play === play && (bsel === 'any' || c.batting === (bsel === '1'))) break; c = null; }
+  if(!c){ document.getElementById('log').textContent = 'この組み合わせでは場面を作れません'; return; }
+  if(w !== 'rand') c.wrong = w === '1';
+  c.lefty = lefty; if(c.batP) c.batP.bh = lefty ? '左' : '右';
+  state.pendingDay = [game];
+  document.getElementById('log').textContent = '';
+  rvStartScene(c);
+}
+</script>
+<script src="./review.js?v=13"></script>
+<script>
+const labels = {first:'一塁のクロスプレー', home:'本塁のクロスプレー', steal:'二塁への盗塁', catch:'外野の捕球', hr:'ポール際', abs:'ABSチャレンジ'};
+Object.entries(labels).forEach(([k, v]) => { const b = document.createElement('button'); b.className = 'lab'; b.textContent = v; b.onclick = () => launch(k); document.getElementById('choices').appendChild(b); });
+</script></html>

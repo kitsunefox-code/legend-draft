@@ -595,7 +595,7 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
 
 /* ペナントの操作は下の帯(親指の届く位置)。上は日付と首位の情報だけ */
 @media (max-width:700px){
-  #s-dock{position:fixed;left:0;right:0;bottom:0;z-index:100;display:grid;grid-template-columns:44px 1fr 1.25fr 44px;gap:8px;align-items:stretch;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(10,30,20,.96);border-top:1px solid #2c5742;box-shadow:0 -6px 18px rgba(0,0,0,.35);}
+  #s-dock{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:44px 1fr 1.25fr 44px;gap:8px;align-items:stretch;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(10,30,20,.96);border-top:1px solid #2c5742;box-shadow:0 -6px 18px rgba(0,0,0,.35);}
   #s-dock .btn{min-height:46px !important;height:auto;margin:0 !important;font-size:15px !important;}
   #s-dock #s-skip{font-size:14px !important;}
   #s-dock #s-speed{width:44px !important;min-width:0 !important;height:46px;margin:0;}
@@ -608,4 +608,47 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
 @media (max-width:700px){
   #s-dock > *{grid-area:auto !important;grid-row:1 !important;}
   #s-dock #s-speed{grid-column:1 !important;} #s-dock #s-skip{grid-column:2 !important;} #s-dock #s-play{grid-column:3 !important;} #s-dock .snd-btn{grid-column:4 !important;}
+}
+
+/* 操作帯は催し・編成・幕・判定などの覆いの下に隠す(「決定」が押せなくなった不具合) */
+@media (max-width:700px){
+  body:has(#event-bg.show) #s-dock,body:has(#order-bg.show) #s-dock,body:has(#curtain-bg.show) #s-dock,body:has(#gogai-bg.show) #s-dock,body:has(#live-bg.show) #s-dock,body:has(#rv-bg.show) #s-dock,body:has(#saihai-bg.show) #s-dock,body:has(#team-bg.show) #s-dock,body:has(#intro-bg.show) #s-dock,body:has(#cardpop-bg.show) #s-dock,body:has(#modal-bg.show) #s-dock,body:has(#file-bg.show) #s-dock,body:has(#paper-bg.show) #s-dock,body:has(#park-bg.show) #s-dock{display:none !important;}
+  /* 編成: タブは4つを均等に、読める大きさで */
+  #order-body .od-tabs{display:flex !important;gap:0;}
+  #order-body .od-tab{flex:1 1 0;text-align:center;padding:8px 0;min-height:38px;font-size:13.5px;letter-spacing:.04em;}
+  /* 守備図: 顔の下に名前を出す(白い字が芝に溶けていた)。位置の札は上に */
+  #order-body .fd-p{width:60px !important;padding:2px 2px 3px !important;gap:2px;}
+  #order-body .fd-p .f-th{width:30px;height:36px;}
+  #order-body .fd-nm{display:block !important;font-size:9px;max-width:56px;color:#1a1206;background:rgba(255,255,255,.92);border-radius:3px;padding:1px 3px;line-height:1.3;}
+  #order-body .fd{aspect-ratio:10/7 !important;}
+  /* 守備タブの控えは図の下に並べる */
+  #order-body .od-body[data-tab="field"]{overflow-y:auto;}
+  #order-body .od-body[data-tab="field"] > .od-h{display:flex;font-size:12px;padding:5px 8px;margin-top:6px;}
+  #order-body .od-body[data-tab="field"] > .od-row.od-fix{display:flex;padding:2px 4px;gap:8px;font-size:14px;min-height:31px;border-bottom:1px solid rgba(0,0,0,.08);}
+  #order-body .od-body[data-tab="field"] > .od-row.od-fix .od-st{display:none;}
+  #order-body .od-body[data-tab="bat"]{overflow-y:auto;}
+}
+
+/* カプセルの転がり: 筐体からポンと飛び出し、放物線で守備位置へ落ちて一度弾んで止まる(でたらめな回転はしない) */
+@keyframes ldRoll{
+  0%{transform:translate(var(--dx,0px),var(--dy,60vh)) rotate(0deg) scale(.55);opacity:0;}
+  6%{opacity:1;}
+  45%{transform:translate(calc(var(--dx,0px)*.5),calc(var(--dy,60vh)*.5 - 70px)) rotate(-200deg) scale(1.02);}
+  82%{transform:translate(0,0) rotate(-360deg) scale(1);}
+  90%{transform:translate(0,-7px) rotate(-372deg) scale(1);}
+  100%{transform:translate(0,0) rotate(-380deg) scale(1);opacity:1;}
+}
+@keyframes ldRollUp{
+  0%{transform:translateY(50vh) rotate(0deg) scale(.55);opacity:0;}
+  8%{opacity:1;}
+  45%{transform:translateY(-34px) rotate(-190deg) scale(1.02);}
+  82%{transform:translateY(0) rotate(-360deg) scale(1);}
+  90%{transform:translateY(-6px) rotate(-370deg);}
+  100%{transform:translateY(0) rotate(-376deg) scale(1);opacity:1;}
+}
+/* 編成の守備図: 名前まで入るように縦を少し伸ばす。タブは横いっぱいに(親が align-items:flex-start で縮んでいた) */
+@media (max-width:700px){
+  #order-body .fd{aspect-ratio:10/7.8 !important;}
+  #order-body .od-tabs{align-self:stretch !important;width:100% !important;}
+  #order-body .od-body{align-self:stretch;width:100%;}
 }

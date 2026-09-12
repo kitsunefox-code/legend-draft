@@ -1172,6 +1172,7 @@ function gachaPull(auto){
       pulls.push({d, p, open: !!auto, rank: prank(p), sure: need});
     }
   }
+  if(R.k === "B") gachaBestStarters(t, pulls);
   G.pulls = pulls; G.revealed = auto ? pulls.length : 0;
   if(auto){ G.phase = "caps"; renderGacha(); setTimeout(gachaAdvance, 1100); return; }
   // ハンドルを回す→カプセルが落ちる
@@ -1179,6 +1180,29 @@ function gachaPull(auto){
   renderGacha();
   seRollStart();
   setTimeout(function(){ seRollStop(); if(state.gacha === G){ G.phase = "caps"; renderGacha(); seWhoosh(); } }, 1000);
+}
+// 野手ガチャ: 引いた顔ぶれを、守備位置ごとにOVRの高い人がスタメンになるよう並べ直す(控えは残り)
+// 候補の少ない位置(捕→遊→二→三→一→外→指)から埋める。カプセルの置き場所(x.d)も新しい枠に合わせる
+function gachaBestStarters(t, pulls){
+  const ps = pulls.filter(x => x.p && x.d && x.d.grp !== "SP" && x.d.grp !== "RP" && x.d.grp !== "CL" && x.d.key !== "MGR");
+  if(ps.length < 2) return;
+  const keys = ps.map(x => x.d.key);
+  const lineKeys = ["C","SS","B2","B3","B1","OF1","OF2","OF3","DH"].filter(k => keys.includes(k));
+  const benchKeys = keys.filter(k => BENCH_KEYS.includes(k));
+  const pool = ps.map(x => x.p);
+  const used = new Set(), place = {};
+  lineKeys.forEach(k => {
+    const d = SLOT_DEFS.find(z => z.key === k);
+    const cands = pool.filter(p => !used.has(p) && !p.twoWay && eligibleGrp(p, d.grp)).sort((a, b) => (b.ovr - a.ovr) || ((b.danger?0:1) - (a.danger?0:1)));
+    if(cands.length){ place[k] = cands[0]; used.add(cands[0]); }
+  });
+  const rest = pool.filter(p => !used.has(p)).sort((a, b) => b.ovr - a.ovr);
+  benchKeys.forEach((k, i) => { if(rest[i]) place[k] = rest[i]; });
+  // 二刀流は指名打者+先発の二枠を占めるので、指の枠は元のまま
+  const two = ps.find(x => x.p.twoWay);
+  if(two){ place.DH = two.p; }
+  keys.forEach(k => { if(place[k]) t.slots[k] = place[k]; else delete t.slots[k]; });
+  ps.forEach(x => { const k = keys.find(kk => place[kk] === x.p); if(k) x.d = SLOT_DEFS.find(z => z.key === k) || x.d; });
 }
 function gachaFlash(rank){
   const el = document.createElement("div");
@@ -5265,15 +5289,16 @@ function renderOrder(){
   };
   $("order-title").innerHTML = teamEmblem(t,20) + " " + esc(t.name) + " ── 打順とローテーション";
   if(!c.tab) c.tab = "field";
-  const tabs = [["field","打線"],["pit","投手"],["pol","起用法"]].map(x =>
+  const tabs = [["field","守備"],["bat","打順"],["pit","投手"],["pol","起用法"]].map(x =>
     '<button class="od-tab' + (c.tab === x[0] ? " on" : "") + '" onclick="odTab(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>').join("");
   let body = "";
   if(c.tab === "field"){
-    body = fieldHtml(t, c) +
-      `<div class="od-col" data-kind="bat">
+    body = fieldHtml(t, c) + benchHtml(t, "bn");
+  }else if(c.tab === "bat"){
+    body = `<div class="od-col" data-kind="bat">
          <div class="od-h">打順<span class="od-hint">つまんで動かせます・「替」で入替</span><span class="od-hint od-hint-tap">行をタップ → もう一行タップで順番入替・「替」で選手入替</span></div>
          ${c.order.map((k,i)=>row(c.order,i,"bat")).join("")}
-       </div>` + benchHtml(t, "bn");
+       </div>`;
   }else if(c.tab === "pit"){
     body = `<div class="od-col" data-kind="rot">
          <div class="od-h">先発ローテーション<span class="od-hint">上から順に登板</span><span class="od-hint od-hint-tap">行をタップ → もう一行タップで順番入替</span></div>
@@ -5284,7 +5309,7 @@ function renderOrder(){
   }
   $("order-body").innerHTML =
     (state.campCtx && c.tab !== "pol" ? powerLineHtml(t) : "") +
-    (state.opts.points !== false && c.tab === "field" ? yakuLineHtml(t, c) : "") +
+    (state.opts.points !== false && (c.tab === "field" || c.tab === "bat") ? yakuLineHtml(t, c) : "") +
     '<div class="od-tabs">' + tabs + '</div>' +
     '<div class="od-body" data-tab="' + c.tab + '">' + body + '</div>' +
     '<div id="od-pick" class="od-pick" hidden></div>';

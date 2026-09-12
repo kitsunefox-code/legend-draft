@@ -8,7 +8,7 @@ let ldTimers = new Set();
 let ldFinish = null;
 const ldOriginalAdvance = gachaAdvance;
 const ldOriginalPull = gachaPull;
-const ldPositions = {C:'捕手',B1:'一塁手',B2:'二塁手',B3:'三塁手',SS:'遊撃手',OF1:'左翼手',OF2:'中堅手',OF3:'右翼手',DH:'指名打者',MASCOT:'マスコット'};
+const ldPositions = {C:'捕',B1:'一',B2:'二',B3:'三',SS:'遊',OF1:'左',OF2:'中',OF3:'右',DH:'指名打者',MASCOT:'マスコット'};
 // 写真の球場に合わせた置き場所。携帯の札(58×75)が重ならない間隔
 Object.assign(GC_FIELD,{OF1:[20,30],OF2:[50,26],OF3:[80,30],SS:[33,54],B2:[67,54],B3:[12,66],B1:[88,66],C:[50,88],DH:[84,89]});
 const ldDelay = (fn, ms) => { const id = setTimeout(() => {ldTimers.delete(id);fn();}, ms);ldTimers.add(id);return id; };

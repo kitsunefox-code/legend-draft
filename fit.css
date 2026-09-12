@@ -592,3 +592,20 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
   #scr-title > .bk-inner{flex:none !important;min-height:0 !important;height:auto !important;}
   #scr-title > .bk-hashira{display:none !important;}
 }
+
+/* ペナントの操作は下の帯(親指の届く位置)。上は日付と首位の情報だけ */
+@media (max-width:700px){
+  #s-dock{position:fixed;left:0;right:0;bottom:0;z-index:100;display:grid;grid-template-columns:44px 1fr 1.25fr 44px;gap:8px;align-items:stretch;padding:8px 10px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(10,30,20,.96);border-top:1px solid #2c5742;box-shadow:0 -6px 18px rgba(0,0,0,.35);}
+  #s-dock .btn{min-height:46px !important;height:auto;margin:0 !important;font-size:15px !important;}
+  #s-dock #s-skip{font-size:14px !important;}
+  #s-dock #s-speed{width:44px !important;min-width:0 !important;height:46px;margin:0;}
+  #s-dock .snd-btn{min-height:46px !important;height:46px;padding:0 4px !important;font-size:9.5px !important;letter-spacing:0;border-radius:8px;}
+  body:not([data-scr="scr-season"]) #s-dock{display:none;}
+  body[data-scr="scr-season"] .wrap{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px)) !important;}
+  body[data-scr="scr-season"] .telop{bottom:calc(82px + env(safe-area-inset-bottom,0px)) !important;}
+  #scr-season .month-head{grid-template-columns:1fr !important;grid-template-areas:"date" "note" !important;}
+}
+@media (max-width:700px){
+  #s-dock > *{grid-area:auto !important;grid-row:1 !important;}
+  #s-dock #s-speed{grid-column:1 !important;} #s-dock #s-skip{grid-column:2 !important;} #s-dock #s-play{grid-column:3 !important;} #s-dock .snd-btn{grid-column:4 !important;}
+}

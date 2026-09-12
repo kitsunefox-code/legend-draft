@@ -44,10 +44,13 @@ function teamHtml(t, idx, total, mode){
       '<div class="in-card park">' + (pph ? '<img class="in-pph" src="assets/park/thumb/' + pk.id + '.jpg" alt="" decoding="async" onerror="this.remove()">' : '<i class="in-face wide"></i>') + '<div><small>本拠地</small><b>' + (pk ? esc(pk.name) : "未定") + '</b>' + (pk ? '<span>' + esc(pk.type) + '・本塁打' + (pk.hr >= 1.12 ? "出やすい" : pk.hr <= 0.9 ? "出にくい" : "標準") + '</span>' : '') + '</div></div>' +
     '</section>' +
     (yaku.length ? '<div class="in-yaku"><span class="in-k">役</span>' + yaku.map(y => '<span class="yk-chip">' + esc(y.label) + '<b>+' + y.pts + '</b></span>').join("") + '</div>' : '') +
+    (typeof teamLinks === "function" && teamLinks(t).length ? '<div class="in-yaku in-links"><span class="in-k">絆</span>' + teamLinks(t).slice(0, 4).map(g => '<span class="yk-chip lk">' + esc(g.label) + '<b>+' + g.lv + '</b></span>').join("") + '</div>' : '') +
     '<section class="in-sec"><h3>スタメン</h3><div class="in-grid nine">' + order.map((k, i) => chip(t.slots[k], posLabel(k), i + 1)).join("") + '</div></section>' +
-    '<section class="in-sec"><h3>先発ローテーション</h3><div class="in-grid five">' + rot.map((k, i) => chip(t.slots[k], "第" + (i + 1), 0)).join("") + '</div></section>' +
+    '<div class="in-two">' +
+    '<section class="in-sec"><h3>先発</h3><div class="in-grid five">' + rot.map((k, i) => chip(t.slots[k], "第" + (i + 1), 0)).join("") + '</div></section>' +
     '<section class="in-sec"><h3>救援</h3><div class="in-grid five">' + rps.map(p => chip(p, "中継", 0)).join("") + chip(cl, "抑え", 0) + '</div></section>' +
-    (bench.length ? '<section class="in-sec"><h3>控え</h3><div class="in-grid five">' + bench.map(p => chip(p, "控", 0)).join("") + '</div></section>' : '') +
+    '</div>' +
+    (bench.length ? '<section class="in-sec in-bench"><h3>控え</h3><div class="in-grid five">' + bench.map(p => chip(p, "控", 0)).join("") + '</div></section>' : '') +
     '<footer class="in-foot">' +
       (mode === "pre"
         ? (idx > 0 ? '<button type="button" class="btn ghost" onclick="introStep(-1)">前の球団</button>' : '<span></span>') +

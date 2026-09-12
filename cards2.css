@@ -74,3 +74,39 @@
 .pc.ld-card.r-SS{box-shadow:0 0 0 1px #48361a,0 0 16px #e8b44738,0 10px 24px #000a !important;}
 .pc.ld-card .ld-card-foil,.pc.ld-card .ld-card-prism{display:none !important;animation:none !important;}
 .pc.ld-card .ld-card-etch{border-color:color-mix(in srgb,var(--foil-light) 35%,transparent);}
+
+
+/* ===== v4: 実際のプロ野球カードに寄せる。写真を全面に、下は球団色の斜め帯に太い名前、成績は帯の下 ===== */
+.pc.ld-card{padding:4px !important;border-radius:10px !important;background:linear-gradient(160deg,var(--foil-light),var(--foil) 40%,var(--foil-dark)) !important;border:0 !important;}
+.pc.ld-card .pc-in{border-radius:7px;border:1px solid #0008;}
+.pc.ld-card .ld-portrait{object-position:50% 12%;filter:contrast(1.06) saturate(1.02);}
+.pc.ld-card .ld-jersey{opacity:.35;}
+.pc.ld-card .ld-card-shade{background:linear-gradient(180deg,#03070e2e 0,transparent 20%,transparent 46%,#050a1330 56%,#050a13f0 72%,#050a13 100%);}
+.pc.ld-card .ld-card-bottom{padding:0 14px 12px;}
+.pc.ld-card .ld-card-club{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#e8eef4;}
+.pc.ld-card .ld-card-club i{width:26px;height:4px;}
+.pc.ld-card .ld-card-name{position:relative;margin:6px -14px 6px;padding:6px 14px 7px;background:linear-gradient(100deg,color-mix(in srgb,var(--club) 88%,#000) 0,color-mix(in srgb,var(--club) 70%,#000) 70%,transparent 100%);border-left:5px solid var(--foil-light);}
+.pc.ld-card .ld-card-nm{font:900 28px/1.15 'Noto Sans JP',sans-serif;letter-spacing:-1px;color:#fff;text-shadow:0 2px 6px #000;}
+.pc.ld-card .ld-card-name.ld-name-long .ld-card-nm{font-size:22px;}
+.pc.ld-card .ld-card-yr{color:#fff;opacity:.9;}
+.pc.ld-card .ld-card-stats{border-top:0;padding-top:4px;}
+.pc.ld-card .ld-card-stats b{font-size:26px;}
+.pc.ld-card .ld-card-etch{display:none;}
+.pc.ld-card .ld-card-posn{border-radius:0 0 0 8px;padding:5px 11px;font-size:12px;letter-spacing:2px;box-shadow:none;}
+.pc.ld-card .ld-card-edition{display:none;}
+/* SS: 金箔の縁と虹の光沢、S: 白銀の光沢(特別仕様。本人が許可) */
+.pc.ld-card.r-SS{background:linear-gradient(160deg,#fff3b7,#e0a600 35%,#b8860b 60%,#fff1b8 85%,#8a6200) !important;box-shadow:0 0 0 1px #48361a,0 0 22px #e8b44766,0 12px 28px #000b !important;}
+.pc.ld-card.r-SS .ld-card-foil,.pc.ld-card.r-SS .ld-card-prism{display:block !important;}
+.pc.ld-card.r-SS .ld-card-prism{opacity:.22;animation:ldPrismShift 7s linear infinite;}
+.pc.ld-card.r-SS .ld-card-foil{opacity:.55;animation:ldPremiumFoil 5.5s ease-in-out infinite;}
+.pc.ld-card.r-SS .ld-card-name{border-left-color:#ffe08a;background:linear-gradient(100deg,#6b4a00 0,#3a2a06 70%,transparent 100%);}
+.pc.ld-card.r-SS .ld-card-nm{color:#fff3c4;}
+.pc.ld-card.r-S{background:linear-gradient(160deg,#ffffff,#c9d3e2 35%,#8d9bb0 60%,#f4f7fb 85%,#5e6b80) !important;box-shadow:0 0 0 1px #2c3a4c,0 0 16px #c9d3e255,0 12px 28px #000a !important;}
+.pc.ld-card.r-S .ld-card-foil{display:block !important;opacity:.45;animation:ldPremiumFoil 6.5s ease-in-out infinite;}
+@keyframes ldPrismShift{0%{background-position:0% 0%}100%{background-position:100% 100%}}
+/* 中・小サイズの帯 */
+.pc.ld-card.sz-m .ld-card-name{margin:4px -10px 4px;padding:4px 10px 5px;border-left-width:4px;}
+.pc.ld-card.sz-m .ld-card-nm{font-size:17px;} .pc.ld-card.sz-m .ld-card-name.ld-name-long .ld-card-nm{font-size:14px;}
+.pc.ld-card.sz-m .ld-card-bottom{padding:0 10px 8px;}
+.pc.ld-card.sz-s .ld-card-name{margin:2px -6px 2px;padding:2px 6px;border-left-width:3px;}
+.pc.ld-card.sz-s .ld-card-nm{font-size:10px;}

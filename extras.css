@@ -86,3 +86,39 @@ h1,h2,h3,.gc-nm,.pc-nm,.ld-card-name,.home-content h2,.manager-heading h2,.c-tit
 
 /* 扉の説明は文節で折る */
 #c-sub{line-break:strict;word-break:normal;overflow-wrap:break-word;max-width:22em;margin-left:auto;margin-right:auto;}
+
+
+/* ---- 残念助っ人の記事(スポーツ紙風) ---- */
+#dg-bg{position:fixed;inset:0;z-index:190;display:none;align-items:center;justify-content:center;background:rgba(6,8,12,.82);padding:16px;}
+#dg-bg.show{display:flex;animation:dgIn .35s ease-out;}
+@keyframes dgIn{from{opacity:0;transform:scale(.96) rotate(-1.5deg)}to{opacity:1;transform:none}}
+#dg-paper{position:relative;width:100%;max-width:420px;max-height:calc(100dvh - 32px);overflow:auto;background:#f3eee2;color:#1a1206;padding:14px 16px 16px;border:1px solid #cfc6ad;box-shadow:0 20px 50px #000a,inset 0 0 0 1px #fff8;transform:rotate(-1deg);
+  background-image:repeating-linear-gradient(0deg,transparent 0 22px,rgba(0,0,0,.035) 22px 23px);}
+.dg-mast{display:flex;align-items:baseline;gap:10px;border-bottom:3px double #1a1206;padding-bottom:6px;margin-bottom:8px;}
+.dg-mast b{font:900 22px/1 "Zen Old Mincho","Yu Mincho",serif;letter-spacing:.14em;}
+.dg-gogai{font:900 12px/1 "Zen Old Mincho",serif;background:#c9463a;color:#fff;padding:4px 7px;letter-spacing:.2em;}
+.dg-date{margin-left:auto;font-size:10.5px;color:#4d4a42;letter-spacing:.08em;}
+.dg-kicker{display:inline-block;font:700 11px/1 "Noto Sans JP",sans-serif;border:1px solid #1a1206;padding:3px 8px;margin-bottom:8px;letter-spacing:.12em;}
+.dg-head{margin:0 0 10px;font:900 24px/1.3 "Zen Old Mincho","Yu Mincho",serif;letter-spacing:.02em;text-wrap:balance;}
+.dg-body{display:block;}
+.dg-body::after{content:"";display:block;clear:both;}
+.dg-photo{float:left;width:92px;margin:2px 12px 4px 0;}
+.dg-photo .f-th,.dg-photo img,.dg-photo svg{width:92px;height:112px;object-fit:cover;filter:grayscale(1) contrast(1.15);border:1px solid #1a1206;background:#ddd6c4;display:block;}
+.dg-cap{display:block;font-size:9.5px;line-height:1.4;margin-top:3px;color:#4d4a42;}
+.dg-lead{margin:0 0 6px;font:700 13px/1.65 "Noto Sans JP",sans-serif;}
+.dg-txt{margin:0;font:500 13px/1.8 "Noto Sans JP",sans-serif;color:#1f1b14;text-align:justify;}
+.dg-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 8px;border-top:1px solid #1a1206;border-bottom:1px solid #1a1206;padding:8px 0;}
+.dg-stats span{text-align:center;}
+.dg-stats small{display:block;font-size:9.5px;color:#4d4a42;letter-spacing:.1em;}
+.dg-stats b{display:block;font:500 22px/1.1 "Oswald",sans-serif;color:#c9463a;}
+.dg-seal{position:absolute;right:14px;top:60px;transform:rotate(12deg);font:900 15px/1 "Zen Old Mincho",serif;color:#c9463a;border:3px double #c9463a;padding:6px 8px;letter-spacing:.2em;opacity:.85;background:rgba(243,238,226,.7);}
+.dg-close{width:100%;min-height:44px;margin-top:4px;background:#1a1206;color:#f3eee2;border-color:#1a1206;}
+
+/* ---- つながり(絆)の行 ---- */
+.lk-line{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:0 0 6px;font-size:12px;}
+.lk-lb{font-weight:700;color:#2a6f3f;letter-spacing:.1em;margin-right:2px;}
+.lk-chip{display:inline-flex;align-items:center;gap:4px;background:#eaf6ec;border:1px solid #9fcfa9;border-radius:12px;padding:2px 8px;font-size:11.5px;color:#1a1206;}
+.lk-chip i{font-style:normal;font-size:10px;color:#4d6b52;}
+.lk-chip b{color:#2a9a5b;}
+.lk-chip.lv2{border-color:#5fb872;background:#dff2e2;} .lk-chip.lv3{border-color:#2a9a5b;background:#cdebd3;}
+.lk-none{font-size:11px;color:#6b6a63;}

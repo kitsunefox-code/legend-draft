@@ -59,3 +59,38 @@
   .in-foot .btn{flex:1;min-height:46px;}
   .in-foot span{display:none;}
 }
+
+/* ---- 一画面版(スマホ): 見出し帯を球団色に、札は小さく、スクロールなしで全部を見せる ---- */
+.in-two{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.in-yaku .yk-chip.lk{background:#eaf6ec;border-color:#9fcfa9;} .in-yaku .yk-chip.lk b{color:#2a9a5b;}
+@media (max-width:700px){
+  #intro{display:flex;flex-direction:column;height:100dvh;max-height:100dvh;overflow:hidden;padding:calc(6px + env(safe-area-inset-top,0px)) 8px calc(8px + env(safe-area-inset-bottom,0px));gap:0;border-top:0;}
+  .in-head{background:var(--tc,#22456b);color:#fff;margin:0 -8px 6px;padding:8px 12px;gap:10px;flex:none;}
+  .in-emblem img,.in-emblem svg{width:44px;height:44px;}
+  .in-title small{color:#ffffffb0;font-size:9px;}
+  .in-title h2{font-size:19px;margin:1px 0 3px;color:#fff;}
+  .in-power{font-size:11px;color:#ffffffd0;} .in-power b{font-size:12px;padding:1px 7px;}
+  .in-trio{grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:5px;flex:none;}
+  .in-card{padding:4px 5px;gap:5px;align-items:center;border-radius:6px;}
+  .in-card small{font-size:8px;letter-spacing:.08em;}
+  .in-card b{font-size:10.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .in-card span,.in-card em{display:none;}
+  .in-card .f-th,.in-card .in-face{width:26px;height:32px;}
+  .in-card .in-mph{width:30px;height:34px;border-width:1.5px;} .in-card .in-pph{width:40px;height:30px;}
+  .in-card .in-face.wide{width:40px;height:30px;}
+  .in-yaku{margin-bottom:4px;gap:4px;font-size:10.5px;flex:none;} .in-yaku .yk-chip{font-size:10px;padding:1px 7px;}
+  .in-sec{margin-top:4px;flex:none;min-width:0;}
+  .in-sec h3{font-size:10.5px;margin:0 0 3px;padding-left:5px;border-left-width:3px;}
+  .in-grid{gap:4px;}
+  .in-grid.nine{grid-template-columns:repeat(5,minmax(0,1fr));}
+  .in-two .in-grid.five{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .in-bench .in-grid.five{grid-template-columns:repeat(6,minmax(0,1fr));}
+  .in-chip{padding:13px 2px 3px;border-radius:5px;border-width:1.5px;}
+  .in-chip .f-th,.in-chip i.in-face{width:30px;height:36px;border-radius:3px;}
+  .in-chip b{font-size:9px;margin-top:2px;} .in-chip small{display:none;}
+  .in-pos{font-size:8px;padding:2px 4px;} .in-pos em{margin-left:2px;}
+  .in-rk{transform:scale(.8);transform-origin:top right;}
+  .in-bench .in-chip{padding-top:12px;} .in-bench .in-chip .f-th,.in-bench .in-chip i.in-face{width:24px;height:30px;} .in-bench .in-chip b{font-size:8px;}
+  .in-foot{margin-top:auto;padding-top:6px;flex:none;}
+  .in-foot .btn{min-height:44px;}
+}

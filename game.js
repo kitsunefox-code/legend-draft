@@ -1189,20 +1189,19 @@ function gachaBestStarters(t, pulls){
   const keys = ps.map(x => x.d.key);
   const lineKeys = ["C","SS","B2","B3","B1","OF1","OF2","OF3","DH"].filter(k => keys.includes(k));
   const benchKeys = keys.filter(k => BENCH_KEYS.includes(k));
-  const pool = ps.map(x => x.p);
-  const used = new Set(), place = {};
+  const used = new Set(), place = {};          // 枠 → 引いた札(同じ選手が二枚あっても札は別)
   lineKeys.forEach(k => {
     const d = SLOT_DEFS.find(z => z.key === k);
-    const cands = pool.filter(p => !used.has(p) && !p.twoWay && eligibleGrp(p, d.grp)).sort((a, b) => (b.ovr - a.ovr) || ((b.danger?0:1) - (a.danger?0:1)));
+    const cands = ps.filter(x => !used.has(x) && !x.p.twoWay && eligibleGrp(x.p, d.grp)).sort((a, b) => (b.p.ovr - a.p.ovr) || ((b.p.danger?0:1) - (a.p.danger?0:1)));
     if(cands.length){ place[k] = cands[0]; used.add(cands[0]); }
   });
-  const rest = pool.filter(p => !used.has(p)).sort((a, b) => b.ovr - a.ovr);
-  benchKeys.forEach((k, i) => { if(rest[i]) place[k] = rest[i]; });
-  // 二刀流は指名打者+先発の二枠を占めるので、指の枠は元のまま
-  const two = ps.find(x => x.p.twoWay);
-  if(two){ place.DH = two.p; }
-  keys.forEach(k => { if(place[k]) t.slots[k] = place[k]; else delete t.slots[k]; });
-  ps.forEach(x => { const k = keys.find(kk => place[kk] === x.p); if(k) x.d = SLOT_DEFS.find(z => z.key === k) || x.d; });
+  const rest = ps.filter(x => !used.has(x)).sort((a, b) => b.p.ovr - a.p.ovr);
+  benchKeys.forEach(k => { const x = rest.shift(); if(x){ place[k] = x; used.add(x); } });
+  // 埋まらなかった枠(捕手が出なかった等)には残りを元の枠のまま置く
+  ps.forEach(x => { if(!used.has(x)){ const k = keys.find(kk => !place[kk] && eligibleGrp(x.p, (SLOT_DEFS.find(z => z.key === kk) || {}).grp)); if(k){ place[k] = x; used.add(x); } } });
+  if(ps.some(x => !used.has(x))) return;       // 置き場所が決まらない札があれば、引いた枠のままにする(壊さない)
+  keys.forEach(k => { if(place[k]) t.slots[k] = place[k].p; else delete t.slots[k]; });
+  Object.keys(place).forEach(k => { place[k].d = SLOT_DEFS.find(z => z.key === k) || place[k].d; });
 }
 function gachaFlash(rank){
   const el = document.createElement("div");
@@ -2675,7 +2674,7 @@ function morale(t){
   return mascotAb(t, "cheer") ? Math.max(v, -0.5) : v;   // 応援団長: 士気は底を割らない
 }
 function moodSet(t, val, days, label){ t.mood = {until: state.day + days, val, label}; }
-function fw(p){ return (p && p.form ? p.form : 0) * 1.3; } // 調子の波
+function fw(p){ return (p && p.form ? p.form : 0) * 1.3 + (p && p.linkB ? p.linkB * 0.6 : 0); } // 調子の波 + つながりの上乗せ
 // 離脱中の選手は数えない。抜けた枠は控えが埋め、控えも尽きれば戦力が落ちる
 function teamAtt(t){
   let s = 0;
@@ -2756,6 +2755,7 @@ function rollAwakenings(){
       }
     }
   }
+  state.parts.forEach(t => { if(t.cpu && woke.some(w => w.t === t)){ optimizeRoster(t); autoOrderFor(t); } });
   woke.forEach((w, i)=>{
     const m = w.t.slots.MGR;
     const txt = `【覚醒】${w.p.name}（${w.t.name}）がキャンプで大化け！` + (m?` ${m.name}監督の育成が実を結ぶ`:"");
@@ -4238,6 +4238,7 @@ function simGame(A, B){
   return g;
 }
 function playDay(){
+  state.parts.forEach(refreshLinks);
   const games = state.schedule[state.day];
   if(!games || !games.length){       // 移動日
     state.restDay = true;
@@ -5310,6 +5311,7 @@ function renderOrder(){
   $("order-body").innerHTML =
     (state.campCtx && c.tab !== "pol" ? powerLineHtml(t) : "") +
     (state.opts.points !== false && (c.tab === "field" || c.tab === "bat") ? yakuLineHtml(t, c) : "") +
+    ((c.tab === "field" || c.tab === "bat") ? linksLineHtml(t, c) : "") +
     '<div class="od-tabs">' + tabs + '</div>' +
     '<div class="od-body" data-tab="' + c.tab + '">' + body + '</div>' +
     '<div id="od-pick" class="od-pick" hidden></div>';
@@ -8875,3 +8877,49 @@ buildFrontPage();
 document.body.setAttribute("data-scr", (document.querySelector(".screen.active") || {}).id || "scr-title");
 
 
+
+// ---- つながり(メンバーの共通点で力が上がる。プロスピのコンボにならう) ----
+// 対象は先発野手9人・先発ローテ・抑え。同じリーグ・同じ球団の系譜・同郷・同じ年代で組が立ち、
+// 人数が多いほど段が上がる(1〜3)。選手ごとの上乗せは段の合計で最大+3(fw に乗る)
+const LEAGUE_OF = {"巨人":"セ","阪神":"セ","中日":"セ","広島":"セ","ヤクルト":"セ","DeNA":"セ","西武":"パ","ソフトバンク":"パ","ロッテ":"パ","日本ハム":"パ","オリックス":"パ","楽天":"パ","近鉄":"パ"};
+const LINK_RULES = [
+  {kind:"league", min:5, label:v => v + "・リーグの絆", of: p => p.mlb ? "MLB" : (LEAGUE_OF[p.fr] || null)},
+  {kind:"fr",     min:3, label:v => v + "の系譜",       of: p => p.mlb ? null : (p.fr && p.fr !== "その他" ? p.fr : null)},
+  {kind:"home",   min:2, label:v => v + "出身",         of: p => (p.f && /[都道府県]$/.test(p.f)) ? p.f : null},
+  {kind:"era",    min:4, label:v => v + "年代の同期",   of: p => p.year ? String(Math.floor(p.year / 10) * 10) : null},
+];
+function linkMembers(t){
+  return lineupOf(t).concat(rotKeys(t).map(k => t.slots[k]), [t.slots.CL]).filter(Boolean);
+}
+function teamLinks(t){
+  const ps = linkMembers(t), out = [];
+  LINK_RULES.forEach(r => {
+    const m = {};
+    ps.forEach(p => { const v = r.of(p); if(v) (m[v] = m[v] || []).push(p); });
+    Object.keys(m).forEach(v => {
+      const arr = m[v];
+      if(arr.length < r.min) return;
+      const lv = arr.length >= r.min + 4 ? 3 : arr.length >= r.min + 2 ? 2 : 1;
+      out.push({kind:r.kind, v, label:r.label(v), members:arr, n:arr.length, lv});
+    });
+  });
+  return out.sort((a, b) => b.lv - a.lv || b.n - a.n);
+}
+// 各選手の上乗せを p.linkB に書く(毎日と、編成を保存したときに更新)
+function refreshLinks(t){
+  const ls = teamLinks(t);
+  t.links = ls;
+  SLOT_DEFS.forEach(d => { const p = t.slots[d.key]; if(p) p.linkB = 0; });
+  ls.forEach(g => g.members.forEach(p => { p.linkB = Math.min(3, (p.linkB || 0) + g.lv); }));
+  return ls;
+}
+function linksLineHtml(t, c){
+  const so = t.order, sr = t.rot;
+  if(c){ t.order = c.order; t.rot = c.rot; }
+  const ls = teamLinks(t);
+  t.order = so; t.rot = sr;
+  return '<div class="lk-line"><span class="lk-lb">絆</span>' +
+    (ls.length ? ls.slice(0, 6).map(g => '<span class="lk-chip lv' + g.lv + '" title="' + esc(g.members.map(p => p.name).join("・")) + '">' + esc(g.label) + '<i>' + g.n + '人</i><b>+' + g.lv + '</b></span>').join("")
+               : '<span class="lk-none">同じリーグ・系譜・同郷・同じ年代が揃うと力が上がる</span>') +
+    '</div>';
+}

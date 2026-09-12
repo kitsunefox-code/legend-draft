@@ -117,8 +117,24 @@ h1,h2,h3,.gc-nm,.pc-nm,.ld-card-name,.home-content h2,.manager-heading h2,.c-tit
 /* ---- つながり(絆)の行 ---- */
 .lk-line{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin:0 0 6px;font-size:12px;}
 .lk-lb{font-weight:700;color:#2a6f3f;letter-spacing:.1em;margin-right:2px;}
-.lk-chip{display:inline-flex;align-items:center;gap:4px;background:#eaf6ec;border:1px solid #9fcfa9;border-radius:12px;padding:2px 8px;font-size:11.5px;color:#1a1206;}
+.lk-chip{cursor:pointer;font-family:inherit;line-height:1.3;display:inline-flex;align-items:center;gap:4px;background:#eaf6ec;border:1px solid #9fcfa9;border-radius:12px;padding:2px 8px;font-size:11.5px;color:#1a1206;}
 .lk-chip i{font-style:normal;font-size:10px;color:#4d6b52;}
 .lk-chip b{color:#2a9a5b;}
 .lk-chip.lv2{border-color:#5fb872;background:#dff2e2;} .lk-chip.lv3{border-color:#2a9a5b;background:#cdebd3;}
 .lk-none{font-size:11px;color:#6b6a63;}
+
+/* 隠し絆の札と、由来のポップ */
+.lk-chip.hid{background:#fff4d6;border-color:#e0a600;} .lk-chip.hid.lv2{background:#ffe9b0;} .lk-chip.hid.lv3{background:#ffd257;border-color:#8a6200;}
+.lk-chip.hid b{color:#8a5a00;}
+.lk-chip.more{background:#fff;border-style:dashed;color:#4d4a42;}
+.lk-pop{position:fixed;inset:0;z-index:260;background:rgba(10,20,14,.6);display:none;align-items:flex-end;justify-content:center;}
+.lk-pop.show{display:flex;}
+.lk-pop-in{width:100%;max-width:560px;max-height:80dvh;overflow-y:auto;background:#fffdf7;border-radius:14px 14px 0 0;padding:10px 14px 18px;box-shadow:0 -6px 30px #0006;}
+@media (min-width:700px){ .lk-pop{align-items:center;} .lk-pop-in{border-radius:14px;padding-bottom:14px;} }
+.lk-pop-h{display:flex;align-items:center;justify-content:space-between;font-weight:900;color:#1a1206;padding:4px 0 8px;border-bottom:1px solid #e6dfc9;margin-bottom:8px;}
+.lk-item{padding:8px 0;border-bottom:1px dashed #e6dfc9;}
+.lk-item-h{display:flex;align-items:center;gap:6px;flex-wrap:wrap;} .lk-item-h b{font-size:14px;color:#1a1206;} .lk-item-h span{font-size:12px;color:#4d4a42;margin-left:auto;} .lk-item-h em{font-style:normal;color:#2a9a5b;font-weight:900;}
+.lk-item.hid .lk-item-h em{color:#8a5a00;}
+.lk-tag{font-size:10px;font-weight:900;color:#fff;background:#e0a600;border-radius:8px;padding:1px 6px;letter-spacing:.1em;}
+.lk-note{margin:4px 0 6px;font-size:12.5px;line-height:1.55;color:#2c2a24;}
+.lk-mem{display:flex;flex-wrap:wrap;gap:4px 8px;} .lk-mem span{font-size:12px;color:#1a1206;} .lk-mem small{font-size:10px;color:#6b6a63;margin-left:3px;}

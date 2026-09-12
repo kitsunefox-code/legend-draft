@@ -94,3 +94,5 @@
   .in-foot{margin-top:auto;padding-top:6px;flex:none;}
   .in-foot .btn{min-height:44px;}
 }
+
+.in-links .yk-chip.hid{background:#fff4d6;border-color:#e0a600;} .in-links .yk-chip.hid b{color:#8a5a00;}

@@ -31,7 +31,7 @@ function ldResults(){
   return '<section class="ld-results"><header><small>DRAFT COMPLETE</small><h2>獲得したレジェンド</h2><p>'+pulls.length+'枚のカードをタップして詳細を見る</p><div class="ld-result-counts">'+RANK_ORDER.map(r=>{const n=pulls.filter(x=>x.rank===r).length;return n?'<span>'+ldRank(r)+'<b>× '+n+'</b></span>':'';}).join('')+'</div></header><div class="ld-result-grid">'+pulls.map((x,i)=>'<div><span class="ld-result-position">'+esc(ldPositions[x.d.key]||x.d.label)+'</span>'+cardHtml(x.p,x.rank,{size:(typeof innerWidth==='number'&&innerWidth<=700)?'s':'m',pos:ldPositions[x.d.key]||x.d.label,grp:x.d.grp,onclick:'cardPop('+i+')'})+'</div>').join('')+'</div></section>';
 }
 function ldTrial(round=2){
-  ldCancel();ldDemo=true;applyRoster(5,5,6);POOL=PLAYERS.concat(MLB_STARS);
+  ldCancel();ldDemo=true;applyRoster(6,4,6);POOL=PLAYERS.concat(MLB_STARS);
   state.eras=new Set();state.rankCap=0;state.taken=new Set();state.budget=9999;state.opts.gacha=true;state.parts=[newTeam('MY LEGENDS','',false,'#e8bf72',0)];state.currentIdx=0;
   state.gacha={order:[0],ptr:0,round,pulls:null,revealed:0,phase:'idle'};
   show('scr-gacha');renderGacha();

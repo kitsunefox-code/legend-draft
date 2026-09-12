@@ -38,7 +38,7 @@ function applyRoster(sp, rp, bn){
   SLOT_DEFS.push({key:"CL", grp:"CL", label:"抑え"});
   return ROSTER;
 }
-applyRoster(4, 3, 3);
+applyRoster(6, 3, 3);
 
 // ---------- utils ----------
 const $ = id => document.getElementById(id);
@@ -515,8 +515,8 @@ function startDraft(){
   $("modal-bg").classList.remove("show");   // 球団アイコンの選択が開いたままでも持ち越さない
   // 枠を組んでからチームを作る(newTeamがSP_KEYSを写し取るため順序が大事)
   const gachaOn = $("opt-gacha") ? $("opt-gacha").checked : false;
-  if(gachaOn) applyRoster(5, 5, 6);   // ガチャは27人固定: 野手15・投手11・監督1
-  else applyRoster(optNum("opt-sp", 4), optNum("opt-rp", 3), optNum("opt-bn", 3));
+  if(gachaOn) applyRoster(6, 4, 6);   // ガチャは27人固定: 野手15・投手11(先発6・中継4・抑え1)・監督1
+  else applyRoster(optNum("opt-sp", 6), optNum("opt-rp", 3), optNum("opt-bn", 3));
   // メジャー限定。指名の対象を丸ごと差し替える
   state.opts.mlbOnly = $("opt-mlbonly") ? $("opt-mlbonly").checked : false;
   state.opts.gacha = $("opt-gacha") ? $("opt-gacha").checked : false;
@@ -5294,17 +5294,19 @@ function renderOrder(){
     '<button class="od-tab' + (c.tab === x[0] ? " on" : "") + '" onclick="odTab(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>').join("");
   let body = "";
   if(c.tab === "field"){
-    body = fieldHtml(t, c) + benchHtml(t, "bn");
+    const dhNo = c.order.indexOf("DH");
+    body = fieldHtml(t, c) +
+      '<div class="od-tiles-row bench"><span class="od-row-lb">ベンチ</span>' + BENCH_KEYS.map(k => odTile(t, k, "控", 0)).join("") + odTile(t, "DH", "DH", dhNo >= 0 ? dhNo + 1 : 0, "dh") + '</div>';
   }else if(c.tab === "bat"){
     body = `<div class="od-col" data-kind="bat">
          <div class="od-h">打順<span class="od-hint">つまんで動かせます・「替」で入替</span><span class="od-hint od-hint-tap">行をタップ → もう一行タップで順番入替・「替」で選手入替</span></div>
          ${c.order.map((k,i)=>row(c.order,i,"bat")).join("")}
        </div>`;
   }else if(c.tab === "pit"){
-    body = `<div class="od-col" data-kind="rot">
+    body = pitTilesHtml(t, c) + `<div class="od-col od-rotlist" data-kind="rot">
          <div class="od-h">先発ローテーション<span class="od-hint">上から順に登板</span><span class="od-hint od-hint-tap">行をタップ → もう一行タップで順番入替</span></div>
          ${c.rot.map((k,i)=>row(c.rot,i,"rot")).join("")}
-       </div>` + benchHtml(t, "rp");
+       </div><div class="od-rplist">` + benchHtml(t, "rp") + `</div>`;
   }else{
     body = (state.campCtx ? powerCardHtml(t) : "") + polHtml(t);
   }
@@ -5343,23 +5345,33 @@ const FIELD_POS = {
   SS:[31,42], B2:[69,42], B3:[12,62], B1:[88,62],
   C:[50,86], DH:[14,88],
 };
+function odTile(t, key, label, no, cls){
+  const p = t.slots[key];
+  const r = p ? prank(p) : "";
+  const grp = slotGrp(key);
+  const ovr = p ? ovrFor(p, grp) : 0;
+  return '<button type="button" class="od-tile' + (p ? " r-" + r : " empty") + (cls ? " " + cls : "") + '" onclick="odPickOpen(&quot;' + key + '&quot;)">' +
+    '<span class="od-tile-pos">' + esc(label) + (no ? '<i>' + no + '</i>' : '') + '</span>' +
+    '<span class="od-tile-ph">' + (p ? faceThumb(p, 52, 60) : '<span class="f-th f-none"></span>') + (p ? '<span class="od-tile-rk">' + rankIcon(p, 16) + '</span>' : '') + '</span>' +
+    '<span class="od-tile-nm">' + (p ? esc(p.name) : "空き") + '</span>' +
+    '<span class="od-tile-lv">' + (p ? 'OVR ' + ovr : '') + '</span>' +
+  '</button>';
+}
+// プロスピの守備画面と同じ組み: 上に外野3人、真ん中に内野4人、下に捕手。指名打者と控えは図の下の列
+const TILE_POS = {OF1:[19,20], OF2:[50,16], OF3:[81,20], B3:[15,52], SS:[35,45], B2:[65,45], B1:[85,52], C:[50,76]};
 function fieldHtml(t, c){
-  const mark = (key, x, y, extraLabel) => {
-    const p = t.slots[key];
-    const d = SLOT_DEFS.find(z => z.key === key);
-    const lab = extraLabel || (d ? d.label : key);
-    const n = c.order.indexOf(key);
-    return '<button class="fd-p' + (p ? "" : " empty") + '" style="left:' + x + '%;top:' + y + '%" onclick="odPickOpen(&quot;' + key + '&quot;)">' +
-      (p ? faceThumb(p, 34, 42) : '<span class="f-th f-none"></span>') +
-      '<span class="fd-pos">' + esc(lab) + (n >= 0 ? '<i>' + (n+1) + '</i>' : '') + '</span>' +
-      '<span class="fd-nm">' + (p ? esc(p.name) : "空き") + '</span>' +
-    '</button>';
-  };
-  const spKey = c.rot[0];
-  return '<div class="fd">' +
-    '<div class="fd-grass"></div><div class="fd-dirt"></div><div class="fd-mound"></div><div class="fd-home"></div>' +
-    Object.keys(FIELD_POS).map(k => mark(k, FIELD_POS[k][0], FIELD_POS[k][1])).join("") +
-    mark(spKey, 50, 58, "先発") +
+  return '<div class="od-stage">' +
+    '<div class="od-stage-bg"></div><div class="od-diamond"></div>' +
+    Object.keys(TILE_POS).map(k => { const n = c.order.indexOf(k); return '<div class="od-at" style="left:' + TILE_POS[k][0] + '%;top:' + TILE_POS[k][1] + '%">' + odTile(t, k, slotLabel(k), n >= 0 ? n + 1 : 0) + '</div>'; }).join("") +
+  '</div>';
+}
+// 投手: 先発1〜n、中継1〜n、抑えを札で並べる(ローテの順)
+function pitTilesHtml(t, c){
+  const sp = c.rot.map((k, i) => odTile(t, k, "先発" + (i + 1), 0, "sp"));
+  const rp = RP_KEYS.map((k, i) => odTile(t, k, "中継" + (i + 1), 0, "rp"));
+  return '<div class="od-stage pit"><div class="od-stage-bg"></div>' +
+    '<div class="od-tiles-row six">' + sp.join("") + '</div>' +
+    '<div class="od-tiles-row">' + rp.join("") + odTile(t, "CL", "抑え", 0, "cl") + '</div>' +
   '</div>';
 }
 // 控えと救援。試合に出ない側の顔ぶれが見えないと、誰を上げるか決められない
@@ -8878,15 +8890,115 @@ document.body.setAttribute("data-scr", (document.querySelector(".screen.active")
 
 
 
-// ---- つながり(メンバーの共通点で力が上がる。プロスピのコンボにならう) ----
-// 対象は先発野手9人・先発ローテ・抑え。同じリーグ・同じ球団の系譜・同郷・同じ年代で組が立ち、
-// 人数が多いほど段が上がる(1〜3)。選手ごとの上乗せは段の合計で最大+3(fw に乗る)
+// ---- 絆(メンバーの共通点で力が上がる。プロスピのコンボにならう) ----
+// 対象は先発野手9人・先発ローテ・抑え。同じリーグ・系譜・同郷・同じ年代の基本4種に加えて、
+// 隠し絆が多数ある(V9戦士、WBC各大会、海を渡った侍、従軍、三冠王、黄金時代の球団、名コンビ…)。
+// 人数が多いほど段が上がる(1〜3)。選手ごとの上乗せは段の合計で最大+3(fw に乗る)。
+// 隠し絆は札を押すと由来が読める(勉強になるように、短い解説を付けてある)
 const LEAGUE_OF = {"巨人":"セ","阪神":"セ","中日":"セ","広島":"セ","ヤクルト":"セ","DeNA":"セ","西武":"パ","ソフトバンク":"パ","ロッテ":"パ","日本ハム":"パ","オリックス":"パ","楽天":"パ","近鉄":"パ"};
+// 名前の揺れを吸収(MLB札の「(MLB)」、空白)
+function lkName(p){ return String(p && p.name || "").replace(/\(MLB\)$/, "").replace(/\s+/g, ""); }
+const LK_SET = arr => new Set(arr);
+// V9戦士: 1965〜73年に日本シリーズ9連覇した川上巨人の主力
+const LK_V9 = LK_SET(["王貞治","長嶋茂雄","柴田勲","土井正三","高田繁","黒江透修","森昌彦","森祇晶","末次利光","末次民夫","堀内恒夫","城之内邦雄","高橋一三","金田正一","宮田征典","関本四十四","倉田誠","渡辺秀武","広岡達朗","藤田元司","国松彰","吉田勝豊","萩原康弘","上田武司","山内新一","富田勝","柳田真宏","吉田孝司","菅原勝矢"]);
+// WBC 日本代表(大会ごと)
+const LK_WBC = {
+  2006: LK_SET(["上原浩治","松坂大輔","清水直行","渡辺俊介","和田毅","杉内俊哉","石井弘寿","藤川球児","薮田安彦","大塚晶文","大塚晶則","藤田宗一","馬原孝浩","小林宏之","久保田智之","里崎智也","谷繁元信","相川亮二","岩村明憲","小笠原道大","川崎宗則","今江敏晃","西岡剛","松中信彦","新井貴浩","宮本慎也","イチロー","青木宣親","多村仁","多村仁志","金城龍彦","福留孝介","和田一浩"]),
+  2009: LK_SET(["ダルビッシュ有","松坂大輔","岩隈久志","内海哲也","涌井秀章","杉内俊哉","藤川球児","馬原孝浩","山口鉄也","田中将大","渡辺俊介","小松聖","岩田稔","城島健司","阿部慎之助","石原慶幸","岩村明憲","小笠原道大","川崎宗則","中島裕之","中島宏之","片岡易之","片岡治大","村田修一","栗原健太","イチロー","青木宣親","内川聖一","稲葉篤紀","亀井義行","亀井善行","福留孝介"]),
+  2013: LK_SET(["田中将大","前田健太","内海哲也","能見篤史","杉内俊哉","摂津正","澤村拓一","沢村拓一","涌井秀章","大隣憲司","山口鉄也","牧田和久","森福允彦","今村猛","阿部慎之助","炭谷銀仁朗","相川亮二","坂本勇人","井端弘和","鳥谷敬","松田宣浩","稲葉篤紀","本多雄一","松井稼頭央","中田翔","内川聖一","糸井嘉男","長野久義","角中勝也"]),
+  2017: LK_SET(["菅野智之","千賀滉大","石川歩","則本昂大","武田翔太","藤浪晋太郎","岡田俊哉","秋吉亮","増井浩俊","牧田和久","松井裕樹","宮西尚生","平野佳寿","小林誠司","炭谷銀仁朗","嶋基宏","山田哲人","菊池涼介","坂本勇人","松田宣浩","中田翔","田中広輔","内川聖一","筒香嘉智","鈴木誠也","秋山翔吾","青木宣親","平田良介"]),
+  2023: LK_SET(["ダルビッシュ有","大谷翔平","山本由伸","佐々木朗希","今永昇太","戸郷翔征","高橋宏斗","宮城大弥","伊藤大海","湯浅京己","大勢","松井裕樹","高橋奎二","宇田川優希","山崎颯一郎","栗林良吏","中村悠平","甲斐拓也","大城卓三","山田哲人","源田壮亮","牧秀悟","岡本和真","山川穂高","村上宗隆","中野拓夢","牧原大成","近藤健介","ヌートバー","ラーズ・ヌートバー","吉田正尚","鈴木誠也","周東佑京"]),
+};
+const LK_WBC_NOTE = {2006:"王貞治監督。イチローが引っ張り、キューバを破って初代王者に", 2009:"原辰徳監督。決勝の延長10回、イチローの決勝打で連覇", 2013:"山本浩二監督。準決勝でプエルトリコに敗れベスト4", 2017:"小久保裕紀監督。準決勝でアメリカに1-2で惜敗", 2023:"栗山英樹監督。大谷がトラウトを三振に仕留め、14年ぶり3度目の世界一"};
+// 海を渡った侍: NPBからメジャーへ挑んだ選手(MLB札の日本人も含む)
+const LK_SEA = LK_SET(["村上雅則","野茂英雄","長谷川滋利","伊良部秀輝","吉井理人","木田優夫","佐々木主浩","新庄剛志","イチロー","小宮山悟","石井一久","田口壮","大家友和","松井秀喜","松井稼頭央","高津臣吾","大塚晶文","大塚晶則","岩村明憲","井口資仁","城島健司","松坂大輔","岡島秀樹","桑田真澄","井川慶","薮田安彦","福留孝介","黒田博樹","小林雅英","上原浩治","川上憲伸","高橋尚成","高橋建","西岡剛","建山義紀","ダルビッシュ有","青木宣親","岩隈久志","田中将大","前田健太","川崎宗則","和田毅","藤川球児","平野佳寿","牧田和久","大谷翔平","菊池雄星","秋山翔吾","筒香嘉智","山口俊","有原航平","澤村拓一","沢村拓一","鈴木誠也","千賀滉大","吉田正尚","藤浪晋太郎","山本由伸","今永昇太","松井裕樹","上沢直之","小笠原慎之介","菅野智之","佐々木朗希","村上宗隆","岡本和真","斎藤隆","福盛和男","多田野数人","五十嵐亮太","藪恵壹","中村紀洋","田澤純一","牧田和久","大塚晶文"]);
+// 名コンビ・名トリオ: 全員そろって発動
+const LK_COMBO = [
+  {id:"ON砲", need:["王貞治","長嶋茂雄"], note:"1960〜70年代巨人の3番・4番。王の868本塁打と長嶋の勝負強さで「ON時代」を築いた"},
+  {id:"KKコンビ", need:["清原和博","桑田真澄"], note:"PL学園で甲子園を沸かせた同級生。1985年ドラフトで巨人が桑田を1位指名し、清原は西武へ"},
+  {id:"AK砲", need:["秋山幸二","清原和博"], note:"西武黄金時代の3番・4番。秋山の走攻守と清原の長打で1980年代後半のパを席巻"},
+  {id:"バックスクリーン3連発", need:["バース","掛布雅之","岡田彰布"], note:"1985年4月17日、甲子園で巨人・槙原から3者連続本塁打。阪神21年ぶり優勝の象徴"},
+  {id:"ミスターとゴジラ", need:["長嶋茂雄","松井秀喜"], note:"1992年ドラフトで長嶋監督がくじを引き当てた師弟。素振りの音で調子を測ったという逸話が残る"},
+  {id:"日本ハムの先輩後輩", need:["大谷翔平","ダルビッシュ有"], note:"ともに日本ハムからメジャーへ。2023年WBCでは同じ投手陣として世界一に貢献"},
+  {id:"稲尾と中西", need:["稲尾和久","中西太"], note:"西鉄黄金時代の「鉄腕」と「怪童」。1958年日本シリーズは3連敗から稲尾が4連投で逆転日本一"},
+  {id:"江夏と古葉", need:["江夏豊","衣笠祥雄"], note:"1979年日本シリーズ第7戦「江夏の21球」。無死満塁を切り抜け広島が初の日本一"},
+  {id:"ヤクルト黄金バッテリー", need:["古田敦也","伊藤智仁"], note:"野村ID野球を支えた捕手・古田と、高速スライダーの伊藤。1993年の新人・伊藤は肩を痛めながら防御率0.91"},
+  {id:"松井とイチロー", need:["松井秀喜","イチロー"], note:"1990年代の日本球界を代表した2人。イチローは2001年、松井は2003年にメジャーへ"},
+];
+// 黄金時代・伝説の打線: 球団(系譜)と年の範囲
+const LK_ERA = [
+  {fr:"西武", y0:1954, y1:1958, min:2, label:"西鉄・野武士軍団", note:"三原脩監督の西鉄ライオンズ(現・西武)。1956〜58年に日本シリーズ3連覇。稲尾・中西・豊田・大下が主力"},
+  {fr:"ソフトバンク", y0:1951, y1:1966, min:2, label:"鶴岡南海", note:"鶴岡一人監督の南海ホークス(現・ソフトバンク)。1950〜60年代にパ・リーグを10度制した"},
+  {fr:"巨人", y0:1965, y1:1973, min:3, label:"V9時代の巨人", note:"川上哲治監督のもと日本シリーズ9連覇。ON砲に加え、堀内・柴田・土井・高田らが脇を固めた"},
+  {fr:"オリックス", y0:1967, y1:1978, min:2, label:"阪急黄金時代", note:"西本幸雄・上田利治監督の阪急ブレーブス(現・オリックス)。1975〜77年に日本シリーズ3連覇"},
+  {fr:"広島", y0:1975, y1:1991, min:3, label:"赤ヘル軍団", note:"1975年に球団初優勝。山本浩二・衣笠祥雄を軸に1980年代まで黄金期。「赤ヘル」の呼び名はこの頃から"},
+  {fr:"近鉄", y0:1979, y1:1980, min:2, label:"近鉄ミサイル打線", note:"西本幸雄監督の近鉄が1979・80年パ連覇。マニエル・栗橋・羽田らの強打線は「ミサイル打線」と呼ばれた"},
+  {fr:"阪神", y0:1985, y1:1985, min:2, label:"1985年の猛虎", note:"バース・掛布・岡田・真弓の打線で21年ぶりのリーグ優勝、球団初の日本一"},
+  {fr:"西武", y0:1985, y1:1994, min:3, label:"西武黄金時代", note:"森祇晶監督の9年間でリーグ優勝8回・日本一6回。清原・秋山・デストラーデ、投手は工藤・渡辺久信・郭泰源"},
+  {fr:"ヤクルト", y0:1992, y1:1997, min:2, label:"野村ID野球", note:"野村克也監督のヤクルト。データ重視の「ID野球」で1990年代にリーグ優勝4回・日本一3回"},
+  {fr:"オリックス", y0:1995, y1:1996, min:2, label:"がんばろうKOBE", note:"阪神・淡路大震災の年にイチローらが「がんばろうKOBE」を掲げて優勝。1996年は日本一"},
+  {fr:"DeNA", y0:1997, y1:1999, min:2, label:"マシンガン打線", note:"1998年の横浜ベイスターズ(現・DeNA)。石井琢朗・鈴木尚典・ローズらの切れ目ない打線で38年ぶり日本一"},
+  {fr:"日本ハム", y0:1998, y1:2000, min:2, label:"ビッグバン打線", note:"片岡・小笠原・田中幸雄・ウィルソンら、東京ドーム時代の日本ハムの強力打線"},
+  {fr:"近鉄", y0:2001, y1:2001, min:2, label:"いてまえ打線", note:"2001年の近鉄。中村紀洋・ローズ(55本塁打)を軸に打ち勝ち、北川の代打逆転サヨナラ満塁優勝本塁打で優勝"},
+  {fr:"巨人", y0:1993, y1:2001, min:3, label:"長嶋巨人", note:"長嶋茂雄監督の第2次政権。1996年「メークドラマ」、2000年は「ON対決」を制して日本一"},
+  {fr:"ソフトバンク", y0:1999, y1:2005, min:2, label:"王ダイエー", note:"王貞治監督のダイエーホークス(現・ソフトバンク)。1999年に球団26年ぶり優勝、2003年は「ダイハード打線」で日本一"},
+  {fr:"中日", y0:2004, y1:2011, min:3, label:"落合中日", note:"落合博満監督の8年間で全てAクラス、リーグ優勝4回。2007年は53年ぶり日本一"},
+  {fr:"巨人", y0:2012, y1:2014, min:2, label:"原巨人3連覇", note:"原辰徳監督のもと2012〜14年にセ・リーグ3連覇。阿部・坂本・菅野らが主力"},
+  {fr:"楽天", y0:2013, y1:2013, min:2, label:"2013年の楽天", note:"田中将大が24勝0敗、星野仙一監督のもと球団初のリーグ優勝・日本一"},
+  {fr:"ソフトバンク", y0:2014, y1:2020, min:3, label:"ホークス黄金期", note:"工藤公康監督の時代を中心に、2014〜20年で日本一6回。柳田・内川・千賀・サファテらが主力"},
+  {fr:"日本ハム", y0:2016, y1:2016, min:2, label:"2016年の日本ハム", note:"大谷翔平が二刀流で10勝・22本塁打。最大11.5ゲーム差をひっくり返して日本一"},
+  {fr:"広島", y0:2016, y1:2018, min:2, label:"カープ3連覇", note:"25年ぶり優勝から3連覇。鈴木誠也・丸・菊池・田中広輔の「タナキクマル」"},
+  {fr:"ヤクルト", y0:2021, y1:2022, min:2, label:"ヤクルト連覇", note:"高津臣吾監督のもとリーグ連覇。2022年は村上宗隆が史上最年少三冠王・56本塁打"},
+  {fr:"オリックス", y0:2021, y1:2023, min:2, label:"オリックス3連覇", note:"中嶋聡監督のもとパ・リーグ3連覇。山本由伸が3年連続沢村賞、2022年は26年ぶり日本一"},
+  {fr:"阪神", y0:2023, y1:2023, min:2, label:"2023年の阪神", note:"岡田彰布監督が「アレ」と呼んで18年ぶりのリーグ優勝、38年ぶりの日本一"},
+];
+// 同姓のための苗字の切り出し(カタカナ名は対象外)
+const LK_SUR3 = LK_SET(["佐々木","長谷川","五十嵐","小笠原","大久保","宇田川","佐久間","長谷部","小久保","大和田","阿久津","久保田","小笠原","宇佐美","波留"]);
+const LK_SUR1 = "王呉林郭張荘陳李姜蔡宋許";
+function lkSurname(p){
+  const n = lkName(p);
+  if(!n || /[ァ-ヶー・A-Za-z]/.test(n)) return null;
+  if(LK_SUR3.has(n.slice(0, 3))) return n.slice(0, 3);
+  if(n.length === 3 && LK_SUR1.indexOf(n[0]) >= 0) return n[0];
+  if(n.length >= 3) return n.slice(0, 2);
+  return null;
+}
+const LK_GEN = {1980:"松坂世代", 1988:"ハンカチ世代", 1967:"KK世代", 1994:"大谷世代", 1972:"松井世代", 1973:"イチロー世代"};
+let LK_MGR_NAMES = null;
+function lkMgrNames(){
+  if(!LK_MGR_NAMES){ LK_MGR_NAMES = new Set(); (typeof PLAYERS !== "undefined" ? PLAYERS : []).forEach(p => { if(p.cat === "M") LK_MGR_NAMES.add(lkName(p)); }); }
+  return LK_MGR_NAMES;
+}
 const LINK_RULES = [
-  {kind:"league", min:5, label:v => v + "・リーグの絆", of: p => p.mlb ? "MLB" : (LEAGUE_OF[p.fr] || null)},
-  {kind:"fr",     min:3, label:v => v + "の系譜",       of: p => p.mlb ? null : (p.fr && p.fr !== "その他" ? p.fr : null)},
-  {kind:"home",   min:2, label:v => v + "出身",         of: p => (p.f && /[都道府県]$/.test(p.f)) ? p.f : null},
-  {kind:"era",    min:4, label:v => v + "年代の同期",   of: p => p.year ? String(Math.floor(p.year / 10) * 10) : null},
+  // 基本の4種(いつでも見える)
+  {kind:"league", min:5, label:v => v + "・リーグの絆", of: p => p.mlb ? "MLB" : (LEAGUE_OF[p.fr] || null), note:v => v === "MLB" ? "メジャーリーグで戦った者同士" : v + "・リーグで戦った者同士"},
+  {kind:"fr",     min:3, label:v => v + "の系譜",       of: p => p.mlb ? null : (p.fr && p.fr !== "その他" ? p.fr : null), note:v => "時代は違っても同じ球団(の系譜)に袖を通した仲間"},
+  {kind:"home",   min:2, label:v => v + "出身",         of: p => (p.f && /[都道府県]$/.test(p.f)) ? p.f : null, note:v => "同郷のよしみ"},
+  {kind:"era",    min:4, label:v => v + "年代の同期",   of: p => p.year ? String(Math.floor(p.year / 10) * 10) : null, note:v => "同じ年代に活躍した同期"},
+  // ここから隠し絆
+  {kind:"v9", hidden:true, min:2, label:v => "V9戦士", of: p => LK_V9.has(lkName(p)) ? "V9" : null, note:v => "1965〜73年、川上哲治監督の巨人が日本シリーズ9連覇。その主力たち"},
+  {kind:"wbc", hidden:true, min:2, label:v => v + "年WBC侍ジャパン", of: p => { const n = lkName(p), out = []; Object.keys(LK_WBC).forEach(y => { if(LK_WBC[y].has(n)) out.push(y); }); return out; }, note:v => LK_WBC_NOTE[v] || ""},
+  {kind:"sea", hidden:true, min:2, label:v => "海を渡った侍", of: p => LK_SEA.has(lkName(p)) || (p.mlb && /[一-鿿]/.test(lkName(p))) ? "sea" : null, note:v => "NPBからメジャーへ挑んだ男たち。先駆けは1964年の村上雅則、道を開いたのは1995年の野茂英雄"},
+  {kind:"war", hidden:true, min:2, label:v => "戦火をくぐった男たち", of: p => (typeof MARK_WAR !== "undefined" && MARK_WAR.has(lkName(p))) ? "war" : null, note:v => "戦争で球界を離れた、あるいは戦地に散った選手たち。沢村栄治・景浦將は戦死した"},
+  {kind:"prewar", hidden:true, min:2, label:v => "戦前・戦中のプロ野球", of: p => (p.year && p.year <= 1945 && !p.mlb) ? "pre" : null, note:v => "1936年の職業野球開始から終戦まで。1944年は途中打ち切り、1945年はリーグ戦が休止された"},
+  {kind:"tc", hidden:true, min:2, label:v => "三冠王の競演", of: p => p.tc ? "tc" : null, note:v => "打率・本塁打・打点の三部門を同じ年に制した打者。日本では中島治康・野村克也・王貞治・落合博満(3度)・ブーマー・バース(2度)・松中信彦・村上宗隆"},
+  {kind:"mvp", hidden:true, min:3, label:v => "MVPの饗宴", of: p => (typeof MARK_MVP !== "undefined" && MARK_MVP.has(lkName(p) + "@" + p.year)) ? "mvp" : null, note:v => "名鑑の年にリーグMVPを受賞した選手たち"},
+  {kind:"meikyu", hidden:true, min:3, label:v => "名球会", of: p => (!p.mlb && p.b >= 1926 && p.car && ((p.cat === "B" && p.car.h >= 2000) || (p.cat === "P" && p.car.w >= 200))) ? "mk" : null, note:v => "通算2000安打・200勝(・250セーブ)を達成した昭和生まれ以降の選手の会。1978年に金田正一の呼びかけで発足"},
+  {kind:"h3000", hidden:true, min:2, label:v => "3000安打クラブ", of: p => (p.car && p.car.h >= 3000) ? "h" : null, note:v => "通算3000安打。日本では張本勲(3085本)ただ一人。イチローは日米通算4367本"},
+  {kind:"hr500", hidden:true, min:2, label:v => "500本塁打クラブ", of: p => (p.car && p.car.hr >= 500) ? "hr" : null, note:v => "通算500本塁打。日本では王貞治(868本)を筆頭に野村・門田・山本浩二・清原ら"},
+  {kind:"w300", hidden:true, min:2, label:v => "300勝クラブ", of: p => (p.car && p.car.w >= 300) ? "w" : null, note:v => "通算300勝。日本では金田正一(400勝)・米田哲也・小山正明・鈴木啓示・別所毅彦・スタルヒン"},
+  {kind:"mgr", hidden:true, min:3, label:v => "のちの名将たち", of: p => lkMgrNames().has(lkName(p)) ? "mgr" : null, note:v => "現役引退後に監督としてチームを率いた面々"},
+  {kind:"lefty", hidden:true, min:3, label:v => "サウスポー軍団", of: p => (p.cat === "P" && p.th === "左") ? "L" : null, note:v => "左投げの投手がそろった。左打者を封じる強み"},
+  {kind:"switch", hidden:true, min:2, label:v => "スイッチヒッター", of: p => (p.cat === "B" && p.bh === "両") ? "S" : null, note:v => "左右どちらの打席にも立てる打者"},
+  {kind:"no", hidden:true, min:3, label:v => "背番号" + v + "の系譜", of: p => (p.no != null && p.no !== "") ? String(p.no) : null, note:v => "同じ背番号を背負った選手たち"},
+  {kind:"born", hidden:true, min:3, label:v => LK_GEN[v] ? LK_GEN[v] + "(" + v + "年生まれ)" : v + "年生まれの同い年", of: p => p.b ? String(p.b) : null, note:v => LK_GEN[v] ? "同じ年に生まれたスターたち。「" + LK_GEN[v] + "」と呼ばれる" : "同じ年に生まれた同い年"},
+  {kind:"sur", hidden:true, min:2, label:v => "同じ苗字「" + v + "」", of: p => lkSurname(p), note:v => "苗字が同じ。血のつながりはなくても縁を感じる"},
+  {kind:"country", hidden:true, min:2, label:v => v + "出身", of: p => (p.f && !/[都道府県]$/.test(p.f) && p.f !== "アメリカ合衆国") ? p.f.replace(/・.*$/, "") : null, note:v => "同じ国から来た仲間"},
+  {kind:"foreign", hidden:true, min:3, label:v => "助っ人軍団", of: p => (!p.mlb && p.f && !/[都道府県]$/.test(p.f) && p.f !== "台湾") ? "f" : null, note:v => "海の向こうから日本球界に来た助っ人たち"},
+  {kind:"mlbteam", hidden:true, min:2, label:v => v + "の系譜(MLB)", of: p => p.mlb && p.team ? p.team : null, note:v => "メジャーの同じ球団に在籍した者同士"},
+  {kind:"twoway", hidden:true, min:2, label:v => "二刀流", of: p => p.twoWay ? "tw" : null, note:v => "投打の両方でチームに貢献する二刀流"},
+  {kind:"lkera", hidden:true, min:2, label:v => v, of: p => { if(p.mlb || !p.year) return null; const out = []; LK_ERA.forEach(e => { if(p.fr === e.fr && p.year >= e.y0 && p.year <= e.y1) out.push(e.label); }); return out; }, note:v => { const e = LK_ERA.find(x => x.label === v); return e ? e.note : ""; }},
+  {kind:"combo", hidden:true, min:0, label:v => v, of: p => { const n = lkName(p), out = []; LK_COMBO.forEach(c => { if(c.need.indexOf(n) >= 0) out.push(c.id); }); return out; }, note:v => { const c = LK_COMBO.find(x => x.id === v); return c ? c.note : ""; }},
 ];
 function linkMembers(t){
   return lineupOf(t).concat(rotKeys(t).map(k => t.slots[k]), [t.slots.CL]).filter(Boolean);
@@ -8895,12 +9007,19 @@ function teamLinks(t){
   const ps = linkMembers(t), out = [];
   LINK_RULES.forEach(r => {
     const m = {};
-    ps.forEach(p => { const v = r.of(p); if(v) (m[v] = m[v] || []).push(p); });
+    ps.forEach(p => {
+      let v = r.of(p);
+      if(!v) return;
+      (Array.isArray(v) ? v : [v]).forEach(x => { if(x) (m[x] = m[x] || []).push(p); });
+    });
     Object.keys(m).forEach(v => {
       const arr = m[v];
-      if(arr.length < r.min) return;
-      const lv = arr.length >= r.min + 4 ? 3 : arr.length >= r.min + 2 ? 2 : 1;
-      out.push({kind:r.kind, v, label:r.label(v), members:arr, n:arr.length, lv});
+      let min = r.min, lv;
+      if(r.kind === "combo"){ const c = LK_COMBO.find(x => x.id === v); if(!c || arr.length < c.need.length) return; lv = c.need.length >= 3 ? 3 : 2; }
+      else if(r.kind === "lkera"){ const e = LK_ERA.find(x => x.label === v); min = e ? e.min : 2; }
+      if(arr.length < min) return;
+      if(lv == null) lv = arr.length >= min + 4 ? 3 : arr.length >= min + 2 ? 2 : 1;
+      out.push({kind:r.kind, v, label:r.label(v), note:r.note ? r.note(v) : "", hidden:!!r.hidden, members:arr, n:arr.length, lv});
     });
   });
   return out.sort((a, b) => b.lv - a.lv || b.n - a.n);
@@ -8913,13 +9032,30 @@ function refreshLinks(t){
   ls.forEach(g => g.members.forEach(p => { p.linkB = Math.min(3, (p.linkB || 0) + g.lv); }));
   return ls;
 }
+let LK_LAST = [];
 function linksLineHtml(t, c){
   const so = t.order, sr = t.rot;
   if(c){ t.order = c.order; t.rot = c.rot; }
   const ls = teamLinks(t);
   t.order = so; t.rot = sr;
+  LK_LAST = ls;
+  const MAXC = 6;
   return '<div class="lk-line"><span class="lk-lb">絆</span>' +
-    (ls.length ? ls.slice(0, 6).map(g => '<span class="lk-chip lv' + g.lv + '" title="' + esc(g.members.map(p => p.name).join("・")) + '">' + esc(g.label) + '<i>' + g.n + '人</i><b>+' + g.lv + '</b></span>').join("")
-               : '<span class="lk-none">同じリーグ・系譜・同郷・同じ年代が揃うと力が上がる</span>') +
+    (ls.length ? ls.slice(0, MAXC).map((g, i) => '<button type="button" class="lk-chip lv' + g.lv + (g.hidden ? ' hid' : '') + '" onclick="lkInfo(' + i + ')">' + esc(g.label) + '<i>' + g.n + '人</i><b>+' + g.lv + '</b></button>').join("") +
+                 (ls.length > MAXC ? '<button type="button" class="lk-chip more" onclick="lkInfo(-1)">他' + (ls.length - MAXC) + '</button>' : '')
+               : '<span class="lk-none">同じリーグ・系譜・同郷・同年代のほか、隠し絆が多数。顔ぶれをそろえて探そう</span>') +
     '</div>';
 }
+// 札を押すと由来と顔ぶれが読める。-1 は全部の一覧
+function lkInfo(i){
+  let box = $("lk-pop");
+  if(!box){ box = document.createElement("div"); box.id = "lk-pop"; box.className = "lk-pop"; box.onclick = e => { if(e.target === box) lkClose(); }; document.body.appendChild(box); }
+  const one = g => '<div class="lk-item' + (g.hidden ? ' hid' : '') + '"><div class="lk-item-h">' + (g.hidden ? '<span class="lk-tag">隠し絆</span>' : '') + '<b>' + esc(g.label) + '</b><span>' + g.n + '人 <em>+' + g.lv + '</em></span></div>' +
+    (g.note ? '<p class="lk-note">' + esc(g.note) + '</p>' : '') +
+    '<div class="lk-mem">' + g.members.map(p => '<span>' + esc(p.name) + '<small>' + esc(p.team || p.fr || "") + (p.year ? " " + p.year : "") + '</small></span>').join("") + '</div></div>';
+  const ls = i >= 0 ? [LK_LAST[i]].filter(Boolean) : LK_LAST;
+  box.innerHTML = '<div class="lk-pop-in"><div class="lk-pop-h">' + (i >= 0 ? '絆の由来' : '発動中の絆 ' + LK_LAST.length + '件') + '<button type="button" class="btn ghost sm" onclick="lkClose()">閉じる</button></div>' + ls.map(one).join("") + '</div>';
+  box.classList.add("show");
+  if(typeof seTap === "function") seTap();
+}
+function lkClose(){ const box = $("lk-pop"); if(box) box.classList.remove("show"); }

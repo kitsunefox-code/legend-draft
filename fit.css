@@ -6,14 +6,14 @@
 #scr-gacha .gc-field{container-type:size;}
 #scr-gacha .gc-at .ld-capsule{animation:ldRoll 1.15s cubic-bezier(.22,1,.36,1) both !important;}
 @keyframes ldRoll{
-  0%{transform:translate(var(--dx,0px),var(--dy,60vh)) rotate(-900deg) scale(.5);opacity:0;}
+  0%{transform:translate(var(--dx,0px),var(--dy,60vh)) scale(.5);opacity:0;}
   8%{opacity:1;}
-  55%{transform:translate(calc(var(--dx,0px)*.3),calc(var(--dy,60vh)*.3 - 28px)) rotate(-260deg) scale(1.06);}
-  78%{transform:translate(0,-8px) rotate(-30deg) scale(1.02);}
+  55%{transform:translate(calc(var(--dx,0px)*.3),calc(var(--dy,60vh)*.3 - 28px)) scale(1.06);}
+  78%{transform:translate(0,-8px) scale(1.02);}
   100%{transform:none;}
 }
 #scr-gacha .ld-bench .ld-capsule,#scr-gacha .gc-pen .ld-capsule,#scr-gacha .ld-pitch-row .ld-capsule{animation:ldRollUp 1s cubic-bezier(.22,1,.36,1) both !important;}
-@keyframes ldRollUp{0%{transform:translateY(50vh) rotate(-720deg) scale(.5);opacity:0;}10%{opacity:1;}70%{transform:translateY(-10px) rotate(15deg) scale(1.05);}100%{transform:none;}}
+@keyframes ldRollUp{0%{transform:translateY(50vh) scale(.5);opacity:0;}10%{opacity:1;}70%{transform:translateY(-10px) scale(1.05);}100%{transform:none;}}
 #scr-gacha .gc-at:nth-child(1) .ld-capsule{animation-delay:.02s !important;} #scr-gacha .gc-at:nth-child(2) .ld-capsule{animation-delay:.09s !important;}
 #scr-gacha .gc-at:nth-child(3) .ld-capsule{animation-delay:.16s !important;} #scr-gacha .gc-at:nth-child(4) .ld-capsule{animation-delay:.23s !important;}
 #scr-gacha .gc-at:nth-child(5) .ld-capsule{animation-delay:.30s !important;} #scr-gacha .gc-at:nth-child(6) .ld-capsule{animation-delay:.37s !important;}

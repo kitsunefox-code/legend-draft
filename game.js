@@ -729,7 +729,7 @@ function parkNext(){
     c.stage = "collect";
     renderParkDraft();
     curtain(t.name + " の本拠地入札",
-      "他の人に見えないように端末を受け取ってください。<br>希望が重なった場合は<b>抽選</b>になります。",
+      "他の人に見えないように<br>端末を受け取ってください。<br>希望が重なった場合は<b>抽選</b>になります。",
       "本拠地を選ぶ",
       function(){ renderParkDraft(); });
     return;
@@ -1977,7 +1977,7 @@ function renderPool(){
         ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" loading="lazy" onerror="this.remove()">'
         : '<span class="pl-tile-av">' + avatarSvg(p, 34) + '</span>') +
       '<span class="pl-tile-n">' + esc(p.name) + '</span>' +
-      '<span class="pl-tile-f">' + rankIcon(p.ovr, 16) + '<i>' + p.cost + '</i></span>' +
+      '<span class="pl-tile-f">' + rankIcon(p, 16) + '<i>' + p.cost + '</i></span>' +
       (!t.cpu && t.watch.has(p.id) ? '<span class="pl-tile-w">★</span>' : "") +
       '</button>';
   }).join("");
@@ -2171,7 +2171,7 @@ function openModal(id){
     '<span class="m-av">' + (p.ph !== undefined ? modalFace(p) : avatarBox(p, 56)) + '</span>' +
     '<span class="m-nm-t"><b>' + esc(p.name) + titleBadge(p) + '</b>' +
       '<span class="m-sub">' + p.year + '年・' + esc(p.team) + '</span></span>' +
-    '<span class="m-rank">' + rankIcon(p.ovr, 40) + '</span>';
+    '<span class="m-rank">' + rankIcon(p, 40) + '</span>';
   // 価格と系譜は性質が違うので、説明用の札とは分けて置く
   $("m-tags").innerHTML =
     '<span class="tag key">コスト <b>' + p.cost + '</b>pt</span>' +
@@ -2415,7 +2415,7 @@ function bidShowNext(){
     curtain(miss ? `${t.name} の外れ1位指名` : `${t.name} の入札`,
       miss
         ? `${t.lostTo ? `<b>${esc(t.lostTo)}</b>の交渉権を逃しました。<br>` : ""}気持ちを切り替えて、次の1人を選んでください。`
-        : `他の人に画面が見えないように端末を受け取ってください。<br>選択希望選手が重複した場合は<b>抽選</b>になります。`,
+        : `他の人に画面が見えないように<br>端末を受け取ってください。<br>選択希望選手が重複した場合は<b>抽選</b>になります。`,
       miss ? "外れ1位を指名する" : "入札をはじめる", ()=>{ renderDraft(); });
     return;
   }
@@ -2452,7 +2452,7 @@ function resolveBids(){
   }).join("");
   const anyDup = Object.values(groups).some(g=>g.length>1);
   $("event-panel").innerHTML = `
-    <h2><span class="kicker">運命の瞬間</span>${PART_LABEL[bid.part]}ドラフト第1巡 ── 選択希望選手 発表</h2>
+    <h2><span class="kicker">運命の瞬間</span><span class="nw">${PART_LABEL[bid.part]}ドラフト第1巡</span> ── <span class="nw">選択希望選手 発表</span></h2>
     <table class="bid-table">${rows}</table>
     <div style="margin-top:16px;text-align:right;">
       <button class="btn" onclick="revealProceed()">${anyDup ? "抽選会場へ" : "交渉権確定"}</button>
@@ -5160,7 +5160,7 @@ function campNext(){
   const idx = c.pending[c.ptr];
   const t = state.parts[idx];
   curtain(t.name + " の開幕編成",
-    "他の人に見えないように端末を受け取ってください。<br>打順・先発ローテ・起用法を決めます。",
+    "他の人に見えないように<br>端末を受け取ってください。<br>打順・先発ローテ・起用法を決めます。",
     "編成を組む",
     function(){ openOrder(idx); });
 }
@@ -5382,7 +5382,7 @@ function benchHtml(t, part){
     return `<div class="od-row od-fix">
       ${faceThumb(p)}
       <span class="od-pos">${label}</span>
-      <span class="od-name">${esc(p.name)}${rankIcon(p.ovr, 15)}${p.reinf || p.traded ? '<span class="od-new">新</span>' : ""}</span>
+      <span class="od-name">${esc(p.name)}${rankIcon(p, 15)}${p.reinf || p.traded ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${orderStat(p)}</span>
       <button class="od-b od-sw" onclick="odPickOpen('${k}')" title="この選手をどこかの枠へ">替</button>
     </div>`;
@@ -6160,7 +6160,7 @@ function renderMlbPanel(){
     <div class="mlb-grid">
       ${ctx.pool.map(p=>`
         <div class="mlb-card ${star===p?"sel":""}" onclick="mlbStarClick('${p.id}')">
-          <span class="rank-wrap">${rankIcon(p.ovr, 28)}</span>
+          <span class="rank-wrap">${rankIcon(p, 28)}</span>
           <div class="pc-row">
             ${avatarBox(p, 36)}
             <div class="pc-main">
@@ -6580,7 +6580,7 @@ function mkEntry(p){
     '<div class="mk-h">' +
       '<span class="mk-n">' + esc(p.name) + '</span>' + titleBadge(p) +
       (p.y ? '<span class="mk-y">' + esc(p.y) + '</span>' : '') +
-      '<span class="mk-rk">' + rankIcon(p.ovr, 22) + '</span>' +
+      '<span class="mk-rk">' + rankIcon(p, 22) + '</span>' +
     '</div>' +
     (intlRibbon(p) ? '<div class="mk-rb">' + intlRibbon(p) + '</div>' : '') +
     (own ? '<div class="mk-own">' + teamEmblem(own, 15) + esc(own.name) + 'が指名済み</div>' : '') +
@@ -8362,7 +8362,7 @@ function renderEmergency(){
     <div class="mlb-grid" style="margin-top:10px;">
       ${list.map(p=>`
         <div class="mlb-card" onclick="emergencySign('${p.id}')">
-          <span class="rank-wrap">${rankIcon(p.ovr, 28)}</span>
+          <span class="rank-wrap">${rankIcon(p, 28)}</span>
           <div class="pc-row">${avatarBox(p, 36)}
             <div class="pc-main">
               <div class="nm">${(t.watch&&t.watch.has(p.id))?"★":""}${esc(p.name)}${titleBadge(p)}</div>
@@ -8601,7 +8601,7 @@ function rouletteRender(){
         '<div class="rl-pick-h">スカウト部からの獲得候補（' + pick.cands.length + '人）── 1人を選ぶと' + esc(pick.cur.name) + 'と入れ替わります</div>' +
         '<div class="mlb-grid">' + pick.cands.map(function(p, i){
           return '<div class="mlb-card" onclick="scoutChoose(' + i + ')">' +
-            '<span class="rank-wrap">' + rankIcon(p.ovr, 28) + '</span>' +
+            '<span class="rank-wrap">' + rankIcon(p, 28) + '</span>' +
             '<div class="pc-row">' + avatarBox(p, 36) +
               '<div class="pc-main">' +
                 '<div class="nm">' + esc(p.name) + titleBadge(p) + '</div>' +

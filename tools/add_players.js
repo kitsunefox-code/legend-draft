@@ -167,7 +167,7 @@ async function download(url, dest){
   fs.writeFileSync(dest, Buffer.from(await res.arrayBuffer()));
 }
 async function candidates(){
-  const cats = ["首位打者 (NPB)","本塁打王 (NPB)","打点王 (NPB)","盗塁王 (NPB)","最多勝利 (NPB)","最優秀防御率 (NPB)","最多奪三振 (NPB)","沢村栄治賞","最優秀選手 (NPB)","最優秀中継ぎ投手 (NPB)","最高出塁率 (NPB)","最多安打 (NPB)","最多セーブ投手 (NPB)","最多セーブ (NPB)","最優秀救援投手 (NPB)","最優秀新人 (NPB)","日本プロ野球名球会","ベストナイン (NPB)","ゴールデングラブ賞受賞者"];
+  const cats = ["首位打者 (NPB)","本塁打王 (NPB)","打点王 (NPB)","盗塁王 (NPB)","最多勝利 (NPB)","最優秀防御率 (NPB)","最多奪三振 (NPB)","沢村栄治賞","最優秀選手 (NPB)","最優秀中継ぎ投手 (NPB)","最高出塁率 (NPB)","最多安打 (NPB)","最多セーブ投手 (NPB)","最多セーブ (NPB)","最優秀救援投手 (NPB)","最優秀新人 (NPB)","日本プロ野球名球会","ベストナイン (NPB)","ゴールデングラブ賞受賞者","野球殿堂表彰者 (日本)","月間MVP (NPB)","日本シリーズMVP","オールスターゲームMVP (NPB)","正力松太郎賞"];
   const names = new Set();
   for(const c of cats){
     let cont = "";
@@ -217,7 +217,7 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
       const best = pickBest(st.yrs, isPit);
       if(!best){ skipped.push([title, "規定に届く年なし"]); continue; }
       const titles = st.yrs.reduce((a, r) => a + (frOf(r.team) ? r.bold : 0), 0);
-      const photo = NOPHOTO ? null : await freePhoto(ib.title);
+      const photo = await freePhoto(ib.title);
       if(!photo && !NOPHOTO){ skipped.push([title, "自由な写真なし"]); await sleep(200); continue; }
       const name = norm(ib.title);
       if(doneNames.has(name) || have.has(name)){ skipped.push([title, "重複"]); continue; }

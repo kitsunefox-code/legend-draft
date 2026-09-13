@@ -64,27 +64,33 @@ function abilShort(p){
     '<span>' + x.s + '<i style="background:' + AB_COLOR[x.g] + '">' + x.g + '</i>' + (x.unit ? '<small>' + x.v + '</small>' : '') + '</span>').join("") + '</span>';
 }
 // 並び替えの鍵
-const AB_SORT = {meet:["B",0], power:["B",1], run:["B",2], arm:["B",3], field:["B",4], velo:["P",0], ctrl:["P",1], stam:["P",2], brk:["P",3], sai:["M",0]};
-const AB_SORT_LABEL = {ovr:"総合", cost:"コスト", meet:"ミート", power:"パワー", run:"走力", arm:"肩", field:"守備", velo:"球速", ctrl:"制球", stam:"スタミナ", brk:"変化球", sai:"采配", year:"年代", name:"名前"};
+const AB_SORT = {meet:["B",0], power:["B",1], run:["B",2], arm:["B",3], field:["B",4], velo:["P",0], ctrl:["P",1], stam:["P",2], brk:["P",3], sai:["M",0], jis:["M",1], sho:["M",2]};
+const AB_SORT_LABEL = {ovr:"総合", cost:"コスト", meet:"ミート", power:"パワー", run:"走力", arm:"肩", field:"守備", velo:"球速", ctrl:"制球", stam:"スタミナ", brk:"変化球", sai:"采配", jis:"実績", sho:"勝負強さ", year:"年代", name:"名前"};
 function abilVal(p, key){
   const d = AB_SORT[key];
   if(!d) return -1;
   const ab = abilities(p);
   return (p.cat === d[0] && ab[d[1]]) ? ab[d[1]].v : -1;
 }
+// 同じ札をもう一度押すと昇順・降順が入れ替わる
+let poolAsc = false;
 function poolSort(key){
   const el = document.getElementById("f-sort");
+  const cur = el ? el.value : "ovr";
+  if(cur === key) poolAsc = !poolAsc; else poolAsc = false;
   if(el){ if(!Array.from(el.options).some(o => o.value === key)){ const o = document.createElement("option"); o.value = key; o.textContent = AB_SORT_LABEL[key] || key; el.appendChild(o); } el.value = key; }
   if(typeof seTap === "function") seTap();
   if(typeof renderPool === "function") renderPool();
 }
-// 一覧の上の並び替えの札。区分に合わせて出す
-function poolSortBar(fSlot){
+// 一覧の上の並び替えの札。いま並んでいる顔ぶれ(監督だけ/投手だけ/野手)に合わせて出す
+function poolSortBar(fSlot, list){
   const cur = (document.getElementById("f-sort") || {}).value || "ovr";
-  const pit = fSlot === "SP" || fSlot === "RP" || fSlot === "CL";
-  const keys = fSlot === "MGR" ? ["ovr", "cost", "sai"] : pit ? ["ovr", "cost", "velo", "ctrl", "stam", "brk"] : ["ovr", "cost", "meet", "power", "run", "field"];
+  const cats = new Set((list || []).map(p => p.cat));
+  const onlyM = cats.size === 1 && cats.has("M"), onlyP = cats.size === 1 && cats.has("P");
+  const pit = onlyP || fSlot === "SP" || fSlot === "RP" || fSlot === "CL";
+  const keys = (onlyM || fSlot === "MGR") ? ["ovr", "cost", "sai", "jis", "sho"] : pit ? ["ovr", "cost", "velo", "ctrl", "stam", "brk"] : ["ovr", "cost", "meet", "power", "run", "field"];
   return '<div class="pl-sort"><span class="pl-sort-lb">並び</span>' + keys.map(k =>
-    '<button type="button" class="pl-sort-b' + (cur === k ? " on" : "") + '" onclick="poolSort(&quot;' + k + '&quot;)">' + AB_SORT_LABEL[k] + '</button>').join("") + '</div>';
+    '<button type="button" class="pl-sort-b' + (cur === k ? " on" : "") + '" onclick="poolSort(&quot;' + k + '&quot;)">' + AB_SORT_LABEL[k] + (cur === k ? '<i>' + (poolAsc ? "▲" : "▼") + '</i>' : '') + '</button>').join("") + '</div>';
 }
 
 // ---- 出来事の文中の選手名を太字に(2026-09-13 本人要望) ----

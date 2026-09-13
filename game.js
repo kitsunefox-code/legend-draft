@@ -1916,6 +1916,7 @@ function poolList(){
   else if(sort === "cost") list.sort(function(a,b){ return a.cost - b.cost || b.ovr - a.ovr; });
   else if(typeof AB_SORT !== "undefined" && AB_SORT[sort]) list.sort(function(a,b){ return abilVal(b, sort) - abilVal(a, sort) || b.ovr - a.ovr; });
   else list.sort(function(a,b){ return a.name.localeCompare(b.name, "ja"); });
+  if(typeof poolAsc !== "undefined" && poolAsc) list.reverse();
   return list;
 }
 // 上に一人を大きく、下に候補の札。本拠地の選び方と同じ組み方にそろえる
@@ -2006,7 +2007,7 @@ function renderPool(){
 
   $("pool").innerHTML = preview +
     '<div class="pl-cats">' + cats + '</div>' +
-    (typeof poolSortBar === "function" ? poolSortBar(cur) : "") +
+    (typeof poolSortBar === "function" ? poolSortBar(cur, shown) : "") +
     '<div class="pl-list">' + tiles + '</div>';
 }
 // ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----

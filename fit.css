@@ -797,3 +797,4 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 .od-tile.r-D .od-tile-nm{background:#5a0e0e;border-color:#7a1010;}
 #order-body .od-row .od-name .tg{font-size:8px;}
 .in-grid .tg{font-size:7px;padding:1px 3px;margin-left:2px;}
+.pl-sort-b i{font-style:normal;font-size:9px;margin-left:3px;}

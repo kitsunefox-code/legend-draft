@@ -171,3 +171,26 @@ h1,h2,h3,.gc-nm,.pc-nm,.ld-card-name,.home-content h2,.manager-heading h2,.c-tit
   #event-panel h2 .kicker{display:inline-block;margin-bottom:6px;}
   .c-sub{text-wrap:pretty;line-break:strict;}
 }
+
+/* キャンプ覚醒の号外 */
+#wake-bg{position:fixed;inset:0;z-index:210;background:rgba(6,12,20,.78);display:none;align-items:center;justify-content:center;padding:14px;}
+#wake-bg.show{display:flex;}
+#wake-card{width:100%;max-width:520px;max-height:88dvh;overflow-y:auto;background:linear-gradient(180deg,#14213a,#0b1324);color:#fff;border:2px solid #e0a600;border-radius:14px;padding:14px 14px 12px;box-shadow:0 20px 60px #000c;}
+.wk-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;border-bottom:1px solid #e0a60066;padding-bottom:8px;margin-bottom:8px;}
+.wk-kick{font:900 10px/1 "Noto Sans JP",sans-serif;letter-spacing:.2em;color:#1a1206;background:#e0a600;border-radius:8px;padding:4px 8px;}
+.wk-head b{font:900 26px/1 "Zen Old Mincho","Yu Mincho",serif;color:#ffd257;letter-spacing:.2em;}
+.wk-head small{font-size:11px;color:#c9d3e2;width:100%;}
+.wk-list{display:flex;flex-direction:column;gap:6px;}
+.wk-row{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:6px 8px;}
+.wk-row.cpu{opacity:.75;}
+.wk-row .f-th{flex:none;border-radius:6px;overflow:hidden;}
+.wk-t{flex:1 1 auto;min-width:0;} .wk-t small{display:flex;align-items:center;gap:4px;font-size:10.5px;color:#c9d3e2;} .wk-t b{display:block;font-size:16px;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .wk-t span{display:block;font-size:11px;color:#9fb0c6;}
+.wk-up{flex:none;text-align:right;} .wk-up i{display:block;font:700 9px/1 "Oswald",sans-serif;letter-spacing:.12em;color:#9fb0c6;font-style:normal;} .wk-up b{font:700 22px/1.1 "Oswald",sans-serif;color:#fff;} .wk-up em{display:block;font:700 13px/1 "Oswald",sans-serif;color:#7ee2a0;font-style:normal;}
+.wk-close{width:100%;min-height:46px;margin-top:12px;background:#e0a600;color:#1a1206;border-color:#e0a600;font-weight:900;}
+/* 札のドラッグ */
+#order-body .od-tile{touch-action:none;}
+.od-ghost{position:fixed;z-index:300;pointer-events:none;transform:translate(-50%,-50%) scale(1.06);opacity:.92;filter:drop-shadow(0 10px 14px #000c);}
+.od-tile.od-dragging{opacity:.35;}
+.od-tile.od-over .od-tile-ph{outline:3px solid #ffd257;outline-offset:2px;}
+.wk-cpu{margin-top:10px;font-size:11.5px;color:#c9d3e2;display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center;} .wk-cpu small{width:100%;font-size:10px;color:#9fb0c6;letter-spacing:.1em;} .wk-cpu span i{font-style:normal;color:#7ee2a0;margin-left:2px;}
+.wk-none{margin-top:8px;font-size:12px;color:#c9d3e2;text-align:center;}

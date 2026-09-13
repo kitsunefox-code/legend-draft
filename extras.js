@@ -138,3 +138,71 @@
     };
   }
 })();
+
+
+// ---- キャンプの覚醒を前面に(2026-09-13 本人要望)。開幕直後に一枚で見せる ----
+window.showAwakenings = function(woke){
+  if(!woke || !woke.length) return;
+  let bg = document.getElementById("wake-bg");
+  if(!bg){ bg = document.createElement("div"); bg.id = "wake-bg"; document.body.appendChild(bg); bg.onclick = function(ev){ if(ev.target === bg) window.awakeClose(); }; }
+  const humanFirst = woke.slice().sort(function(a, b){ return (a.t.cpu ? 1 : 0) - (b.t.cpu ? 1 : 0) || b.up - a.up; });
+  bg.innerHTML = '<div id="wake-card">' +
+    '<div class="wk-head"><span class="wk-kick">キャンプ速報</span><b>覚醒</b><small>春季キャンプで大化けした選手たち</small></div>' +
+    '<div class="wk-list">' + humanFirst.filter(function(w){ return !w.t.cpu; }).map(function(w){
+      const m = w.t.slots && w.t.slots.MGR;
+      return '<div class="wk-row' + (w.t.cpu ? ' cpu' : '') + '">' + (typeof faceThumb === "function" ? faceThumb(w.p, 52, 64) : '') +
+        '<div class="wk-t"><small>' + (typeof teamEmblem === "function" ? teamEmblem(w.t, 16) : '') + esc(w.t.name) + '</small><b>' + esc(w.p.name) + '</b>' +
+        '<span>' + esc(roleLabel(w.p)) + '　' + (m ? esc(m.name) + '監督の育成' : 'キャンプの成果') + '</span></div>' +
+        '<div class="wk-up"><i>OVR</i><b>' + w.p.ovr + '</b><em>+' + w.up + '</em></div></div>';
+    }).join("") + '</div>' +
+    (humanFirst.some(function(w){ return w.t.cpu; }) ? '<div class="wk-cpu"><small>CPU球団</small>' + humanFirst.filter(function(w){ return w.t.cpu; }).map(function(w){ return '<span>' + esc(w.p.name) + '<i>+' + w.up + '</i></span>'; }).join("") + '</div>' : '') +
+    (humanFirst.some(function(w){ return !w.t.cpu; }) ? '' : '<div class="wk-none">あなたの球団に覚醒はなし</div>') +
+    '<button type="button" class="btn wk-close" onclick="awakeClose()">開幕へ</button></div>';
+  bg.className = "show";
+  if(typeof seFanfare === "function") try{ seFanfare(); }catch(x){}
+};
+window.awakeClose = function(){ const bg = document.getElementById("wake-bg"); if(bg) bg.className = ""; };
+
+// ---- 編成の札はドラッグでも入れ替えられる(タップの候補一覧に加えて) ----
+(function(){
+  let drag = null;
+  function tileAt(x, y){ const el = document.elementFromPoint(x, y); return el && el.closest ? el.closest('#order-body .od-tile[data-key]') : null; }
+  document.addEventListener('pointerdown', function(ev){
+    const t = ev.target && ev.target.closest ? ev.target.closest('#order-body .od-tile[data-key]') : null;
+    if(!t || !state.orderCtx) return;
+    drag = {key: t.dataset.key, x: ev.clientX, y: ev.clientY, el: t, ghost: null, moved: false, id: ev.pointerId};
+  }, {passive: true});
+  document.addEventListener('pointermove', function(ev){
+    if(!drag || ev.pointerId !== drag.id) return;
+    const dx = ev.clientX - drag.x, dy = ev.clientY - drag.y;
+    if(!drag.moved){
+      if(Math.hypot(dx, dy) < 10) return;
+      drag.moved = true;
+      drag.ghost = drag.el.cloneNode(true); drag.ghost.className += ' od-ghost'; drag.ghost.removeAttribute('onclick');
+      document.body.appendChild(drag.ghost); drag.el.classList.add('od-dragging');
+    }
+    drag.ghost.style.left = ev.clientX + 'px'; drag.ghost.style.top = ev.clientY + 'px';
+    const over = tileAt(ev.clientX, ev.clientY);
+    document.querySelectorAll('.od-tile.od-over').forEach(function(x){ if(x !== over) x.classList.remove('od-over'); });
+    if(over && over !== drag.el) over.classList.add('od-over');
+    ev.preventDefault();
+  }, {passive: false});
+  function end(ev){
+    if(!drag) return;
+    const d = drag; drag = null;
+    if(d.ghost) d.ghost.remove();
+    d.el.classList.remove('od-dragging');
+    document.querySelectorAll('.od-tile.od-over').forEach(function(x){ x.classList.remove('od-over'); });
+    if(!d.moved) return;
+    // ドラッグの直後に出るクリック(候補一覧が開く)を一度だけ抑える
+    const blocker = function(c){ c.stopPropagation(); c.preventDefault(); document.removeEventListener('click', blocker, true); };
+    document.addEventListener('click', blocker, true); setTimeout(function(){ document.removeEventListener('click', blocker, true); }, 400);
+    const over = tileAt(ev.clientX, ev.clientY);
+    if(over && over.dataset.key !== d.key && state.orderCtx){
+      const t = state.parts[state.orderCtx.idx];
+      const ok = typeof swapTargets === "function" && swapTargets(t, d.key).some(function(x){ return x.key === over.dataset.key; });
+      if(ok) odSwap(d.key, over.dataset.key); else if(typeof announceOd === "function") announceOd("この枠には入れ替えられません(守れる位置・役割が合いません)");
+    }
+  }
+  document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
+})();

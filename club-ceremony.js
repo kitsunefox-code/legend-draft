@@ -190,7 +190,7 @@ function ldCeremonyPhase(G,phase){
   if(kind==='M'){
     // 契約書が持ち上がったら、候補者の名前が巡ってから本人の署名
     const reduced=ldReduced();
-    ldDelay(()=>ldNameRoulette(G,()=>ldWriteSignature(G)),reduced?0:1150);
+    ldDelay(()=>ldWriteSignature(G),reduced?0:700);
   }
   seWin();
 }

@@ -1175,11 +1175,12 @@ function gachaPull(auto){
   if(R.k === "B") gachaBestStarters(t, pulls);
   G.pulls = pulls; G.revealed = auto ? pulls.length : 0;
   if(auto){ G.phase = "caps"; renderGacha(); setTimeout(gachaAdvance, 1100); return; }
+  if(R.k === "C"){ G.phase = "caps"; renderGacha(); setTimeout(function(){ if(state.gacha === G) gachaReveal(0); }, 150); return; }
   // ハンドルを回す→カプセルが落ちる
   G.phase = "drop";
   renderGacha();
   seRollStart();
-  setTimeout(function(){ seRollStop(); if(state.gacha === G){ G.phase = "caps"; renderGacha(); seWhoosh(); } }, 1000);
+  setTimeout(function(){ seRollStop(); if(state.gacha === G){ G.phase = "caps"; renderGacha(); seWhoosh(); } }, 600);
 }
 // 野手ガチャ: 引いた顔ぶれを、守備位置ごとにOVRの高い人がスタメンになるよう並べ直す(控えは残り)
 // 候補の少ない位置(捕→遊→二→三→一→外→指)から埋める。カプセルの置き場所(x.d)も新しい枠に合わせる
@@ -2762,9 +2763,8 @@ function rollAwakenings(){
     const m = w.t.slots.MGR;
     const txt = `【覚醒】${w.p.name}（${w.t.name}）がキャンプで大化け！` + (m?` ${m.name}監督の育成が実を結ぶ`:"");
     state.news.unshift({mo:"4月", txt});
-    if(i < 2) telop(txt);
   });
-  return woke.length;
+  return woke;
 }
 
 // ---- 日程表(総当たりカレンダー方式) ----
@@ -2852,13 +2852,14 @@ function startSeason(){
   state.eventQueue.push({after:2, type:"allstar"});                    // 前半戦終了。球宴
   if(state.opts.trade) state.eventQueue.push({after:3, type:"trade"});  // トレード期限日(7月末)
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
-  const wokeCount = rollAwakenings();
+  const woke = rollAwakenings(); const wokeCount = woke.length; state.lastWoke = woke;
   initSeasonStats();
   rollForms();
   state.parts.forEach(t => { if(mascotAb(t, "fortune")) lineupOf(t).forEach(p => { if(p) p.form = Math.min(2, (p.form||0) + 1); }); });   // 福の神: 開幕は打線が好調
   state.rosterTab = 0;
   show("scr-season");
   renderSeasonTabs();
+  if(woke.length && typeof showAwakenings === "function") setTimeout(function(){ showAwakenings(woke); }, 500);
   if(innerWidth <= 700){
     const host = document.querySelector('#scr-season .s-pane[data-pane="rank"] .board'), sg = $("s-games");
     if(host && sg && sg.parentNode !== host){ sg.classList.add("moved"); host.appendChild(sg); }
@@ -5352,7 +5353,7 @@ function odTile(t, key, label, no, cls){
   const r = p ? prank(p) : "";
   const grp = slotGrp(key);
   const ovr = p ? ovrFor(p, grp) : 0;
-  return '<button type="button" class="od-tile' + (p ? " r-" + r : " empty") + (cls ? " " + cls : "") + '" onclick="odPickOpen(&quot;' + key + '&quot;)">' +
+  return '<button type="button" class="od-tile' + (p ? " r-" + r : " empty") + (cls ? " " + cls : "") + '" data-key="' + key + '" onclick="odPickOpen(&quot;' + key + '&quot;)">' +
     '<span class="od-tile-pos">' + esc(label) + (no ? '<i>' + no + '</i>' : '') + '</span>' +
     '<span class="od-tile-ph">' + (p ? faceThumb(p, 52, 60) : '<span class="f-th f-none"></span>') + (p ? '<span class="od-tile-rk">' + rankIcon(p, 16) + '</span>' : '') + '</span>' +
     '<span class="od-tile-nm">' + (p ? esc(p.name) : "空き") + '</span>' +
@@ -5360,7 +5361,7 @@ function odTile(t, key, label, no, cls){
   '</button>';
 }
 // プロスピの守備画面と同じ組み: 上に外野3人、真ん中に内野4人、下に捕手。指名打者と控えは図の下の列
-const TILE_POS = {OF1:[19,20], OF2:[50,16], OF3:[81,20], B3:[15,52], SS:[35,45], B2:[65,45], B1:[85,52], C:[50,76]};
+const TILE_POS = {OF1:[17,21], OF2:[50,16], OF3:[83,21], B3:[15,58], SS:[36,45], B2:[64,45], B1:[85,58], C:[50,80]};
 function fieldHtml(t, c){
   return '<div class="od-stage">' +
     '<div class="od-stage-bg"></div><div class="od-diamond"></div>' +
@@ -5748,7 +5749,7 @@ function gmRender(){
       others.map(x => '<button type="button" class="gm-team' + (c.rival === x ? " on" : "") + '" onclick="gmRival(' + state.parts.indexOf(x) + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b>' + (x.cpu ? '<small>CPU</small>' : '') + '</button>').join("") + '</div></div>';
   const cards = c.cards.map((p, i) => '<button type="button" class="gm-card' + (c.pick === i ? " on" : "") + '" onclick="gmPick(' + i + ')"><b>' + esc(p.label) + '</b><span>' + esc(p.eff) + '</span></button>').join("");
   const preds = state.parts.map((x, i) => '<button type="button" class="gm-team' + (c.pred === i ? " on" : "") + '" onclick="gmPred(' + i + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b><small>' + (s.indexOf(x)+1) + '位</small></button>').join("");
-  const ready = c.pick !== null && (state.opts.points === false || (c.pred !== null && (t.rival || c.rival) && (t.oshi || c.oshi)));
+  const ready = c.pick !== null && (state.opts.points === false || ((t.rival || c.rival) && (t.oshi || c.oshi)));
   $("event-panel").innerHTML =
     '<div class="gm-wrap">' +
     '<h2><span class="kicker">' + (MONTH_LABEL[c.no] || "") + '末</span>GMの決断</h2>' +
@@ -5756,7 +5757,7 @@ function gmRender(){
     gmMonthReport(t, c) +
     (state.opts.points === false ? '' : oshiHtml + rivalHtml) +
     '<div class="gm-sec"><div class="gm-h">今月の施策<small>一つだけ。必ず得と損が抱き合わせ</small></div><div class="gm-cards">' + cards + '</div></div>' +
-    (state.opts.points === false ? '' : '<div class="gm-sec"><div class="gm-h">番記者予想<small>来月、いちばん勝つ球団は？ 的中で+2点（首位当てより難しい）</small></div><div class="gm-teams">' + preds + '</div></div>') +
+
     '<div class="gm-foot"><span>' + (c.idx+1) + ' / ' + c.queue.length + '球団</span><button class="btn rl-go" ' + (ready ? '' : 'disabled') + ' onclick="gmCommit()">決定</button></div>' +
     '</div>';
 }
@@ -5779,14 +5780,13 @@ function gmCommit(){
   const c = state.eventCtx;
   if(!c || c.type !== "gm" || c.pick === null) return;
   const t = c.queue[c.idx];
-  if(state.opts.points !== false && c.pred === null) return;
   if(!t.rival && c.rival) t.rival = c.rival;
   if(!t.oshi && c.oshi) t.oshi = c.oshi;
   const card = c.cards[c.pick];
   const msg = card.run(t) || "";
   t.pred = c.pred === null ? null : state.parts[c.pred];
   const txt = "【GM】" + t.name + "が「" + card.label + "」を実行。" + msg;
-  state.news.unshift({mo: (MONTH_LABEL[c.no] || "") + "末", txt}); telop(txt);
+  state.news.unshift({mo: (MONTH_LABEL[c.no] || "") + "末", txt});
   seWin();
   renderRosterLive(); renderTeamStrip();
   t.ptsMark = (t.ptsLog || []).length;   // 次の月の答え合わせはここから
@@ -7762,7 +7762,7 @@ function partyNews(icon, cls, txt, id, teamHint){
     if(hi >= 0 && teams.indexOf(hi) < 0) teams.push(hi);
   }
   state.partyLog.unshift({d: dateLabel(state.day-1), icon, cls, txt, id, teams, day: state.day});
-  telop(txt);
+  if(!(id && typeof hasEventPic === "function" && hasEventPic(id))) telop(txt);
   renderPartyLog();
 }
 function formShift(list, delta){

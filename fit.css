@@ -656,7 +656,7 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
 /* ===== 編成: プロスピ風の札(暗い球場・金の位置札・写真・名前帯) ===== */
 .od-stage{position:relative;width:100%;aspect-ratio:10/8.4;border-radius:10px;overflow:hidden;background:#0a1a12;border:1px solid #2c5742;box-shadow:inset 0 0 40px #000a;}
 .od-stage-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,14,24,.92) 0,rgba(10,30,20,.55) 30%,rgba(10,40,24,.35) 100%),url("assets/bg/stadium.jpg") center 35%/cover no-repeat;}
-.od-diamond{position:absolute;left:50%;top:62%;width:64%;aspect-ratio:1;transform:translate(-50%,-50%) rotate(45deg) scaleY(.62);background:#7a5a36;border:3px solid rgba(255,255,255,.55);border-radius:4px;box-shadow:inset 0 0 0 18px #2f7a48;}
+.od-diamond{position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 90' preserveAspectRatio='none'%3E%3Cellipse cx='50' cy='60' rx='42' ry='27' fill='%23a5773f'/%3E%3Cpath d='M50 82 L86 58 L50 36 L14 58 Z' fill='%234a9a54' stroke='%23fff' stroke-width='1.4' stroke-linejoin='round'/%3E%3Ccircle cx='50' cy='58' r='4.5' fill='%23a5773f'/%3E%3Cpath d='M14 58 L6 70 M86 58 L94 70' stroke='%23fff' stroke-width='1.2'/%3E%3Crect x='48.3' y='79.5' width='3.4' height='3.4' fill='%23fff' transform='rotate(45 50 81)'/%3E%3C/svg%3E") center/100% 100% no-repeat;opacity:.95;}
 .od-stage.pit{aspect-ratio:auto;padding:10px 6px 8px;display:flex;flex-direction:column;gap:10px;}
 .od-at{position:absolute;transform:translate(-50%,-50%);}
 .od-tile{position:relative;display:flex;flex-direction:column;align-items:center;width:64px;padding:0;border:0;background:transparent;cursor:pointer;font-family:"Noto Sans JP",sans-serif;-webkit-tap-highlight-color:transparent;}
@@ -729,3 +729,37 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
   #pool-pv .pl-more{padding:4px 8px 6px;gap:6px;}
   #pool-pv .pl-more .btn{min-height:34px;padding:4px 6px;font-size:12px;}
 }
+
+/* ===== 2026-09-13 昼: カプセルは回さない(斜めが不評) ===== */
+@keyframes ldCapsuleEject{0%{opacity:0;transform:translateY(-48px) scale(.35)}30%{opacity:1;transform:translateY(-70px) scale(.8)}65%{transform:translateY(8px) scale(1.1)}85%{transform:translateY(-12px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1.1)}}
+@keyframes ldCapsuleHero{0%{opacity:0;transform:translateY(-40px) scale(.3)}25%{opacity:1}70%{opacity:1;transform:translateY(-140px) scale(1.85)}100%{opacity:1;transform:translateY(-120px) scale(1.6)}}
+/* 演出スキップは下(上は指が届かない) */
+.ld-reveal .ld-skip{top:auto !important;right:auto !important;left:50%;bottom:calc(18px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);font-size:12px;padding:10px 20px;border-radius:20px;}
+.ld-reveal.revealed .ld-skip{display:none;}
+/* 編成(スマホ)を一画面に: 絆は一行で横に繰る、控えは横一列、球場は少し低く */
+@media (max-width:700px){
+  #order-body .lk-line{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding-bottom:2px;}
+  #order-body .lk-line::-webkit-scrollbar{display:none;}
+  #order-body .lk-line .lk-chip{flex:none;white-space:nowrap;}
+  #order-body .od-body[data-tab="field"]{overflow:hidden !important;}
+  #order-body .od-stage:not(.pit){aspect-ratio:10/9.6;}
+  #order-body .od-tiles-row.bench{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;gap:6px;padding:18px 8px 6px;}
+  #order-body .od-tiles-row.bench .od-row-lb{top:3px;}
+  #order-body .od-tiles-row.bench::-webkit-scrollbar{display:none;}
+  #order-body .od-tiles-row.bench .od-tile{flex:none;width:54px;} #order-body .od-tiles-row.bench .od-tile-ph{width:46px;height:52px;} #order-body .od-tiles-row.bench .od-tile-nm{width:54px;font-size:9px;}
+  #order-body .od-at .od-tile{width:60px;} #order-body .od-at .od-tile-ph{width:50px;height:58px;} #order-body .od-at .od-tile-nm{width:60px;font-size:10px;}
+  #order-body .od-at .od-tile-lv{font-size:8.5px;margin-top:1px;}
+  /* 打順の名前は濃い字で */
+  #order-body .od-row .od-name,#order-body .od-row .od-pos,#order-body .od-pk-r .od-name{color:#1a1206 !important;}
+  #order-body .od-row .od-pos{color:#4d4a42 !important;}
+  /* ペナントの盤は上を空けて中央へ */
+  #scr-season > .board{padding-top:calc(14px + env(safe-area-inset-top,0px)) !important;}
+  #scr-season .month-head{justify-content:center;}
+  /* ルーレットは画面の中央に */
+  #event-panel:has(.rl-stage){display:flex;flex-direction:column;justify-content:safe center;}
+  #event-panel:has(.rl-stage) > *{flex:none;}
+  #event-panel .rl-stage{margin:12px auto;}
+}
+/* 通知はイベント・幕・号外・記事の間は出さない(試合再開ボタンに被る) */
+body:has(#saihai-bg.show) .telop,body:has(#pic-bg.show) .telop,body:has(#dg-bg.show) .telop,body:has(#opening-bg.show) .telop,body:has(#series-bg.show) .telop,body:has(#intro-bg.show) .telop,body:has(#modal-bg.show) .telop,body:has(#wake-bg.show) .telop,body:has(.ld-reveal) .telop{display:none !important;}
+body:has(#wake-bg.show) #s-dock{display:none;}

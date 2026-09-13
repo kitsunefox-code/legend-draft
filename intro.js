@@ -18,7 +18,7 @@ function chip(p, pos, no){
     '<span class="in-pos">' + esc(pos || "") + (no ? '<em>' + no + '</em>' : '') + '</span>' +
     '<span class="in-rk">' + rankIcon(p, 16) + '</span>' +
     '<span class="in-face">' + faceThumb(p, 44, 54) + '</span>' +
-    '<b>' + esc(p.name) + '</b>' +
+    '<b>' + esc(p.name) + (typeof nameTags === 'function' ? nameTags(p) : '') + '</b>' +
     '<small>' + (p.cat === "P" ? esc(String(p.year)) + '年 ' + (p.role === "CL" || p.role === "RP" ? (p.sv ? p.sv + 'S' : (p.hld||0) + 'H') : (p.w||0) + '勝') + ' 防' + Number(p.era||0).toFixed(2) : esc(String(p.year)) + '年 ' + avg3(p.avg||0) + ' ' + (p.hr||0) + '本') + '</small>' +
   '</div>';
 }

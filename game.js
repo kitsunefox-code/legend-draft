@@ -1979,7 +1979,7 @@ function renderPool(){
     const st = p.cat === "M" ? "優勝" + (p.pennants||0) + "・日本一" + (p.japan||0) : statShort(p);
     return '<button type="button" class="pl-row' + (now ? " now" : "") + (!t.cpu && t.watch.has(p.id) ? " w" : "") + '" onclick="poolPick(&quot;' + p.id + '&quot;)">' +
       '<span class="plr-rk">' + rankIcon(p, 20) + '</span>' +
-      '<span class="plr-main"><b class="plr-nm">' + esc(p.name) + '</b><small class="plr-sub">' + esc(p.team) + '　' + p.year + (p.tc ? '　三冠王' : '') + (typeof abilShort === "function" ? '　' + abilShort(p) : '') + '</small></span>' +
+      '<span class="plr-main"><b class="plr-nm">' + esc(p.name) + (typeof nameTags === "function" ? nameTags(p) : "") + '</b><small class="plr-sub">' + esc(p.team) + '　' + p.year + (p.tc ? '　三冠王' : '') + (typeof abilShort === "function" ? '　' + abilShort(p) : '') + '</small></span>' +
       '<span class="plr-pos">' + esc(roleLabel(p)) + '</span>' +
       '<span class="plr-st">' + esc(st) + '</span>' +
       '<span class="plr-ovr"><i>OVR</i>' + p.ovr + '</span>' +
@@ -5287,7 +5287,7 @@ function renderOrder(){
       <span class="od-n">${kind==="rot" ? "第"+(i+1) : (i+1)}</span>
       ${faceThumb(p)}
       <span class="od-pos">${d ? d.label : ""}</span>
-      <span class="od-name">${p ? esc(p.name) : "―"}${p ? rankIcon(p, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
+      <span class="od-name">${p ? esc(p.name) + (typeof nameTags === "function" ? nameTags(p) : "") : "―"}${p ? rankIcon(p, 15) : ""}${isNew ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${line}</span>
       <button class="od-b od-sw" onpointerdown="event.stopPropagation()" onclick="odPickOpen('${k}')" title="この枠の選手を入れ替える">替</button>
       <button class="od-b" onpointerdown="event.stopPropagation()" onclick="moveOrder('${kind}',${i},-1)" ${i===0?"disabled":""}>▲</button>
@@ -5359,7 +5359,7 @@ function odTile(t, key, label, no, cls){
   return '<button type="button" class="od-tile' + (p ? " r-" + r : " empty") + (cls ? " " + cls : "") + '" data-key="' + key + '" onclick="odPickOpen(&quot;' + key + '&quot;)">' +
     '<span class="od-tile-pos">' + esc(label) + (no ? '<i>' + no + '</i>' : '') + '</span>' +
     '<span class="od-tile-ph">' + (p ? faceThumb(p, 52, 60) : '<span class="f-th f-none"></span>') + (p ? '<span class="od-tile-rk">' + rankIcon(p, 16) + '</span>' : '') + '</span>' +
-    '<span class="od-tile-nm">' + (p ? esc(p.name) : "空き") + '</span>' +
+    '<span class="od-tile-nm">' + (p ? esc(p.name) : "空き") + '</span>' + (p && typeof nameTags === "function" ? '<span class="od-tile-tg">' + nameTags(p) + '</span>' : '') +
     '<span class="od-tile-lv">' + (p ? 'OVR ' + ovr : '') + '</span>' +
   '</button>';
 }
@@ -5388,7 +5388,7 @@ function benchHtml(t, part){
     return `<div class="od-row od-fix">
       ${faceThumb(p)}
       <span class="od-pos">${label}</span>
-      <span class="od-name">${esc(p.name)}${rankIcon(p, 15)}${p.reinf || p.traded ? '<span class="od-new">新</span>' : ""}</span>
+      <span class="od-name">${esc(p.name)}${typeof nameTags === "function" ? nameTags(p) : ""}${rankIcon(p, 15)}${p.reinf || p.traded ? '<span class="od-new">新</span>' : ""}</span>
       <span class="od-st">${orderStat(p)}</span>
       <button class="od-b od-sw" onclick="odPickOpen('${k}')" title="この選手をどこかの枠へ">替</button>
     </div>`;
@@ -5430,7 +5430,7 @@ function odPickOpen(key){
       '<button class="od-pk-r" onclick="odSwap(&quot;' + key + '&quot;,&quot;' + x.key + '&quot;)">' +
         (x.p ? faceThumb(x.p) : '') +
         '<span class="od-pos">' + x.label + '</span>' +
-        (x.p ? '<span class="od-name">' + esc(x.p.name) + rankIcon(x.p.ovr, 15) + '</span><span class="od-st">' + orderStat(x.p) + '</span>'
+        (x.p ? '<span class="od-name">' + esc(x.p.name) + (typeof nameTags === "function" ? nameTags(x.p) : "") + rankIcon(x.p, 15) + '</span><span class="od-st">' + orderStat(x.p) + '</span>'
              : '<span class="od-name od-empty">空き枠へ移す</span>') +
       '</button>').join("");
   };

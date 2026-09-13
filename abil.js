@@ -119,3 +119,10 @@ function emphNames(html){
     };
   }
 })();
+
+// ---- 名前の横の札: MLB選手と残念枠がひと目で分かる(2026-09-13 本人要望) ----
+function nameTags(p){
+  if(!p) return "";
+  return (p.mlb ? '<i class="tg tg-mlb">MLB</i>' : '') + (p.danger ? '<i class="tg tg-dg">' + (p.cat === "M" ? "ダメ" : "残念") + '</i>' : '');
+}
+function nameHtml(p){ return p ? esc(p.name) + nameTags(p) : ""; }

@@ -290,23 +290,6 @@ const DANGER_DB = [
  "danger": true
 },
 {
- "name": "森祇晶",
- "cat": "M",
- "team": "横浜",
- "fr": "DeNA",
- "year": 2002,
- "pennants": 0,
- "japan": 0,
- "wins": 118,
- "w": 49,
- "l": 86,
- "place": 6,
- "b": 1937,
- "f": "岐阜県",
- "desc": "西武で日本一6度の名将だったが、横浜では2年目に49勝86敗5分の最下位。シーズン途中に退任を表明した。",
- "danger": true
-},
-{
  "name": "マーティ・ブラウン",
  "cat": "M",
  "team": "楽天",

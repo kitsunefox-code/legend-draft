@@ -61,7 +61,7 @@ function abilShort(p){
   if(!ab.length) return "";
   const pick = p.cat === "B" ? [0, 1, 2, 4] : p.cat === "P" ? [0, 1, 2, 3] : [0, 1, 2];
   return '<span class="plr-ab">' + pick.map(i => ab[i]).filter(Boolean).map(x =>
-    '<span>' + x.s + '<i style="color:' + AB_COLOR[x.g] + '">' + (x.unit ? x.v : x.g) + '</i></span>').join("") + '</span>';
+    '<span>' + x.s + '<i style="background:' + AB_COLOR[x.g] + '">' + x.g + '</i>' + (x.unit ? '<small>' + x.v + '</small>' : '') + '</span>').join("") + '</span>';
 }
 // 並び替えの鍵
 const AB_SORT = {meet:["B",0], power:["B",1], run:["B",2], arm:["B",3], field:["B",4], velo:["P",0], ctrl:["P",1], stam:["P",2], brk:["P",3], sai:["M",0]};

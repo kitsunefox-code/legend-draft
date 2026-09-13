@@ -770,7 +770,10 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 .ab i{font:900 13px/1 "Oswald",sans-serif;font-style:normal;color:#fff;background:var(--c,#7c7c8a);border-radius:3px;padding:3px 0;min-width:20px;text-align:center;}
 .ab small{font:600 10px/1 "Oswald",sans-serif;color:#6b7280;}
 .plr-ab{display:inline-flex;gap:5px;font:600 10px/1 "Noto Sans JP",sans-serif;color:#6b7280;}
-.plr-ab span i{font:900 11px/1 "Oswald",sans-serif;font-style:normal;margin-left:1px;}
+.plr-ab span{display:inline-flex;align-items:center;gap:1px;}
+.plr-ab span i{font:900 11px/1 "Oswald",sans-serif;font-style:normal;color:#fff;border-radius:3px;padding:2px 4px;min-width:15px;text-align:center;margin-left:1px;}
+.plr-ab span small{font:600 9.5px/1 "Oswald",sans-serif;color:#6b7280;}
+.pl-row.now .plr-ab span small{color:#cfd8e6;}
 .pl-row.now .plr-ab{color:#cfd8e6;}
 .pl-sort{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:6px 0 0;padding:2px 0;}
 .pl-sort::-webkit-scrollbar{display:none;}

@@ -21,15 +21,22 @@ const val = k => args.includes(k) ? args[args.indexOf(k) + 1] : null;
 const LIMIT = Number(val("--limit") || 0);
 const DRY = opt("--dry"), NOPHOTO = opt("--nophoto");
 const ONLY = val("--names") ? val("--names").split(",") : null;
+const ARTICLES = opt("--articles");
+const SKIP = path.join(ROOT, "data", "add_skip.json");   // 一度見送った人は次回から飛ばす
 
+let apiFail = 0;
 async function api(host, params){
-  for(let t = 0; t < 3; t++){
+  for(let t = 0; t < 6; t++){
     try{
-      const res = await fetch("https://" + host + "/w/api.php?format=json&formatversion=2&" + params, {headers:{"User-Agent": UA}});
-      if(res.ok) return await res.json();
-    }catch(e){}
-    await sleep(800);
+      const res = await fetch("https://" + host + "/w/api.php?format=json&formatversion=2&maxlag=5&" + params, {headers:{"User-Agent": UA}});
+      if(res.ok){ const j = await res.json(); if(j.error && j.error.code === "maxlag"){ await sleep(5000); continue; } return j; }
+      // 429/503 は Retry-After に従って待つ(無視すると空返事が続いて全員「位置不明」になる)
+      const ra = Number(res.headers.get("retry-after")) || (t + 1) * 10;
+      console.log("  !! HTTP " + res.status + " 待ち " + ra + "秒");
+      await sleep(ra * 1000);
+    }catch(e){ await sleep(3000); }
   }
+  apiFail++;
   return {};
 }
 const ja = p => api("ja.wikipedia.org", p);
@@ -182,6 +189,23 @@ async function candidates(){
   }
   return [...names];
 }
+// 一覧記事(ベストナイン、ゴールデングラブ賞、永久欠番、名球会、殿堂、最多セーブ)のリンク先から候補を集める
+async function candidatesFromArticles(){
+  const pages = ["ベストナイン (日本プロ野球)", "ゴールデングラブ賞", "永久欠番", "日本プロ野球名球会", "野球殿堂 (日本)", "最多セーブ投手 (日本プロ野球)"];
+  const names = new Set();
+  for(const t of pages){
+    const j = await ja("action=parse&prop=links&redirects=1&page=" + encodeURIComponent(t));
+    ((j.parse || {}).links || []).forEach(l => {
+      if(l.ns !== 0 || l.exists === false) return;
+      const x = l.title;
+      if(/\d|年|賞|リーグ|球団|野球|選手|会|スタジアム|ドーム|球場|一覧|記録|日本|投手$|捕手$|塁手$|野手$|打者$|殿堂|Facebook|Instagram|YouTube|X \(|ブラウザ|カルチョ|FC|AC|AS|SS|US|イニング|セーブ|ホールド|レーティング|合衆国|共和国|大学|高校|高等学校|新聞|放送|テレビ|ラジオ|株式会社|グループ|協会|連盟|機構|市$|県$|府$|都$|区$|町$|村$|州$/.test(x)) return;
+      if(/[・]/.test(x) && x.split("・").length > 3) return;
+      names.add(x);
+    });
+    await sleep(300);
+  }
+  return [...names];
+}
 function loadDB(){
   const src = fs.readFileSync(path.join(ROOT, "players.js"), "utf8");
   const g = {}; new Function("g", src.replace(/^const /gm, "g.") + "\nreturn 0;")(g);
@@ -195,8 +219,9 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
   // 外国人は名鑑では姓だけ(バース、クロマティ)のことが多い。姓が一致すれば同じ人とみなす
   const haveLast = new Set([...have].map(n => n.split("・").pop()));
   const dup = n => { const k = norm(n); if(have.has(k)) return true; const parts = k.split("・"); return parts.length > 1 && haveLast.has(parts[parts.length - 1]); };
-  let names = ONLY || await candidates();
-  names = names.filter(n => !dup(n));
+  let names = ONLY || (ARTICLES ? await candidatesFromArticles() : await candidates());
+  const skipPrev = fs.existsSync(SKIP) ? JSON.parse(fs.readFileSync(SKIP, "utf8")) : {};
+  names = names.filter(n => !dup(n) && !(n in skipPrev));
   console.log("候補 " + names.length + "人(名鑑に無い人)");
   if(LIMIT) names = names.slice(0, LIMIT);
   let nextPh = Math.max(0, ...DB.map(p => p.ph || 0), ...fs.readdirSync(FACE).map(f => Number(f.replace(/\D/g, "")) || 0)) + 1;
@@ -255,6 +280,8 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
     await sleep(250);
   }
   console.log("追加 " + added.length + "人 / 見送り " + skipped.length + "人");
+  console.log("API失敗 " + apiFail + "回");
+  if(!DRY){ skipped.forEach(x => { if(!/位置不明|成績表なし|ERR/.test(x[1]) || apiFail === 0) skipPrev[x[0]] = x[1]; }); fs.writeFileSync(SKIP, JSON.stringify(skipPrev, null, 1), "utf8"); }
   skipped.slice(0, 40).forEach(x => console.log("  -", x[0], x[1]));
   if(!DRY && added.length){
     const ins = added.map(e => JSON.stringify(e)).join(",\n");

@@ -33,7 +33,9 @@
     const yr = p.year ? p.year + "年" : "";
     const nm = who || p.name;
     let body;
-    if(p.cat === "P"){
+    if(p.cat === "M"){
+      body = (p.w||0) + "勝" + (p.l||0) + "敗、" + (p.place ? p.place + "位" : "最下位") + "で" + yr + "を終える";
+    }else if(p.cat === "P"){
       body = p.era >= 9 ? "防御率" + Number(p.era).toFixed(2) + "の衝撃" : (p.w||0) + "勝" + (p.l||0) + "敗で" + yr + "を終える";
     }else if(p.hr === 0 && (p.avg||0) < .24) body = "本塁打ゼロ・打率" + avg3(p.avg);
     else body = "期待の打棒は打率" + avg3(p.avg) + "・" + (p.hr||0) + "本";
@@ -57,6 +59,7 @@
     return cut > 0 && cut < 60 ? d.slice(0, cut + 1) : d.slice(0, 60);
   }
   function statsOf(p){
+    if(p.cat === "M") return [["勝", p.w||0], ["敗", p.l||0], ["順位", (p.place||6) + "位"], ["優勝", p.pennants||0]];
     if(p.cat === "P") return [["防御率", Number(p.era||0).toFixed(2)], ["勝敗", (p.w||0) + "勝" + (p.l||0) + "敗"], ["セーブ", p.sv||0], ["奪三振", p.so||0]];
     return [["打率", avg3(p.avg)], ["本塁打", p.hr||0], ["打点", p.rbi||0], ["盗塁", p.sb||0]];
   }
@@ -73,15 +76,15 @@
     bg.innerHTML =
       '<div id="dg-paper" class="' + (mask ? "masked" : "") + '" onclick="event.stopPropagation()">' +
         '<div class="dg-mast"><span class="dg-gogai">号外</span><b>スポーツ球史</b><span class="dg-date">' + esc(String(p.year || "")) + '年　' + esc(p.team || "") + '</span></div>' +
-        '<div class="dg-kicker">鳴り物入りの助っ人、無念の帰国</div>' +
-        '<h2 class="dg-head">' + headlineOf(p, mask ? "謎の新助っ人" : null) + '</h2>' +
+        '<div class="dg-kicker">' + (p.cat === "M" ? "期待の新監督、無念の退任" : "鳴り物入りの助っ人、無念の帰国") + '</div>' +
+        '<h2 class="dg-head">' + headlineOf(p, mask ? (p.cat === "M" ? "謎の新監督" : "謎の新助っ人") : null) + '</h2>' +
         '<div class="dg-body">' +
           '<div class="dg-photo">' + face + (mask ? '<span class="dg-q">?</span>' : '') + '<span class="dg-cap">' + (mask ? '本人の写真は<br>入手できず' : esc(p.name)) + '（' + esc(p.team || "") + '）</span></div>' +
           '<div class="dg-col">' + paragraphs(desc) + '</div>' +
         '</div>' +
         '<div class="dg-stats">' + statsOf(p).map(function(s){ return '<span><small>' + s[0] + '</small><b>' + s[1] + '</b></span>'; }).join("") + '</div>' +
-        '<div class="dg-seal">残念助っ人</div>' +
-        '<button type="button" class="btn dg-close" onclick="dangerArticleClose()">' + (mask ? "この助っ人の正体を見る" : "記事を閉じる") + '</button>' +
+        '<div class="dg-seal">' + (p.cat === "M" ? "ダメ監督" : "残念助っ人") + '</div>' +
+        '<button type="button" class="btn dg-close" onclick="dangerArticleClose()">' + (mask ? (p.cat === "M" ? "この監督の正体を見る" : "この助っ人の正体を見る") : "記事を閉じる") + '</button>' +
       '</div>';
     bg.onclick = window.dangerArticleClose;
     bg.className = "show";

@@ -1914,6 +1914,7 @@ function poolList(){
   if(sort === "ovr") list.sort(function(a,b){ return b.ovr - a.ovr; });
   else if(sort === "year") list.sort(function(a,b){ return a.year - b.year; });
   else if(sort === "cost") list.sort(function(a,b){ return a.cost - b.cost || b.ovr - a.ovr; });
+  else if(typeof AB_SORT !== "undefined" && AB_SORT[sort]) list.sort(function(a,b){ return abilVal(b, sort) - abilVal(a, sort) || b.ovr - a.ovr; });
   else list.sort(function(a,b){ return a.name.localeCompare(b.name, "ja"); });
   return list;
 }
@@ -1945,6 +1946,7 @@ function renderPool(){
         '<div class="pv-data">' +
           '<div class="pv-h">' + roleLabel(pv) + '　' + esc(pv.team) + '　' + pv.year + '年</div>' +
           '<div class="pl-figs">' + figuresHtml(statFigures(pv)) + '</div>' +
+          (typeof abilChips === "function" ? abilChips(pv) : "") +
           '<div class="pl-tags">' +
             '<span class="tag key">コスト <b>' + pv.cost + '</b>pt</span>' +
             ((pv.th || pv.bh) ? '<span class="tag">' + (pv.th||"？") + '投' + (pv.bh||"？") + '打</span>' : "") +
@@ -1977,7 +1979,7 @@ function renderPool(){
     const st = p.cat === "M" ? "優勝" + (p.pennants||0) + "・日本一" + (p.japan||0) : statShort(p);
     return '<button type="button" class="pl-row' + (now ? " now" : "") + (!t.cpu && t.watch.has(p.id) ? " w" : "") + '" onclick="poolPick(&quot;' + p.id + '&quot;)">' +
       '<span class="plr-rk">' + rankIcon(p, 20) + '</span>' +
-      '<span class="plr-main"><b class="plr-nm">' + esc(p.name) + '</b><small class="plr-sub">' + esc(p.team) + '　' + p.year + '年' + (p.tc ? '　三冠王' : '') + '</small></span>' +
+      '<span class="plr-main"><b class="plr-nm">' + esc(p.name) + '</b><small class="plr-sub">' + esc(p.team) + '　' + p.year + (p.tc ? '　三冠王' : '') + (typeof abilShort === "function" ? '　' + abilShort(p) : '') + '</small></span>' +
       '<span class="plr-pos">' + esc(roleLabel(p)) + '</span>' +
       '<span class="plr-st">' + esc(st) + '</span>' +
       '<span class="plr-ovr"><i>OVR</i>' + p.ovr + '</span>' +
@@ -2004,6 +2006,7 @@ function renderPool(){
 
   $("pool").innerHTML = preview +
     '<div class="pl-cats">' + cats + '</div>' +
+    (typeof poolSortBar === "function" ? poolSortBar(cur) : "") +
     '<div class="pl-list">' + tiles + '</div>';
 }
 // ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----
@@ -2198,7 +2201,7 @@ function openModal(id){
   const cf = careerFigs(p);
   $("m-stats").innerHTML =
     '<div class="m-yr">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
-    figuresHtml(statFigures(p)) + extra +
+    figuresHtml(statFigures(p)) + (typeof abilChips === "function" ? abilChips(p) : "") + extra +
     (cf ? '<div class="m-yr m-yr2">通算' + (p.car.yr ? "　" + p.car.yr + "年" : "") + '</div>' +
           figuresHtml(cf.map(function(x){ return {k:x[0], v:x[1]}; })) : "");
   // プロフィールと写真の出典。表示が要るライセンスがあるので必ず添える
@@ -4627,7 +4630,7 @@ function renderPartyLog(){
       <div class="pl-line">
         <span class="pl-icon">${x.icon}</span>
         <span class="pl-d">${x.d}</span>
-        <span class="pl-t">${esc(x.txt)}</span>
+        <span class="pl-t">${typeof emphNames === "function" ? emphNames(esc(x.txt)) : esc(x.txt)}</span>
         ${pic?`<img class="pl-pic" src="${eventPicUrl(x.id)}" alt="" loading="lazy">`:""}
         ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
       </div>
@@ -4772,7 +4775,7 @@ function nextTelop(){
   telopBusy = true;
   const el = document.createElement("div");
   el.className = "telop";
-  el.innerHTML = `<span class="tk">速報</span>${esc(txt)}`;
+  el.innerHTML = `<span class="tk">速報</span>${typeof emphNames === "function" ? emphNames(esc(txt)) : esc(txt)}`;
   document.body.appendChild(el);
   requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add("in")));
   setTimeout(()=>{
@@ -5793,7 +5796,7 @@ function gmCommit(){
   c.idx++;
   // 決断の結果を一枚で見せてから次の球団へ
   $("event-bg").classList.remove("show");
-  curtain(t.name + " の決断", '<b>「' + esc(card.label) + '」</b><br>' + esc(msg || card.eff || "") +
+  curtain(t.name + " の決断", '<b>「' + esc(card.label) + '」</b><br>' + (typeof emphNames === "function" ? emphNames(esc(msg || card.eff || "")) : esc(msg || card.eff || "")) +
     (t.pred ? '<br><small>番記者予想: 来月いちばん勝つのは ' + esc(t.pred.name) + '</small>' : ''), "次へ", gmNext);
 }
 
@@ -8185,7 +8188,7 @@ function showEventPic(e, txt, after){
   const m = /^【([^】]{1,14})】/.exec(txt || "");
   $("pic-date").textContent = dateLabel(state.day - 1);
   $("pic-head").textContent = m ? m[1] : "球界を揺るがす一日";
-  $("pic-txt").textContent  = (txt || "").replace(/^【[^】]+】/, "");
+  $("pic-txt").innerHTML = (typeof emphNames === "function" ? emphNames : function(s){ return s; })(esc((txt || "").replace(/^【[^】]+】/, "")));
   $("pic-note").textContent = e.note || "";
   $("pic-note").parentNode.style.display = e.note ? "" : "none";
   const img = $("pic-img");

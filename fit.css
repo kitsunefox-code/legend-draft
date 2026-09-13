@@ -763,3 +763,25 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
 /* 通知はイベント・幕・号外・記事の間は出さない(試合再開ボタンに被る) */
 body:has(#saihai-bg.show) .telop,body:has(#pic-bg.show) .telop,body:has(#dg-bg.show) .telop,body:has(#opening-bg.show) .telop,body:has(#series-bg.show) .telop,body:has(#intro-bg.show) .telop,body:has(#modal-bg.show) .telop,body:has(#wake-bg.show) .telop,body:has(.ld-reveal) .telop{display:none !important;}
 body:has(#wake-bg.show) #s-dock{display:none;}
+
+/* ===== パワプロ流の能力評価 ===== */
+.ab-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+.ab{display:inline-flex;align-items:center;gap:4px;font:700 11px/1 "Noto Sans JP",sans-serif;color:#1b2a45;background:#eef1f5;border:1px solid #d9dee6;border-radius:5px;padding:3px 6px 3px 3px;}
+.ab i{font:900 13px/1 "Oswald",sans-serif;font-style:normal;color:#fff;background:var(--c,#7c7c8a);border-radius:3px;padding:3px 0;min-width:20px;text-align:center;}
+.ab small{font:600 10px/1 "Oswald",sans-serif;color:#6b7280;}
+.plr-ab{display:inline-flex;gap:5px;font:600 10px/1 "Noto Sans JP",sans-serif;color:#6b7280;}
+.plr-ab span i{font:900 11px/1 "Oswald",sans-serif;font-style:normal;margin-left:1px;}
+.pl-row.now .plr-ab{color:#cfd8e6;}
+.pl-sort{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:6px 0 0;padding:2px 0;}
+.pl-sort::-webkit-scrollbar{display:none;}
+.pl-sort-lb{flex:none;font:700 10px/1 "Noto Sans JP",sans-serif;color:#6b7280;letter-spacing:.1em;margin-right:2px;}
+.pl-sort-b{flex:none;min-height:30px;padding:0 10px;border:1px solid #cfd6df;background:#fff;border-radius:15px;font:700 11.5px/1 "Noto Sans JP",sans-serif;color:#1b2a45;cursor:pointer;}
+.pl-sort-b.on{background:#1b2a45;color:#fff;border-color:#1b2a45;}
+@media (max-width:700px){
+  #pool > .pl-sort{flex:none;}
+  #pool-pv .ab-chips{gap:3px;margin-top:5px;} #pool-pv .ab{font-size:10px;padding:2px 5px 2px 2px;} #pool-pv .ab i{font-size:12px;min-width:18px;} #pool-pv .ab small{display:none;}
+}
+/* 出来事の文中の選手名 */
+.pn{font-weight:900;}
+.telop .pn{color:#ffd257;}
+.pl-t .pn{color:#1a1206;}

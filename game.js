@@ -1970,15 +1970,17 @@ function renderPool(){
     '</div>';
   })() : '<div class="fe-empty">該当する選手がいません。絞り込みをゆるめてください。</div>';
 
+  // 候補は写真なしの一覧(MLB The Show の FANTASY DRAFT にならう)。行を押すと上の下見に写真と詳細が出る
   const tiles = shown.map(function(p){
     const now = p.id === state.poolPv;
-    return '<button class="pl-tile' + (now ? " now" : "") + '" onclick="poolPick(&quot;' + p.id + '&quot;)">' +
-      (p.ph !== undefined
-        ? '<img src="assets/face/' + p.ph + '.jpg" alt="" decoding="async" loading="lazy" onerror="this.remove()">'
-        : '<span class="pl-tile-av">' + avatarSvg(p, 34) + '</span>') +
-      '<span class="pl-tile-n">' + esc(p.name) + '</span>' +
-      '<span class="pl-tile-f">' + rankIcon(p, 16) + '<i>' + p.cost + '</i></span>' +
-      (!t.cpu && t.watch.has(p.id) ? '<span class="pl-tile-w">★</span>' : "") +
+    const st = p.cat === "M" ? "優勝" + (p.pennants||0) + "・日本一" + (p.japan||0) : statShort(p);
+    return '<button type="button" class="pl-row' + (now ? " now" : "") + (!t.cpu && t.watch.has(p.id) ? " w" : "") + '" onclick="poolPick(&quot;' + p.id + '&quot;)">' +
+      '<span class="plr-rk">' + rankIcon(p, 20) + '</span>' +
+      '<span class="plr-main"><b class="plr-nm">' + esc(p.name) + '</b><small class="plr-sub">' + esc(p.team) + '　' + p.year + '年' + (p.tc ? '　三冠王' : '') + '</small></span>' +
+      '<span class="plr-pos">' + esc(roleLabel(p)) + '</span>' +
+      '<span class="plr-st">' + esc(st) + '</span>' +
+      '<span class="plr-ovr"><i>OVR</i>' + p.ovr + '</span>' +
+      '<span class="plr-cost">' + p.cost + '<i>pt</i></span>' +
       '</button>';
   }).join("");
 
@@ -2001,7 +2003,7 @@ function renderPool(){
 
   $("pool").innerHTML = preview +
     '<div class="pl-cats">' + cats + '</div>' +
-    '<div class="pl-grid">' + tiles + '</div>';
+    '<div class="pl-list">' + tiles + '</div>';
 }
 // ---- 注目リスト(チームごとの☆。手番が来たらワンタップで呼び出し) ----
 function toggleWatch(pid){

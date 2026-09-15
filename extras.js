@@ -209,3 +209,123 @@ window.awakeClose = function(){ const bg = document.getElementById("wake-bg"); i
   }
   document.addEventListener('pointerup', end); document.addEventListener('pointercancel', end);
 })();
+
+
+// ---- 起死回生ガチャ(2026-09-15 本人承認)。8月末、最下位の球団だけが引ける逆転の一手 ----
+// 伏せたカプセルを3つ並べ、1つだけ開ける。中身は必ずSS・S・Aのどれか。
+// 当たった選手は、その選手が守れる枠でいちばん弱い選手と入れ替わり、チームは15日間の逆襲ムード。
+// 開けなかった2つの中身も見せる(「そっちがSSだった」で盛り上がる)
+(function(){
+  const ODDS = [["SS", 0.2], ["S", 0.4], ["A", 0.4]];
+  const RC = {SS:"#e0a600", S:"#b9c6d8", A:"#e4432c", B:"#2457b8"};
+  const R01 = () => (typeof rnd === "function" ? rnd() : Math.random());
+  function gamesBehind(t){
+    const s = standingsSorted(), L = s[0];
+    return Math.max(0, ((L.W - t.W) + (t.L - L.L)) / 2);
+  }
+  function candidates(t){
+    return POOL.filter(p => p.cat !== "M" && !p.twoWay && !p.danger && !state.taken.has(p.id) &&
+      (typeof poolOK !== "function" || poolOK(p)) && !(typeof nameTaken === "function" && nameTaken(p)) &&
+      reinforceCan(t, p, true));
+  }
+  function drawOne(t, used){
+    const cands = candidates(t).filter(p => !used.has(p.id) && !used.has("n:" + p.name));
+    if(!cands.length) return null;
+    const r = R01(); let acc = 0, want = "A";
+    for(const [rk, pr] of ODDS){ acc += pr; if(r < acc){ want = rk; break; } }
+    const order = want === "SS" ? ["SS", "S", "A", "B"] : want === "S" ? ["S", "A", "SS", "B"] : ["A", "S", "B", "SS"];
+    for(const rk of order){
+      const b = cands.filter(p => prank(p) === rk);
+      if(b.length){ const p = b[Math.floor(R01() * b.length)]; used.add(p.id); used.add("n:" + p.name); return {p, rank: rk}; }
+    }
+    return null;
+  }
+  function box(){
+    let bg = document.getElementById("ks-bg");
+    if(!bg){ bg = document.createElement("div"); bg.id = "ks-bg"; document.body.appendChild(bg); }
+    return bg;
+  }
+  function capHtml(x, i, c){
+    const done = c.picked >= 0;
+    if(!done){
+      return '<button type="button" class="ks-cap" onclick="kaiseiPick(' + i + ')"' + (c.t.cpu ? ' disabled' : '') + ' aria-label="カプセル' + (i + 1) + 'を開ける">' +
+        '<img src="capsule.webp" alt="" draggable="false"><span>' + (i + 1) + '</span></button>';
+    }
+    if(c.picked === i) return '<div class="ks-cap chosen" style="--rc:' + RC[x.rank] + '"><i class="ks-rk">' + x.rank + '</i><small>獲得</small></div>';
+    return '<div class="ks-cap miss" style="--rc:' + RC[x.rank] + '"><i class="ks-rk">' + x.rank + '</i><small>' + esc(x.p.name) + '</small></div>';
+  }
+  function resultHtml(c){
+    const x = c.caps[c.picked], r = c.res;
+    return '<div class="ks-result">' +
+      '<div class="ks-card-wrap">' + cardHtml(x.p, x.rank, {size: "m", pos: slotLabel(r.key), grp: r.grp}) + '</div>' +
+      '<div class="ks-swap"><span class="out">退団 ' + esc(r.out.name) + '</span><b>加入 ' + esc(x.p.name) + '</b></div>' +
+      '<div class="ks-buff">チーム全体に<b>逆襲ムード</b>(15日間、好調)</div>' +
+      (c.caps.length > 1 ? '<div class="ks-miss-lb">開けなかったカプセルの中身も上に出ています</div>' : '') +
+      '<button type="button" class="btn ks-go" onclick="kaiseiClose()">' + (c.t.cpu ? "試合再開" : "逆襲開始") + '</button></div>';
+  }
+  function render(){
+    const c = state.eventCtx;
+    if(!c || c.type !== "kaisei") return;
+    const t = c.t, done = c.picked >= 0, bg = box();
+    bg.innerHTML = '<div id="ks-card">' +
+      '<div class="ks-head"><span class="ks-kick">8月末・最下位救済</span><h2>起死回生ガチャ</h2>' +
+      '<div class="ks-team">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b><span>最下位・首位と' + gamesBehind(t).toFixed(1) + 'ゲーム差</span></div>' +
+      '<p class="ks-lead">' + (done ? '' : (t.cpu ? 'CPUが選んでいます' : '3つのうち1つだけ開けられます。<br>中身は必ずSS・S・Aのどれか。')) + '</p></div>' +
+      '<div class="ks-caps">' + c.caps.map((x, i) => capHtml(x, i, c)).join("") + '</div>' +
+      (done ? resultHtml(c) : '') +
+    '</div>';
+    bg.className = "show" + (done ? " done" : "");
+  }
+  window.startKaisei = function(){
+    const s = standingsSorted();
+    const t = s[s.length - 1];
+    if(!t || state.finished){ endEventPhase(); return; }
+    const used = new Set();
+    const caps = [0, 1, 2].map(() => drawOne(t, used)).filter(Boolean);
+    if(!caps.length){ endEventPhase(); return; }
+    state.eventCtx = {type: "kaisei", t, caps, picked: -1};
+    const go = function(){
+      if(!state.eventCtx || state.eventCtx.type !== "kaisei") return;
+      render();
+      if(typeof seWhoosh === "function") try{ seWhoosh(); }catch(x){}
+      if(t.cpu) setTimeout(function(){ window.kaiseiPick(Math.floor(R01() * caps.length), true); }, 1500);
+    };
+    // 人間の番なら、端末を渡す間を作る
+    if(!t.cpu && typeof curtain === "function"){
+      curtain("起死回生ガチャ", esc(t.name) + " に端末を渡してください。<br>最下位の球団だけが引ける、逆転の一手です。", "カプセルを選ぶ", go);
+    }else go();
+  };
+  window.kaiseiPick = function(i, byCpu){
+    const c = state.eventCtx;
+    if(!c || c.type !== "kaisei" || c.picked >= 0 || c.busy) return;
+    if(c.t.cpu && !byCpu) return;
+    c.busy = true;
+    const els = document.querySelectorAll("#ks-bg .ks-cap");
+    els.forEach((el, k) => el.classList.add(k === i ? "shake" : "fade"));
+    if(typeof seCrack === "function") try{ seCrack(); }catch(x){}
+    setTimeout(function(){
+      if(state.eventCtx !== c) return;
+      const x = c.caps[i], t = c.t;
+      const r = reinforceRelease(t, x.p);
+      if(!r){ c.busy = false; endEventPhase(); return; }
+      state.taken.delete(r.out.id);
+      t.slots[r.key] = x.p;
+      state.taken.add(x.p.id);
+      x.p.joined = true; x.p.kaisei = true;
+      statsReplace(r.out, x.p, t, r.grp);
+      moodSet(t, 1.0, 15, "起死回生の逆襲");
+      c.res = r; c.picked = i; c.busy = false;
+      partyNews("逆", "good", "【起死回生】" + t.name + "が" + x.p.name + "を獲得！ " + r.out.name + "に代わって逆襲へ", null, t);
+      if(!t.cpu) state.pendingReorder = {t, who: x.p.name};
+      render();
+      if(typeof gachaFlash === "function") try{ gachaFlash(x.rank === "A" ? "S" : x.rank); }catch(e2){}
+      if(x.rank === "SS"){ if(typeof seFanfare === "function") seFanfare(); if(typeof confetti === "function") confetti(); }
+      else if(typeof seWin === "function") seWin();
+    }, 1000);
+  };
+  window.kaiseiClose = function(){
+    const bg = document.getElementById("ks-bg"); if(bg) bg.className = "";
+    if(typeof renderRosterLive === "function") try{ renderRosterLive(); }catch(e){}
+    endEventPhase();
+  };
+})();

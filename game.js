@@ -2856,6 +2856,7 @@ function startSeason(){
   state.eventQueue.push({after:2, type:"allstar"});                    // 前半戦終了。球宴
   if(state.opts.trade) state.eventQueue.push({after:3, type:"trade"});  // トレード期限日(7月末)
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
+  state.eventQueue.push({after:4, type:"kaisei"});                     // 8月末、最下位の球団に起死回生ガチャ
   const woke = rollAwakenings(); const wokeCount = woke.length; state.lastWoke = woke;
   initSeasonStats();
   rollForms();
@@ -3585,7 +3586,7 @@ function tick(){
   afterDay();
 }
 // 月末ハドル。月報とその月の催しを一連の流れとして、上に小さな帯で進み具合を示す
-const EVENT_LABEL = {gm:"GMの決断", roulette:"ルーレット", allstar:"球宴", trade:"トレード期限", mlb:"MLB補強"};
+const EVENT_LABEL = {gm:"GMの決断", roulette:"ルーレット", allstar:"球宴", trade:"トレード期限", mlb:"MLB補強", kaisei:"起死回生"};
 function huddleStart(){
   const due = state.eventQueue.filter(e => !e.done && e.after <= state.monthsCompleted);
   const seen = new Set(); const steps = ["月報"];
@@ -5658,6 +5659,7 @@ function startEvent(type, ev){
   if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="allstar"){ startAllStar(); return; }
   if(type==="gm"){ startGm(ev && ev.no !== undefined ? ev.no : 0); return; }
+  if(type==="kaisei"){ if(typeof startKaisei === "function") startKaisei(); else endEventPhase(); return; }
   if(type==="trade"){
     if(!state.parts.filter(t=>!t.cpu).length){ endEventPhase(); return; }
     state.eventCtx = {type, mode:"table", sel:{a:"", b:"", pa:"", pb:""}, done:[]};

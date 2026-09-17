@@ -422,7 +422,8 @@ function rvSettle(go){
   }
   const won = c.my > c.op, tie = c.my === c.op;
   const sc = `${v.name} ${c.my}-${c.op} ${c.opp.name}`;
-  body += over ? (won ? `。${sc} で勝利！` : tie ? `。${sc} の引き分けに持ち込んだ` : `。それでも ${sc} で及ばず`)
+  if(c.liveHook) body += over ? `。スコアは ${sc} に動いた` : `。スコアは ${sc} のまま試合再開`;
+  else body += over ? (won ? `。${sc} で勝利！` : tie ? `。${sc} の引き分けに持ち込んだ` : `。それでも ${sc} で及ばず`)
                : (won ? `。試合は ${sc} で勝利` : tie ? `。試合は ${sc} の引き分け` : `。試合は ${sc} で敗れた`);
   $r("rv-verdict").innerHTML = '<b>' + esc(head) + '</b><span>' + esc(body) + '</span>';
   $r("rv-verdict").className = "rv-verdict show " + cls;

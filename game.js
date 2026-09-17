@@ -3367,7 +3367,7 @@ function parkHrFactor(home){ return parkOf(home).hr; }
 // ============================================================
 // 監督の采配 ── シーズンに数回だけ、勝負どころで試合に介入できる
 // ============================================================
-const SAIHAI_MAX = 4;   // 1球団あたりのシーズン使用回数
+const SAIHAI_MAX = 999;   // 回数制限なし(2026-09-18 本人要望)。勝負どころなら何度でも
 
 // 1点差で負けている試合だけが対象。勝ち試合に使っても意味がないため
 function findSaihai(rolled){
@@ -3503,7 +3503,7 @@ function renderSaihai(){
         '<div class="sh-score">' + esc(t.name) + '　' + d.my + ' － ' + d.op + '　' + esc(foe.name) + '</div>' +
         '<div class="sh-msg">' + esc(d.msg) + '</div>' +
       '</div>' +
-      '<div class="sh-foot"><span class="sh-left">残り采配 ' + (t.saihai||0) + ' 回</span>' +
+      '<div class="sh-foot"><span class="sh-left">采配は何度でも使える</span>' +
         '<button class="btn" onclick="closeSaihai()">試合を再開する</button></div>';
     return;
   }
@@ -3525,7 +3525,7 @@ function renderSaihai(){
         '</div></div></button>';
     }).join("") + '</div>' +
     '<div class="sh-foot">' +
-      '<span class="sh-left">采配は残り <b>' + (t.saihai||0) + '</b> 回。使えばここで1回消費します</span>' +
+      '<span class="sh-left">采配は何度でも。ここで使っても回数は減りません</span>' +
       '<button class="btn ghost sm" onclick="saihaiPass()">采配しない</button>' +
     '</div>';
 }
@@ -4595,13 +4595,14 @@ function renderTeamStrip(){
   const s = standingsSorted();
   el.innerHTML = s.map((t,i)=>{
     const gap = t.W - t.L;
+    const gbv = i === 0 ? 0 : ((s[0].W - t.W) + (t.L - s[0].L)) / 2;
     const forms = [...LINEUP_KEYS, ...SP_KEYS].map(k=>t.slots[k]).filter(Boolean);
     const avgF = forms.reduce((a,p)=>a+(p.form||0),0)/(forms.length||1);
     const fIcon = avgF > 0.45 ? `<span class="form f2">▲▲</span>` : avgF > 0.15 ? `<span class="form f1">▲</span>`
       : avgF < -0.45 ? `<span class="form fm2">▽▽</span>` : avgF < -0.15 ? `<span class="form fm1">▽</span>` : `<span class="form f0">─</span>`;
     const magic = i === 0 ? magicNumber() : null;
     const badges = (state.clinchedTeam === t ? `<span class="ts-b magic">優勝</span>` : magic !== null && magic > 0 ? `<span class="ts-b magic">M${magic}</span>` : "")
-      + (t.saihai ? `<span class="ts-b sai">采配${t.saihai}</span>` : "")
+
       + (t.mgrRest ? `<span class="ts-b bad">監督休養</span>` : "")
       + (t.mood && state.day < t.mood.until ? `<span class="ts-b ${t.mood.val>0?"good":"bad"}">${esc(t.mood.label)}</span>` : "");
     return `<div class="ts-card ${i===0?"lead":""}" style="--tc:${t.color}" onclick="state.rosterTab=${state.parts.indexOf(t)};renderRosterLive();document.getElementById('roster-live').scrollIntoView({behavior:'smooth',block:'center'})">
@@ -4609,7 +4610,7 @@ function renderTeamStrip(){
       <div class="ts-main">
         <div class="ts-name">${teamEmblem(t,18)} ${esc(t.name)} ${fIcon}</div>
         <div class="ts-rec">${t.W}<span>勝</span>${t.L}<span>敗</span>${t.T?`${t.T}<span>分</span>`:""}</div>
-        <div class="ts-gap ${gap>0?"plus":gap<0?"minus":""}">${gap>0?"貯金"+gap:gap<0?"借金"+(-gap):"五分"}</div>
+        <div class="ts-gap ${gap>0?"plus":gap<0?"minus":""}">${gap>0?"貯金"+gap:gap<0?"借金"+(-gap):"五分"}<b class="ts-gb">${i===0?"首位":"首位と"+gbv.toFixed(1)+"差"}</b></div>
         ${badges?`<div class="ts-badges">${badges}</div>`:""}
       </div>
     </div>`;
@@ -4632,7 +4633,7 @@ function renderPartyLog(){
       <div class="pl-line">
         <span class="pl-icon">${x.icon}</span>
         <span class="pl-d">${x.d}</span>
-        <span class="pl-t">${typeof emphNames === "function" ? emphNames(esc(x.txt)) : esc(x.txt)}</span>
+        <span class="pl-t">${typeof emphNames === "function" ? emphNames(esc(x.txt)) : esc(x.txt)}${(ev && effectDesc(ev))?`<span class="pl-fx ${/下がる|不調|離脱|休養|-3/.test(effectDesc(ev))?"bad":"good"}">${esc(effectDesc(ev))}</span>`:""}</span>
         ${pic?`<img class="pl-pic" src="${eventPicUrl(x.id)}" alt="" loading="lazy">`:""}
         ${(pic||note)?`<span class="pl-more">元ネタ</span>`:""}
       </div>
@@ -4800,8 +4801,9 @@ function renderStandings(elId){
   $(elId).innerHTML = `<tr><th>順位</th><th>チーム</th><th class="st-g">試合</th><th>勝</th><th>敗</th><th class="st-t">分</th><th>勝率</th><th>差</th><th class="st-l10">直近10</th></tr>` +
     s.map((t,i)=>{
       const pct = t.W+t.L ? (t.W/(t.W+t.L)).toFixed(3).replace(/^0/,"") : "---";
-      const gb = i===0 ? "─" : (((top.W-t.W)+(t.L-top.L))/2).toFixed(1);
-      return `<tr class="${i===0?"st-first":""}" ${clickable?`style="cursor:pointer;" onclick="openTeamStats(${state.parts.indexOf(t)})"`:""}><td>${i+1}</td>
+      const gbv = i===0 ? 0 : ((top.W-t.W)+(t.L-top.L))/2;
+      const gb = i===0 ? '<span class="st-gb lead">首位</span>' : '<span class="st-gb">' + gbv.toFixed(1) + '</span>';
+      return `<tr class="${i===0?"st-first":""}" ${clickable?`style="cursor:pointer;" onclick="openTeamStats(${state.parts.indexOf(t)})"`:""}><td><span class="st-rk">${i+1}</span></td>
         <td style="text-align:left;">${teamEmblem(t,20)} ${esc(t.name)}${clickable?' <span class="st-more">▶成績</span>':""}</td>
         <td class="st-g">${t.W+t.L+t.T}</td><td>${t.W}</td><td>${t.L}</td><td class="st-t">${t.T}</td><td>${pct}</td><td>${gb}</td><td class="st-l10">${last10(t)}</td></tr>`;
     }).join("");
@@ -5685,7 +5687,7 @@ const GM_POLICIES = [
   {id:"rest", label:"投手陣温存", eff:"投手全員の調子が上がる。打線の調子が少し落ちる",
    run(t){ formShift(pitchersOf(t), 1); formShift(lineupOf(t), -1); return "投手陣が息を吹き返した"; }},
   {id:"saihai", label:"采配権を補充", eff:"采配カード+1(上限5)。首脳陣の締め付けで士気が10日下がる",
-   need: t => (t.saihai||0) < 5,
+   need: t => false,
    run(t){ t.saihai = Math.min(5, (t.saihai||0)+1); moodSet(t, -1, 10, "首脳陣の締め付け"); return "采配権+1"; }},
   {id:"fan", label:"ファン感謝デー", eff:"士気が14日上がる。主力一人がイベント疲れ",
    run(t){ moodSet(t, 1, 14, "ファン感謝"); const s = pick1(lineupOf(t)); if(s) s.form = clamp((s.form||0)-1, -2, 2); return "球場が沸いた。士気アップ"; }},
@@ -7135,14 +7137,14 @@ updateSndBtns();
 // ライブ中継(開幕戦・優勝決定試合をイニングごとに再現)
 // ============================================================
 let liveCtx = null;
-const DIR_1B = ["レフト前","センター前","ライト前","三遊間","一二塁間","中前","左前","右前"];
+const DIR_1B = ["レフト前","センター前","ライト前","三遊間","一二塁間","中前","左前","右前","三塁手の横を抜けてレフト前","遊撃手が追いつけずセンター前","二塁ベース上を越えてセンター前","ライト前にポトリと落ちる"];
 const DIR_2B = ["左中間","右中間","レフト線","ライト線","三塁線"];
 const DIR_HR = ["レフトスタンド","ライトスタンド","左中間スタンド","右中間スタンド","バックスクリーン","場外"];
 const DIR_GO = ["ショートゴロ","セカンドゴロ","サードゴロ","ファーストゴロ","ピッチャーゴロ","一二塁間の当たり"];
 const DIR_FO = ["レフトフライ","センターフライ","ライトフライ","ショートフライ","浅いセンターフライ"];
 const DIR_LN = ["ショートライナー","セカンドライナー","サードライナー","ピッチャーライナー"];
-const K_TXT = ["空振り三振","見逃し三振","フォークで空振り三振","外角いっぱいの見逃し三振","渾身の直球で空振り三振"];
-const CATCH = ["快音を残すも好捕","惜しくも正面","大きな当たりだが伸びを欠く","詰まらされた"];
+const K_TXT = ["空振り三振","見逃し三振","フォークで空振り三振","外角いっぱいの見逃し三振","渾身の直球で空振り三振","低めの変化球にバットが空を切って三振","高めの釣り球に手が出て空振り三振","膝元の直球を見送って三振","内角を突かれ、バットが止まらず空振り三振"];
+const CATCH = ["快音を残すも好捕","惜しくも正面","大きな当たりだが伸びを欠く","詰まらされた","定位置で難なく捕球","フェンス手前で失速","風に戻されて捕られた","いい当たりだったが野手の正面"];
 
 function splitInnings(runs){
   const inn = Array(9).fill(0);
@@ -7202,7 +7204,7 @@ function simOutcome(key, bases, outs, bat, pit){
   switch(key){
     case "K":
       outsAdd = 1;
-      text = `${bat.name}、${pick1(K_TXT)}。${pit.name}がねじ伏せた`;
+      text = `${bat.name}、${pick1(K_TXT)}。${pick1([pit.name + "がねじ伏せた", pit.name + "、ガッツポーズ", pit.name + "が力でねじ伏せた", "ベンチも沸く" + pit.name + "の三振", pit.name + "、この日一番のボール"])}`;
       break;
     case "GO": {
       if(nb[0] && outs < 2 && rnd() < 0.34){
@@ -7333,6 +7335,22 @@ function rollOutcomeFit(key, bases, outs, bat, pit, need){
   }
   return r;
 }
+// 打席結果の頭に、カウントの流れを添える(「フルカウントから」「初球を」)。実況の言い回しに寄せる
+function countLead(text, name, seq){
+  if(!seq || !seq.length || !text) return text;
+  const last = seq[seq.length - 1], n = seq.length;
+  let lead = "";
+  if(/四球|死球/.test(last.res)) lead = "";
+  else if(n === 1) lead = pick1(["初球を", "初球、", "いきなり初球を"]);
+  else if(last.b === 3 && last.s === 2) lead = pick1(["フルカウントから", "フルカウント、", "3-2からの" + (n >= 8 ? "粘りの末" : "")]);
+  else if(last.s === 2 && n >= 6) lead = pick1(["粘って", "ファウルで粘った末", "追い込まれてから粘り"]);
+  else if(last.s === 2) lead = pick1(["追い込まれてから", "2ストライクから", ""]);
+  else if(last.b === 3) lead = pick1(["3ボールから", "バッティングカウントから"]);
+  else if(last.b >= 2 && last.s === 0) lead = pick1(["打者有利のカウントから", ""]);
+  if(!lead) return text;
+  const head = name + "、";
+  return text.indexOf(head) === 0 ? head + lead + text.slice(head.length) : lead + text;
+}
 function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
   const order = LINEUP_KEYS.map(k=>bat.slots[k]).filter(Boolean);
   const ev = [];
@@ -7346,11 +7364,13 @@ function genHalf(bat, pitInfo, target, startIdx, inn, top, walkoff){
     const r = rollOutcomeFit(key, bases, outs, b, pitInfo.p, need);
     bases = r.bases; outs += r.outsAdd; runs += r.runs;
     const onBefore = [!!prevBases[0], !!prevBases[1], !!prevBases[2]];
-    for(const q of genPitchSeq(key, b, pitInfo.p)){
+    const seq0 = genPitchSeq(key, b, pitInfo.p);
+    for(const q of seq0){
       ev.push({t:"pitch", inn:inn, top:top, outs:outsBefore, on:onBefore,
         bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
         b:q.b, s:q.s, type:q.type, kmh:q.kmh, zone:q.zone, res:q.res});
     }
+    r.text = countLead(r.text, b.name, seq0);
     ev.push({t:"pa", text:r.text, cls:r.cls, runs:r.runs,
       inn, top, outs, on:[!!bases[0], !!bases[1], !!bases[2]],
       bat:b.name, batNo:b.no, batP:b, pit:pitInfo.p.name, pitP:pitInfo.p, pitRole:pitInfo.label,
@@ -7401,7 +7421,7 @@ function buildGameScript(g){
       if(top) idxA = res.nextIdx; else idxB = res.nextIdx;
       script.push(...res.events);
       script.push({t:"end", inn, top, runs,
-        text: runs ? `${inn}回${top?"表":"裏"}、${batT.name}が${runs}点を挙げた` : `${inn}回${top?"表":"裏"}、${info.p.name}が${pick1(["三者凡退に抑えた","無失点で切り抜けた","走者を出すも要所を締めた"])}`});
+        text: runs ? `${inn}回${top?"表":"裏"}、${batT.name}が${runs}点${pick1(["を挙げた","を奪った","を追加","、この回大きな" + runs + "点","。球場が沸く"])}` : `${inn}回${top?"表":"裏"}、${info.p.name}が${pick1(["三者凡退に抑えた","無失点で切り抜けた","走者を出すも要所を締めた"])}`});
     }
   }
   return {script, ia, ib, skipBottom9};
@@ -7409,7 +7429,8 @@ function buildGameScript(g){
 function showLiveGame(label, g, done){
   const built = buildGameScript(g);
   liveCtx = {g, ia:built.ia, ib:built.ib, skipBottom9:built.skipBottom9,
-    script:built.script, i:0, shownA:0, shownB:0, done, timer:null};
+    script:built.script, i:0, shownA:0, shownB:0, done, timer:null, curA:0, curB:0};
+  if(typeof liveMarkRequest === "function") liveMarkRequest(liveCtx);
   $("lv-k").textContent = label;
   renderDiamond(null);
   liveCtx.lastWp = undefined;
@@ -7533,6 +7554,7 @@ function liveApply(e, silent){
   if(e.t === "half"){ if(!silent) pbpAdd(e.text, "half"); }
   else if(e.t === "chg"){ if(!silent) pbpAdd(e.text, "chg"); }
   else if(e.t === "pa"){
+    if(e.runs){ if(e.top) c.curA = (c.curA || 0) + e.runs; else c.curB = (c.curB || 0) + e.runs; }
     if(!silent){
       pbpAdd(e.text, e.cls, e);
       pbpHeadline(e);
@@ -7564,7 +7586,10 @@ function eventDelay(e){
 function liveStep(){
   const c = liveCtx; if(!c) return;
   if(c.i >= c.script.length){ liveFinish(); return; }
-  const e = c.script[c.i++];
+  const e = c.script[c.i];
+  // 山場の打席の前で、リクエスト/ABSの場面(review.js)を差し込む。終わったら続きから
+  if(e.rvHook && !c.rvDone && typeof liveRequestScene === "function"){ c.rvDone = true; if(liveRequestScene(e)) return; }
+  c.i++;
   liveApply(e, false);
   if(c.i >= c.script.length){ liveFinish(); return; }
   // 次のイベントまでの間を状況に応じて変える(山場で溜める)
@@ -8192,8 +8217,9 @@ function showEventPic(e, txt, after){
   $("pic-date").textContent = dateLabel(state.day - 1);
   $("pic-head").textContent = m ? m[1] : "球界を揺るがす一日";
   $("pic-txt").innerHTML = (typeof emphNames === "function" ? emphNames : function(s){ return s; })(esc((txt || "").replace(/^【[^】]+】/, "")));
-  $("pic-note").textContent = e.note || "";
-  $("pic-note").parentNode.style.display = e.note ? "" : "none";
+  const fx = effectDesc(e);
+  $("pic-note").innerHTML = (fx ? '<span class="pic-fx ' + (/下がる|不調|離脱|休養|-3/.test(fx) ? "bad" : "good") + '"><i>影響</i>' + esc(fx) + '</span>' : '') + esc(e.note || "");
+  $("pic-note").parentNode.style.display = (e.note || fx) ? "" : "none";
   const img = $("pic-img");
   img.onerror = function(){ this.parentNode.style.display = "none"; };
   img.parentNode.style.display = "";
@@ -8212,6 +8238,16 @@ function closeEventPic(){
   }
   if(state.picResume){ state.picResume = false; startTimer(); }
 }
+// 出来事の影響を一言で(何がマイナスかが分かるように)
+const EFFECT_DESC = {
+  moodUp:"チームの士気が上がる(16日間)", moodDown:"チームが動揺し士気が下がる(16日間)",
+  formUp:"当人の調子が絶好調に", formDown:"当人の調子が絶不調に",
+  formUpTeam:"打線と投手陣の調子が一段上がる", formDownTeam:"打線と投手陣の調子が一段下がる",
+  ovrUp:"当人の総合値+3、絶好調に", ovrDown:"当人の総合値-3、絶不調に",
+  mgrRest:"監督が休養。采配補正が消える", mgrBack:"監督が復帰。士気が上がる(18日間)",
+  leave:"主力が離脱。緊急補強で穴埋め",
+};
+function effectDesc(e){ return e && e.effect && EFFECT_DESC[e.effect] ? EFFECT_DESC[e.effect] : ""; }
 function runLore(e){
   const x = loreTargets(e);
   if(!x) return false;

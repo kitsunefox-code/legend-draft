@@ -329,3 +329,101 @@ window.awakeClose = function(){ const bg = document.getElementById("wake-bg"); i
     endEventPhase();
   };
 })();
+
+
+// ---- 試合中のリクエスト(2026-09-18 本人要望)。生中継の山場で review.js の場面を差し込む ----
+(function(){
+  // 台本の中から「終盤・接戦・人間の球団」の打席を一つ選んで印を付ける
+  window.liveMarkRequest = function(c){
+    if(!c || !c.script || !state.opts || state.opts.review === false) return;
+    const g = c.g;
+    if(!g || (g.A.cpu && g.B.cpu)) return;
+    if(typeof rnd === "function" ? rnd() > 0.5 : Math.random() > 0.5) return;
+    let a = 0, b = 0; const cands = [];
+    c.script.forEach((e, i) => {
+      if(e.t !== "pa") return;
+      if(e.inn >= 6 && Math.abs(a - b) <= 2 && e.batP && e.pitP) cands.push(i);
+      if(e.runs){ if(e.top) a += e.runs; else b += e.runs; }
+    });
+    if(!cands.length) return;
+    c.script[cands[Math.floor((typeof rnd === "function" ? rnd() : Math.random()) * cands.length)]].rvHook = true;
+  };
+  // 印の打席に来たら止めて、いまのスコアで場面を作る。閉じたら続きから再開
+  window.liveRequestScene = function(e){
+    const c = liveCtx; if(!c || typeof rvBuildScene !== "function" || typeof rvStartScene !== "function") return false;
+    const g = c.g;
+    const humans = [g.A, g.B].filter(t => t && !t.cpu);
+    if(!humans.length) return false;
+    const t = humans[Math.floor((typeof rnd === "function" ? rnd() : Math.random()) * humans.length)];
+    const side = t === g.A ? "A" : "B", opp = side === "A" ? g.B : g.A;
+    const my = side === "A" ? (c.curA || 0) : (c.curB || 0), op = side === "A" ? (c.curB || 0) : (c.curA || 0);
+    const gc = {A: g.A, B: g.B, rA: c.curA || 0, rB: c.curB || 0, live: true};
+    let sc = null;
+    // 守備側で相手が無得点だと場面が組めないことがあるので、何度か引き直す
+    for(let k = 0; k < 8 && !sc; k++){ try{ sc = rvBuildScene(gc, side, t, opp, my, op); }catch(x){ sc = null; } }
+    if(!sc) return false;
+    sc.inn = e.inn; sc.top = e.top; sc.liveHook = true;
+    if(c.timer){ clearTimeout(c.timer); c.timer = null; }
+    c.rvWait = {gc, t};
+    wrapClose();
+    rvStartScene(sc);
+    sc.resume = false;    // 中継の裏でペナントの時計を動かさない
+    return true;
+  };
+  // 場面が閉じたら、覆った得点を中継の試合に反映して続きから。
+  // review.js は extras.js より後に読まれるので、包むのは最初に使うとき(遅延)
+  function wrapClose(){
+    if(!window.rvClose || window.rvClose._live) return;
+    const prevClose = window.rvClose;
+    const w = function(){
+      const c = liveCtx, wait = c && c.rvWait;
+      prevClose.apply(this, arguments);
+      if(!c || !wait) return;
+      c.rvWait = null;
+      const dA = wait.gc.rA - (c.curA || 0), dB = wait.gc.rB - (c.curB || 0);
+      if(dA || dB){
+        c.g.rA = Math.max(0, c.g.rA + dA); c.g.rB = Math.max(0, c.g.rB + dB);
+        c.curA = (c.curA || 0) + dA; c.curB = (c.curB || 0) + dB;
+        if(typeof pbpAdd === "function") pbpAdd("判定が覆った ―― " + (dA > 0 ? c.g.A.name + "に" + dA + "点" : dB > 0 ? c.g.B.name + "に" + dB + "点" : dA < 0 ? c.g.A.name + "の" + (-dA) + "点が取り消し" : c.g.B.name + "の" + (-dB) + "点が取り消し") + "。" + c.g.A.name + " " + c.curA + "-" + c.curB + " " + c.g.B.name, "chg");
+        if(typeof renderLiveBoard === "function") try{ renderLiveBoard(); }catch(x){}
+      }else if(typeof pbpAdd === "function") pbpAdd("判定はそのまま。試合再開", "chg");
+      c.timer = setTimeout(liveStep, 500);
+    };
+    w._live = true;
+    window.rvClose = w;
+  }
+})();
+
+// ---- 長押しで詳細(2026-09-18 本人要望)。カード・札・一覧の行・ガチャの札を約0.5秒押すと名鑑が開く ----
+(function(){
+  let lp = null;
+  function pidOf(el){
+    if(el.dataset && el.dataset.pid) return el.dataset.pid;
+    if(el.classList.contains("od-tile") && el.dataset.key && state.orderCtx){ const t = state.parts[state.orderCtx.idx]; const p = t && t.slots[el.dataset.key]; return p ? p.id : null; }
+    const oc = el.getAttribute("onclick") || "";
+    let m = oc.match(/cardPop\((\d+)\)/); if(m && state.gacha && state.gacha.pulls){ const x = state.gacha.pulls[Number(m[1])]; return x && x.p ? x.p.id : null; }
+    m = oc.match(/poolPick\((?:&quot;|")([^"&]+)/); if(m) return m[1];
+    m = oc.match(/openModal\((?:&quot;|'|")([^"'&]+)/); if(m) return m[1];
+    return null;
+  }
+  const SEL = "[data-pid], .od-tile[data-key], .gc-chip, .pl-row, .od-row, .in-chip";
+  document.addEventListener("pointerdown", function(ev){
+    const el = ev.target && ev.target.closest ? ev.target.closest(SEL) : null;
+    if(!el) return;
+    const pid = pidOf(el); if(!pid) return;
+    lp = {el, pid, x: ev.clientX, y: ev.clientY, id: ev.pointerId, fired: false};
+    lp.timer = setTimeout(function(){
+      if(!lp) return;
+      lp.fired = true;
+      const ov = document.querySelector(".ld-reveal"); if(ov) ov._lp = true;
+      if(navigator.vibrate) try{ navigator.vibrate(15); }catch(x){}
+      if(typeof openModal === "function") openModal(lp.pid);
+      // 長押し後の click/ドラッグを一度だけ抑える
+      const blocker = function(c){ c.stopPropagation(); c.preventDefault(); document.removeEventListener("click", blocker, true); };
+      document.addEventListener("click", blocker, true); setTimeout(function(){ document.removeEventListener("click", blocker, true); if(ov) ov._lp = false; }, 500);
+    }, 480);
+  }, {passive: true});
+  function cancel(ev){ if(!lp) return; if(ev && ev.type === "pointermove" && Math.hypot(ev.clientX - lp.x, ev.clientY - lp.y) < 8) return; clearTimeout(lp.timer); lp = null; }
+  document.addEventListener("pointermove", cancel, {passive: true});
+  document.addEventListener("pointerup", cancel); document.addEventListener("pointercancel", cancel);
+})();

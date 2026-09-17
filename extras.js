@@ -427,3 +427,20 @@ window.awakeClose = function(){ const bg = document.getElementById("wake-bg"); i
   document.addEventListener("pointermove", cancel, {passive: true});
   document.addEventListener("pointerup", cancel); document.addEventListener("pointercancel", cancel);
 })();
+
+/* ---- ばらまき演出は引いた直後の一度だけ。受け取りのたびの描き直しでは再生しない ---- */
+(function(){
+  if(typeof renderGacha !== "function") return;
+  const base = renderGacha;
+  renderGacha = function(){
+    base.apply(this, arguments);
+    const G = state.gacha, st = document.getElementById("gc-stage"); if(!G || !st) return;
+    if(!G.pulls || G.revealed > 0){ st.classList.remove("ld-scatter"); return; }
+    if(G.scatterFor !== G.pulls){ G.scatterFor = G.pulls; G.scatterAt = Date.now(); }
+    const first = st.firstElementChild; if(first && first._sc) return;   // 描き直されていない(演出の途中)ならそのまま
+    if(first) first._sc = true;
+    const el = Date.now() - G.scatterAt;
+    if(el < 2300){ st.style.setProperty("--sc-off", (-el) + "ms"); st.classList.add("ld-scatter"); clearTimeout(G.scatterT); G.scatterT = setTimeout(function(){ st.classList.remove("ld-scatter"); }, 2400 - el); }
+    else st.classList.remove("ld-scatter");
+  };
+})();

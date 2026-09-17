@@ -4,7 +4,7 @@
    ガチャ: 排出された瞬間に、筐体の口(下・中央)から守備位置へ転がっていく
    ============================================================ */
 #scr-gacha .gc-field{container-type:size;}
-#scr-gacha .gc-at .ld-capsule{animation:ldRoll 1.15s cubic-bezier(.22,1,.36,1) both !important;}
+#scr-gacha .gc-stage.ld-scatter .gc-at .ld-capsule{animation:ldRoll 1.15s cubic-bezier(.22,1,.36,1) both !important;}
 @keyframes ldRoll{
   0%{transform:translate(var(--dx,0px),var(--dy,60vh)) scale(.5);opacity:0;}
   8%{opacity:1;}
@@ -12,18 +12,18 @@
   78%{transform:translate(0,-8px) scale(1.02);}
   100%{transform:none;}
 }
-#scr-gacha .ld-bench .ld-capsule,#scr-gacha .gc-pen .ld-capsule,#scr-gacha .ld-pitch-row .ld-capsule{animation:ldRollUp 1s cubic-bezier(.22,1,.36,1) both !important;}
+#scr-gacha .gc-stage.ld-scatter .ld-bench .ld-capsule,#scr-gacha .gc-stage.ld-scatter .gc-pen .ld-capsule,#scr-gacha .gc-stage.ld-scatter .ld-pitch-row .ld-capsule{animation:ldRollUp 1s cubic-bezier(.22,1,.36,1) both !important;}
 @keyframes ldRollUp{0%{transform:translateY(50vh) scale(.5);opacity:0;}10%{opacity:1;}70%{transform:translateY(-10px) scale(1.05);}100%{transform:none;}}
-#scr-gacha .gc-at:nth-child(1) .ld-capsule{animation-delay:.02s !important;} #scr-gacha .gc-at:nth-child(2) .ld-capsule{animation-delay:.09s !important;}
-#scr-gacha .gc-at:nth-child(3) .ld-capsule{animation-delay:.16s !important;} #scr-gacha .gc-at:nth-child(4) .ld-capsule{animation-delay:.23s !important;}
-#scr-gacha .gc-at:nth-child(5) .ld-capsule{animation-delay:.30s !important;} #scr-gacha .gc-at:nth-child(6) .ld-capsule{animation-delay:.37s !important;}
-#scr-gacha .gc-at:nth-child(7) .ld-capsule{animation-delay:.44s !important;} #scr-gacha .gc-at:nth-child(8) .ld-capsule{animation-delay:.51s !important;}
-#scr-gacha .gc-at:nth-child(9) .ld-capsule{animation-delay:.58s !important;}
-#scr-gacha .ld-bench-slots .gc-spot:nth-child(1) .ld-capsule{animation-delay:.5s !important;} #scr-gacha .ld-bench-slots .gc-spot:nth-child(2) .ld-capsule{animation-delay:.56s !important;}
-#scr-gacha .ld-bench-slots .gc-spot:nth-child(3) .ld-capsule{animation-delay:.62s !important;} #scr-gacha .ld-bench-slots .gc-spot:nth-child(4) .ld-capsule{animation-delay:.68s !important;}
-#scr-gacha .ld-bench-slots .gc-spot:nth-child(5) .ld-capsule{animation-delay:.74s !important;} #scr-gacha .ld-bench-slots .gc-spot:nth-child(6) .ld-capsule{animation-delay:.80s !important;}
-#scr-gacha .ld-pitch-row .gc-spot:nth-child(2) .ld-capsule{animation-delay:.08s !important;} #scr-gacha .ld-pitch-row .gc-spot:nth-child(3) .ld-capsule{animation-delay:.16s !important;}
-#scr-gacha .ld-pitch-row .gc-spot:nth-child(4) .ld-capsule{animation-delay:.24s !important;} #scr-gacha .ld-pitch-row .gc-spot:nth-child(5) .ld-capsule{animation-delay:.32s !important;}
+#scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(1) .ld-capsule{animation-delay:calc(.02s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(2) .ld-capsule{animation-delay:calc(.09s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(3) .ld-capsule{animation-delay:calc(.16s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(4) .ld-capsule{animation-delay:calc(.23s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(5) .ld-capsule{animation-delay:calc(.30s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(6) .ld-capsule{animation-delay:calc(.37s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(7) .ld-capsule{animation-delay:calc(.44s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(8) .ld-capsule{animation-delay:calc(.51s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .gc-at:nth-child(9) .ld-capsule{animation-delay:calc(.58s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .ld-bench-slots .gc-spot:nth-child(1) .ld-capsule{animation-delay:calc(.5s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .ld-bench-slots .gc-spot:nth-child(2) .ld-capsule{animation-delay:calc(.56s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .ld-bench-slots .gc-spot:nth-child(3) .ld-capsule{animation-delay:calc(.62s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .ld-bench-slots .gc-spot:nth-child(4) .ld-capsule{animation-delay:calc(.68s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .ld-bench-slots .gc-spot:nth-child(5) .ld-capsule{animation-delay:calc(.74s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .ld-bench-slots .gc-spot:nth-child(6) .ld-capsule{animation-delay:calc(.80s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .ld-pitch-row .gc-spot:nth-child(2) .ld-capsule{animation-delay:calc(.08s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .ld-pitch-row .gc-spot:nth-child(3) .ld-capsule{animation-delay:calc(.16s + var(--sc-off,0s)) !important;}
+#scr-gacha .gc-stage.ld-scatter .ld-pitch-row .gc-spot:nth-child(4) .ld-capsule{animation-delay:calc(.24s + var(--sc-off,0s)) !important;} #scr-gacha .gc-stage.ld-scatter .ld-pitch-row .gc-spot:nth-child(5) .ld-capsule{animation-delay:calc(.32s + var(--sc-off,0s)) !important;}
 /* 「抽選完了」の幕は挟まない */
 #scr-gacha .ld-draw-show{display:none !important;}
 @media (prefers-reduced-motion:reduce){ #scr-gacha .gc-at .ld-capsule,#scr-gacha .ld-bench .ld-capsule,#scr-gacha .ld-pitch-row .ld-capsule{animation:none !important;} }
@@ -631,20 +631,20 @@ body:has(#event-bg.show) .telop,body:has(#gogai-bg.show) .telop,body:has(#live-b
 
 /* カプセルの転がり: 筐体からポンと飛び出し、放物線で守備位置へ落ちて一度弾んで止まる(でたらめな回転はしない) */
 @keyframes ldRoll{
-  0%{transform:translate(var(--dx,0px),var(--dy,60vh)) rotate(0deg) scale(.55);opacity:0;}
+  0%{transform:translate(var(--dx,0px),var(--dy,60vh)) scale(.55);opacity:0;}
   6%{opacity:1;}
-  45%{transform:translate(calc(var(--dx,0px)*.5),calc(var(--dy,60vh)*.5 - 70px)) rotate(-200deg) scale(1.02);}
-  82%{transform:translate(0,0) rotate(-360deg) scale(1);}
-  90%{transform:translate(0,-7px) rotate(-372deg) scale(1);}
-  100%{transform:translate(0,0) rotate(-380deg) scale(1);opacity:1;}
+  45%{transform:translate(calc(var(--dx,0px)*.5),calc(var(--dy,60vh)*.5 - 70px)) scale(1.02);}
+  82%{transform:translate(0,0) scale(1);}
+  90%{transform:translate(0,-7px) scale(1);}
+  100%{transform:none;opacity:1;}
 }
 @keyframes ldRollUp{
-  0%{transform:translateY(50vh) rotate(0deg) scale(.55);opacity:0;}
+  0%{transform:translateY(50vh) scale(.55);opacity:0;}
   8%{opacity:1;}
-  45%{transform:translateY(-34px) rotate(-190deg) scale(1.02);}
-  82%{transform:translateY(0) rotate(-360deg) scale(1);}
-  90%{transform:translateY(-6px) rotate(-370deg);}
-  100%{transform:translateY(0) rotate(-376deg) scale(1);opacity:1;}
+  45%{transform:translateY(-34px) scale(1.02);}
+  82%{transform:translateY(0) scale(1);}
+  90%{transform:translateY(-6px);}
+  100%{transform:none;opacity:1;}
 }
 /* 編成の守備図: 名前まで入るように縦を少し伸ばす。タブは横いっぱいに(親が align-items:flex-start で縮んでいた) */
 @media (max-width:700px){

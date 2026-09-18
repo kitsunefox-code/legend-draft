@@ -1115,7 +1115,7 @@ SCENES.abs = (function(){
   const R = 3.65 / 43.18 * ZB.w;                                     // 奥での球の大きさ
   const CM = 43.18 / ZB.w;
   const MITT0 = {x:208, y:250};                    // 構えたミットの位置
-  const PIT = {x:70, y:314, S:64};                 // 投手の足元(手前・左下)。S=足元での 1m の px
+  const PIT = {x:76, y:324, S:80};                 // 投手の足元(手前・左下)。S=足元での 1m の px
   function truthOf(c){
     // MLB 2026: midpoint of plate; width 17 inches; top 53.5%, bottom 27% of height.
     // Legacy data has no measured height: a fixed 180 cm model is used, never a random zone.

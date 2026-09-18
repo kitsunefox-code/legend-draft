@@ -1154,7 +1154,7 @@ SCENES.abs = (function(){
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
       figSvg("rv-pit", PS.set, SP.x, SP.y, SP.sc, 1, defCol, "#192a37") +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
-      '<g transform="translate(0 -56)">' + scoreBug(c) + '</g>' +
+      '<g transform="translate(0 -118)">' + scoreBug(c) + '</g>' +
       '<text id="rv-cap" x="8" y="296" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="11" fill="#fff" style="paint-order:stroke" stroke="#0b1626" stroke-width="3"></text>' +
       camTag("plate", "") + lbl() + '</svg>';
   }

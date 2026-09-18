@@ -198,8 +198,8 @@ const P = {
   safe:    {lean:6,  la:95,  lb:0,   ra:-95, rb:0,   lu:28,  lk:-2,  ru:-28, rk:-2},                  // 両腕を横へ
   point:   {signal:"hr",lean:4,  la:168, lb:8,   ra:-15, rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 人差し指を上げて回す(本塁打)
   foul:    {lean:0,  la:162, lb:0,   ra:-162,rb:0,   lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 両手を上げてファウル
-  batRest: {lean:4,  la:24,  lb:-14, ra:14,  rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:12, batHand:"R"}, // バットを下ろし、後ろの手で脇に
-  helmet:  {lean:6,  la:140, lb:92,  ra:14,  rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:12, batHand:"R"}, // 後ろの手にバット、前の手でヘルメットの上を叩く
+  batRest: {lean:4,  la:24,  lb:-14, ra:-22, rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:-14, batHand:"R"}, // バットを下ろし、後ろの手で体の後ろへ
+  helmet:  {lean:6,  la:140, lb:92,  ra:-22, rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:-14, batHand:"R"}, // 後ろの手にバット、前の手でヘルメットの上を叩く
   square:  {gesture:"review",lean:2,  la:60,  lb:-100,ra:-60, rb:100, lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 胸の前で両手の四角(リクエスト)
   // 打撃: 構え(足を開き膝を内へ、手は後ろの肩の高さ、後ろの肘は下げて畳む、バットは45度)
   //       → 割れ(体重を後ろへ、手はさらに後ろへ、前の膝が内に入る) → 踏み込み(前足を着く、手は肩の後ろに残る=トップ)
@@ -234,8 +234,7 @@ function takePose(t, caught){
   if(t < -330) return P.bat;
   if(t < -170) return lerpP(P.bat, load, ease((t + 330) / 160));
   if(t < 60) return lerpP(load, step, ease((t + 170) / 230));
-  if(t < caught + 350) return step;
-  return lerpP(step, P.batRest, ease(Math.min(1, (t - caught - 350) / 420)));
+  return step;                                                   // 受けたあとも構えたまま(判定を待つ)
 }
 function run(t, amp){ // 走り。t=位相。脚と逆に腕を振り、肘は90度。前へ振り出す脚の膝は曲がる
   const a = amp || 1, s = Math.sin(t), c = Math.sin(t + Math.PI);
@@ -406,8 +405,8 @@ function gesture(c, done){
   const col = teamCol(c.victim, "#e0a600");
   if(c.kind === "abs"){
     if(!c.batting && SCENES.abs.challengePitcher){SCENES.abs.challengePitcher(c,done);return;}
-    const lefty=c.lefty, bx=c.batting?(lefty?138:272):66, by=c.batting?290:298, sc=c.batting?1.8:1.9;
-    const initial=c.batting?P.bat:P.stand, facing=c.batting?(lefty?1:-1):1;
+    const lefty=c.lefty, bx=c.batting?(lefty?126:284):66, by=c.batting?294:298, sc=c.batting?1.75:1.9;
+    const initial=c.batting?takePose(9999,0):P.stand, facing=c.batting?(lefty?1:-1):1;
     g.innerHTML=figSvg("rv-gfig",initial,bx,by,sc,facing,col,"#192a37");svg.appendChild(g);
     const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
     let start=0;
@@ -1113,7 +1112,8 @@ SCENES.abs = (function(){
       ${line(`M${k.sx-9} ${k.sy+2} L${k.gex} ${k.gey} L${k.gx} ${k.gy}`,shade(col,.72),7)}
       <path d="M${k.hx-10} ${k.hy} L${k.sx-14+k.tw*3} ${k.sy+1-k.tw*4} Q${k.sx} ${k.sy-7} ${k.sx+14-k.tw*2} ${k.sy+1+k.tw*4} L${k.hx+10} ${k.hy} Z" fill="${col}" stroke="${shade(col,.65)}" stroke-width=".7"/>
       ${line(`M${k.hx-9} ${k.hy} h18`,"#232b2d",2)}
-      <text x="${k.sx}" y="${k.sy+18}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="15" fill="#f0efe3" paint-order="stroke" stroke="#223143" stroke-width=".7" transform="translate(${k.sx} 0) scale(${f} 1) translate(${-k.sx} 0)">${esc(String(num??""))}</text>
+      <text x="${k.sx}" y="${k.sy+7}" text-anchor="middle" font-family="Noto Sans JP,sans-serif" font-weight="700" font-size="5.2" fill="#f0efe3" letter-spacing=".3" transform="translate(${k.sx} 0) scale(${f} 1) translate(${-k.sx} 0)">${esc(String((RV&&RV.c.pitP.name||"").replace(/\(.*\)/,"").split(/[・ 　]/)[0].slice(0,6)))}</text>
+      <text x="${k.sx}" y="${k.sy+20}" text-anchor="middle" font-family="Arial,sans-serif" font-weight="bold" font-size="15" fill="#f0efe3" paint-order="stroke" stroke="#223143" stroke-width=".7" transform="translate(${k.sx} 0) scale(${f} 1) translate(${-k.sx} 0)">${esc(String(num??""))}</text>
       ${line(throwArm,skin,5.7)}${line(`M${k.sx+9} ${k.sy+2} L${k.ex} ${k.ey}`,col,8)}
       <circle cx="${k.tx}" cy="${k.ty}" r="3" fill="${skin}"/>
       <path d="M${k.gx-5} ${k.gy+3} q-4-9 3-10 l3 2 l3-2 q6 9-2 12z" fill="#8d5932" stroke="#54371f"/>
@@ -1205,7 +1205,7 @@ SCENES.abs = (function(){
       '<line x1="34" y1="296" x2="148" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/><line x1="360" y1="294" x2="252" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/>' +
       '<path d="M183 300 l17 -8 l17 8 v6 h-34 z" fill="#f4f1e6" stroke="#333" stroke-width=".8"/>' +
       '<rect x="120" y="282" width="42" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="238" y="282" width="42" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
-      umpFront(CAT.x + (lefty ? -18 : 18), CAT.y - 8, 1.45, 0, 0) +
+      umpFront(CAT.x + (lefty ? -18 : 18), CAT.y - 8, 1.3, 0, 0) +
       catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
       figSvg("rv-bat", P.bat, bx, 294, 1.75, lefty ? 1 : -1, batCol, "#222") +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
@@ -1254,7 +1254,7 @@ SCENES.abs = (function(){
       drawCat(mitt);$r("rv-cap").textContent=(c.kmh||148)+"km　"+(c.type||"");
       crowd(.045,.018);ping(155,.045,.025,"triangle");
       RV.timer=rvLater(()=>{
-        const u=$r("rv-ump");if(u)u.outerHTML=umpFront(CAT.x+(lefty?-18:18),CAT.y-8,1.45,c.callIsStrike?1:0,c.callIsStrike?1:0);
+        const u=$r("rv-ump");if(u)u.outerHTML=umpFront(CAT.x+(lefty?-18:18),CAT.y-8,1.3,c.callIsStrike?1:0,c.callIsStrike?1:0);
         setLbl(c.callIsStrike?"球審の判定：ストライク":"球審の判定：ボール");
         RV.timer=rvLater(rvAsk,380);
       },280);

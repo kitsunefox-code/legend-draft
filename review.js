@@ -353,8 +353,8 @@ function gesture(c, done){
   const col = teamCol(c.victim, "#e0a600");
   if(c.kind === "abs"){
     if(!c.batting && SCENES.abs.challengePitcher){SCENES.abs.challengePitcher(c,done);return;}
-    const lefty=c.lefty, bx=c.batting?(lefty?138:272):66, by=c.batting?290:298, sc=c.batting?1.8:1.9;
-    const initial=c.batting?P.bat:P.stand, facing=c.batting?(lefty?1:-1):1;
+    const bx=c.batting?236:78, by=c.batting?294:288, sc=c.batting?1.35:1.3;       // 横からの絵の打者／投手の位置に合わせる
+    const initial=c.batting?P.bat:P.stand, facing=c.batting?-1:1;
     g.innerHTML=figSvg("rv-gfig",initial,bx,by,sc,facing,col,"#192a37");svg.appendChild(g);
     const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
     let start=0;
@@ -1116,68 +1116,86 @@ SCENES.abs = (function(){
       '<g transform="translate(60 50)">' + t(0, 3, 8, "#cfe0d4", "O") + '<g transform="translate(11 0)">' + dots(2, c.outs, "#ff6b5b") + '</g></g>' +
       '</g>';
   }
+  // ---- 横からの絵(一塁側カメラ): 投手は左、打者は右手前、捕手と球審はその奥 ----
+  const SP = {x:78, y:288, sc:1.3}, SB = {x:236, y:294, sc:1.35}, SC = {x:306, y:294, sc:1.3}, SU = {x:340, y:296, sc:1.2};
+  const SZ = {x:266, w:16, y:233, h:37};                        // 打者の胸〜膝の高さ(横から見たゾーン)
+  // 投球フォーム(横向き)。角度は鉛直から時計回り、前が+x。投げる腕(ra)は後ろ→頭の上→前へ回す(値を減らし続けると背中側から頭上を通る)
+  const PS = {
+    set:    {lean:2,  la:40, lb:-95,  ra:36,   rb:-98, lu:6,  lk:-2,   ru:-6,   rk:-2, glove:"L"},
+    lift:   {lean:-8, la:44, lb:-98,  ra:40,   rb:-100,lu:92, lk:-100, ru:-4,   rk:-2, glove:"L"},
+    stride: {lean:6,  la:96, lb:-8,   ra:-70,  rb:-30, lu:60, lk:-20,  ru:-42,  rk:8,  glove:"L"},
+    cock:   {lean:14, la:70, lb:-40,  ra:-95,  rb:-90, lu:52, lk:-32,  ru:-50,  rk:14, glove:"L"},
+    release:{lean:32, la:30, lb:-70,  ra:-220, rb:-12, lu:44, lk:-42,  ru:-58,  rk:22, glove:"L"},
+    follow: {lean:58, la:12, lb:-50,  ra:-298, rb:24,  lu:34, lk:-30,  ru:-100, rk:34, glove:"L"},
+    end:    {lean:22, la:34, lb:-60,  ra:-340, rb:10,  lu:24, lk:-10,  ru:-10,  rk:-4, glove:"L"},
+  };
+  const ST = {lift:450, hold:800, stride:950, cock:1200, release:1420, follow:1600, end:2000};
+  const RELEASE_S = ST.release;
+  function sidePitch(t){
+    if(t < ST.lift) return PS.set;
+    if(t < ST.hold) return lerpP(PS.set, PS.lift, ease((t - ST.lift) / (ST.hold - ST.lift)));
+    if(t < ST.stride) return PS.lift;
+    if(t < ST.cock) return lerpP(PS.lift, PS.stride, ease((t - ST.stride) / (ST.cock - ST.stride)));
+    if(t < ST.release) return lerpP(PS.stride, PS.cock, ease((t - ST.cock) / (ST.release - ST.cock)));
+    if(t < ST.follow) return lerpP(PS.cock, PS.release, ease((t - ST.release) / (ST.follow - ST.release)));
+    if(t < ST.end) return lerpP(PS.release, PS.follow, ease((t - ST.follow) / (ST.end - ST.follow)));
+    return lerpP(PS.follow, PS.end, ease(Math.min(1, (t - ST.end) / 600)));
+  }
   function stage(c, tr){
-    const lefty = c.lefty, rhp = !(c.pitP && c.pitP.th === "左");
-    const bx = lefty ? 138 : 272;                    // センターから見て右打者は右(三塁側)。本塁の一団は画面のやや右
     const defCol = teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), batCol = teamCol(c.batting ? c.victim : c.opp, "#e0a600");
     return stageOpen(300, "#0b1626") + stands(120) + boards() +
       '<rect x="0" y="178" width="360" height="122" fill="url(#rvGrass)"/>' +
-      '<ellipse cx="200" cy="280" rx="130" ry="26" fill="#8a5a34"/>' +
-      '<path d="M0 300 Q120 268 240 300 Z" fill="#7a4d2a"/>' +
-      '<line x1="34" y1="296" x2="148" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/><line x1="360" y1="294" x2="252" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/>' +
-      '<path d="M185 286 l15 -7 l15 7 v5 h-30 z" fill="#f4f1e6" stroke="#333" stroke-width=".8"/>' +
-      '<rect x="124" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="236" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
-      umpFront(CAT.x + (lefty ? -18 : 18), CAT.y - 8, 1.45, 0, 0) +
-      catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
-      figSvg("rv-bat", P.bat, bx, 290, 1.8, lefty ? 1 : -1, batCol, "#222") +
+      '<ellipse cx="' + SP.x + '" cy="291" rx="34" ry="6" fill="#8a5a34"/>' +
+      '<ellipse cx="288" cy="294" rx="64" ry="9" fill="#8a5a34"/>' +
+      '<rect x="262" y="291" width="28" height="4" fill="#f4f1e6" stroke="#333" stroke-width=".6"/>' +   // 本塁(横から)
+      figSvg("rv-ump", P.ready, SU.x, SU.y, SU.sc, -1, "#2b2b30", "#111") +
+      figSvg("rv-cat", P.crouch, SC.x, SC.y, SC.sc, -1, defCol, "#192a37") +
+      figSvg("rv-bat", P.bat, SB.x, SB.y, SB.sc, -1, batCol, "#222") +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
-      figSvg("rv-pit", P.pset, PIT.x + 8 * (rhp ? 1 : -1), PIT.y, PIT.sc * 0.98, rhp ? 1 : -1, defCol, "#192a37") +
+      figSvg("rv-pit", PS.set, SP.x, SP.y, SP.sc, 1, defCol, "#192a37") +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
-      // 右下: 中継のスコア表示(回、チームと得点、S/B/Oの灯)
-      scoreBug(c) +
-      // 左下: 球速(投球のあとに出る)
-      '<text id="rv-cap" x="14" y="291" font-family="Oswald,sans-serif" font-weight="700" font-size="13" fill="#fff" letter-spacing="1" style="paint-order:stroke" stroke="#06110b" stroke-width="3"></text>' +
-      lbl() + '</svg>';
+      '<g transform="translate(0 -56)">' + scoreBug(c) + '</g>' +
+      '<text id="rv-cap" x="8" y="296" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="11" fill="#fff" style="paint-order:stroke" stroke="#0b1626" stroke-width="3"></text>' +
+      camTag("plate", "") + lbl() + '</svg>';
   }
   function play(c){
     const tr=truthOf(c); RV.truth=tr;
     $r("rv-stage").innerHTML=stage(c,tr);
     setLbl("満塁　フルカウント");
-    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左");
     const defCol=teamCol(c.batting?c.opp:c.victim,"#4f8fe8");
-    const rel=pitchHand(PK[2],rhp), flight=16800/(clampN(c.kmh||148,90,175)/3.6);
-    const received=RELEASE+flight+25, mitt={x:tr.px,y:tr.py+2};
-    const facing=rhp?1:-1, SX=PIT.x+8*facing;
-    const drawPit=k=>{const el=$r("rv-pit");if(el)el.outerHTML=pitcherBack("rv-pit",PIT.x,PIT.y,PIT.sc,defCol,k,rhp);};
-    // 最初から最後まで背中の絵(センターカメラなので投手は背を向けている)
-    const drawPitcher=(t,k)=>drawPit(k);
-    const drawCat=m=>{const el=$r("rv-cat");if(el)el.outerHTML=catcherFront("rv-cat",CAT.x,CAT.y,CAT.sc,defCol,m);};
+    const flight=16800/(clampN(c.kmh||148,90,175)/3.6);
+    const received=RELEASE_S+flight+25;
+    // 横から見た到達点: 高さはゾーン(胸〜膝)の中の位置をそのまま写す。内外はビデオボードで見せる
+    const Z=tr.Z, my=clampN(SZ.y+(tr.py-Z.y)/Z.h*SZ.h, SZ.y-14, SZ.y+SZ.h+14), mitt={x:SZ.x+SZ.w+10, y:my};
+    const mitt0=figPoint(P.crouch,SC.x,SC.y,SC.sc,-1,"glove");
+    let rel=null;
+    const drawCat=m=>{ const pose=reachArm(P.crouch,m.x,m.y,SC.x,SC.y,SC.sc,-1); setFig("rv-cat",pose,SC.x,SC.y,SC.sc,-1,defCol,"#192a37"); };
     let start=0;
     function f(ts){
       if(!start)start=ts;
-      const t=ts-start,k=pitching(t);drawPitcher(t,k);
-      const follow=ease((t-RELEASE-110)/(flight-110));
-      drawCat(lerpPt(MITT0,mitt,follow));
-      const hand=pitchHand(k,rhp);
-      if(t<RELEASE)ball("rv-ball",hand.x,hand.y,3.5,t>=KT[0]);
-      else if(t<RELEASE+flight){
-        const q=(t-RELEASE)/flight;
-        // Late break varies by pitch type; endpoint is exactly the plate measurement.
-        const bend=/カーブ|スライダー|フォーク|チェンジ/.test(c.type)?10:3;
-        const x=rel.x+(tr.px-rel.x)*q+Math.sin(Math.PI*q)*bend*(rhp?-1:1);
-        const y=rel.y+(tr.py-rel.y)*q-8*Math.sin(Math.PI*q);
-        ball("rv-ball",x,y,3.5+(R-3.5)*q,true);
+      const t=ts-start, pose=sidePitch(t);
+      setFig("rv-pit",pose,SP.x,SP.y,SP.sc,1,defCol,"#192a37");
+      const hand=figPoint(pose,SP.x,SP.y,SP.sc,1,"hand");
+      const follow=ease((t-RELEASE_S-90)/(flight-90));
+      drawCat(lerpPt(mitt0,mitt,follow));
+      if(t<RELEASE_S){ ball("rv-ball",hand.x,hand.y,2.8,t>=ST.stride); }
+      else if(t<RELEASE_S+flight){
+        if(!rel) rel=hand;
+        const q=(t-RELEASE_S)/flight;
+        const bend=/カーブ|スライダー|フォーク|チェンジ/.test(c.type)?9:3;     // 変化球は終盤に落ちる
+        const x=rel.x+(mitt.x-rel.x)*q, y=rel.y+(mitt.y-rel.y)*q-10*Math.sin(Math.PI*q)+bend*q*q;
+        ball("rv-ball",x,y,3.2,true);
       }else{
-        const q=clampN((t-RELEASE-flight)/25,0,1);
-        ball("rv-ball",tr.px,tr.py+2*q,R,t<received);
+        ball("rv-ball",mitt.x,mitt.y,3.2,t<received);
       }
       if(t<received){RV.raf=rvFrame(f);return;}
       drawCat(mitt);$r("rv-cap").textContent=(c.kmh||148)+"km　"+(c.type||"");
       crowd(.045,.018);ping(155,.045,.025,"triangle");
       RV.timer=rvLater(()=>{
-        const u=$r("rv-ump");if(u)u.outerHTML=umpFront(CAT.x+(lefty?-18:18),CAT.y-8,1.45,c.callIsStrike?1:0,c.callIsStrike?1:0);
+        // 球審: ストライクは拳を上げる。ボールは何もしない
+        if(c.callIsStrike) umpCall("rv-ump",SU.x,SU.y,-1,false,false,SU.sc);
         setLbl(c.callIsStrike?"球審の判定：ストライク":"球審の判定：ボール");
-        RV.timer=rvLater(rvAsk,380);
+        RV.timer=rvLater(rvAsk,c.callIsStrike?700:380);
       },280);
     }
     $r("rv-cap").textContent="";
@@ -1234,12 +1252,13 @@ SCENES.abs = (function(){
     RV.raf = rvFrame(f);
   }
   function challengePitcher(c,done){
-    const rhp=c.pitP.th!=="左",col=teamCol(c.victim,"#4f8fe8");
-    const initial=PK[5],raised={...PK[5],sx:10,sy:-57,nx:10,ny:-71,ex:28,ey:-62,tx:12,ty:-78};
+    // 投手が帽子を叩いてチャレンジ(横向き)
+    const col=teamCol(c.victim,"#4f8fe8");
     let start=0;
-    function f(ts){if(!start)start=ts;const t=ts-start,k=lerpK(initial,raised,ease(t/430));
-      if(t>430)k.ty+=Math.sin(Math.min(1,(t-430)/450)*Math.PI*4)*1.8;
-      const old=$r("rv-pit");if(old)old.outerHTML=pitcherBack("rv-pit",PIT.x,PIT.y,PIT.sc,col,k,rhp);
+    function f(ts){if(!start)start=ts;const t=ts-start;
+      const pose=lerpP(PS.end,P.helmet,ease(Math.min(1,t/430)));
+      if(t>430)pose.la+=Math.sin(Math.min(1,(t-430)/450)*Math.PI*4)*4;
+      setFig("rv-pit",pose,SP.x,SP.y,SP.sc,1,col,"#192a37");
       if(t<950)RV.raf=rvFrame(f);else RV.timer=rvLater(done,180);
     }
     RV.raf=rvFrame(f);

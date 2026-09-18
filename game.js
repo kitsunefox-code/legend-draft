@@ -3975,7 +3975,7 @@ function makeRecorder(batT, pitT, seenBat, seenPit){
   };
 }
 // 試合ごとの出場・勝敗・セーブを付ける
-function creditGame(A, B, rA, rB, seen){
+function creditGame(A, B, rA, rB, seen, dec){
   for(const s of seen.bat) s.g++;
   for(const s of seen.pit) s.g++;
   const win = rA > rB ? A : rB > rA ? B : null;
@@ -3984,20 +3984,27 @@ function creditGame(A, B, rA, rB, seen){
   const sa = spOf(A), sb = spOf(B);
   if(sa) sa.gs++;
   if(sb) sb.gs++;
+  // 完投(救援を仰がなかった先発)
+  if(dec){
+    if(sa && dec.usedA.size === 1) sa.cg = (sa.cg||0) + 1;
+    if(sb && dec.usedB.size === 1) sb.cg = (sb.cg||0) + 1;
+  }
   if(win){
-    const ws = win === A ? sa : sb, ls = lose === A ? sa : sb;
+    // 勝ち負けは責任投手に付ける(以前は必ず先発に付けていたので、救援に勝敗が付かなかった)
+    const wl = dec && dec.wp ? lineOf(win, dec.wp) : null, ll = dec && dec.lp ? lineOf(lose, dec.lp) : null;
+    const ws = wl || (win === A ? sa : sb), ls = ll || (lose === A ? sa : sb);
     if(ws) ws.w++;
     if(ls) ls.l++;
-    // セーブ・ホールドは、その試合に実際に投げた投手にだけ付ける
-    const diff = Math.abs(rA - rB);
-    const cl = win.slots.CL;
-    const cs = cl && !isOut(cl) ? lineOf(win, cl) : null;
-    if(cs && diff <= 3 && cs !== ws && seen.pit.has(cs)) cs.sv++;
-    const rp = RP_KEYS.map(k => win.slots[k]).filter(x => x && !isOut(x));
-    for(const r of rp){
-      const rs = lineOf(win, r);
-      if(rs && rs !== ws && rs !== cs && diff <= 3 && seen.pit.has(rs) && rnd() < 0.7) rs.hld++;
-    }
+    // セーブ: 3点差以内で登板して試合を締めた投手(勝ち投手を除く)
+    const fin = dec ? (win === A ? dec.finA : dec.finB) : null;
+    const fs = fin && fin.leadIn >= 1 && fin.leadIn <= 3 ? lineOf(win, fin.p) : null;
+    const cs = fs && fs !== ws && fs.role !== "SP" ? fs : null;
+    if(cs) cs.sv++;
+    // ホールド: リードを保ったまま次へつないだ救援(両軍とも付く)
+    [[A, dec && dec.holdA], [B, dec && dec.holdB]].forEach(function(x){
+      if(!x[1]) return;
+      x[1].forEach(function(p){ const hs = lineOf(x[0], p); if(hs && hs !== ws && hs !== ls && hs !== cs && hs.role !== "SP") hs.hld++; });
+    });
   }
 }
 // ============================================================
@@ -4005,6 +4012,16 @@ function creditGame(A, B, rA, rB, seen){
 // 点数を先に決めて打席を逆算するのではなく、打順どおりに打席を解いて
 // 点を積み上げる。1番から4番までの並びが結果に直結する
 // ============================================================
+// 較正値。通しシーズンの監査(season_audit)でNPBの実勢と見比べて決める
+const PA_TUNE = {bb:0.068, so:0.19, avg:0.240, hrBoost:0.48};
+// 投手の奪三振率(9回あたり)。投球回の登録が無いので勝敗・セーブから見積もる
+function pitK9(pit){
+  if(!pit) return 7;
+  const q = (pit.cat === "B" && pit.twoWay) ? {role:"SP", w:pit.twoWay.w, l:0, so:pit.twoWay.so} : pit;
+  if(!q.so) return 7;
+  const ip = q.role === "SP" ? Math.max(100, (q.w||0) * 11 + (q.l||0) * 6) : Math.max(45, 55 + (q.sv||0) * 0.3 + (q.hld||0) * 0.3);
+  return clamp(q.so * 9 / ip, 4, 12.5);
+}
 // 打者と投手の力関係から、その打席の結果の確率を作る
 function paProbs(bat, pit, park){
   // 名選手だけのリーグなので、登録成績をそのまま使うと1試合8点・リーグ打率.330の打高になる。
@@ -4015,16 +4032,20 @@ function paProbs(bat, pit, park){
   const hrF = park ? park.hr : 1;
   const runF = park ? park.run : 1;
 
-  // 四球: 出塁能力の高い打者ほど多い
-  let bb = clamp(0.078 + (bo - 80) * 0.0018 + edge * 0.3, 0.035, 0.14);
-  // 三振: 奪三振の多い投手ほど多く、巧打者ほど少ない
-  const k9 = pit && pit.so ? clamp(pit.so / 22, 4, 11) : 7;
-  let so = clamp(0.21 + (k9 - 7) * 0.02 - (bat.avg - 0.285) * 0.4 - edge * 0.4, 0.06, 0.36);
-  // 本塁打: 登録本塁打と球場から
-  let hr = clamp(((bat.hr || 8) / 1250) * hrF * (1 + edge * 1.4), 0.004, 0.06);
+  // 四球: 出塁能力の高い打者ほど多い(NPBの実勢は打席の8%前後)
+  let bb = clamp(PA_TUNE.bb + (bo - 80) * 0.0018 + edge * 0.3, 0.035, 0.14);
+  // 三振: 奪三振の多い投手ほど多く、巧打者ほど少ない。
+  // 奪三振率は投球回から出す(以前は奪三振数÷22で、投球回の少ない救援が軒並み最低値になっていた)
+  const k9 = pitK9(pit);
+  let so = clamp(PA_TUNE.so + (k9 - 7) * 0.018 - (bat.avg - 0.300) * 0.4 - edge * 0.4, 0.06, 0.38);
+  // 本塁打: 登録本塁打と球場から。長距離砲ほど圧縮を緩める(52本の打者が31本止まりでは寂しい。
+  // 名投手ぞろいのリーグなので登録の8割前後が目安)
+  const h0 = bat.hr || 8;
+  const hrBoost = 1 + clamp((h0 - 15) / 25, 0, 1) * PA_TUNE.hrBoost;
+  let hr = clamp((h0 / 1250) * hrBoost * hrF * (1 + edge * 1.4), 0.004, 0.09);
   // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す
   const abShare = 1 - bb - 0.008;
-  const avg = clamp(0.250 + (bat.avg - 0.300) * 0.45 + edge * 0.6 + (runF - 1) * 0.08, 0.170, 0.360);
+  const avg = clamp(PA_TUNE.avg + (bat.avg - 0.300) * 0.45 + edge * 0.6 + (runF - 1) * 0.08, 0.170, 0.360);
   let hit = avg * abShare - hr;                // 本塁打ぶんを差し引いた単打・長打
   if(hit < 0.04) hit = 0.04;
 
@@ -4063,13 +4084,14 @@ function playPA(st, bat, pit, park, rec){
   acc += q.hit;
   if(r < acc){                                   // 単打・長打
     const long = rnd();
-    if(long < 0.055){                            // 三塁打
+    const p3 = 0.010 + clamp((bat.sb||0) / 1400, 0, 0.028);   // 三塁打は安打の1〜4%。足のある打者ほど多い
+    if(long < p3){                               // 三塁打
       const runs = (on[0]?1:0) + (on[1]?1:0) + (on[2]?1:0);
       on[0] = on[1] = false; on[2] = true;
       if(rec) rec(bat, pit, "3b", runs);
       return runs;
     }
-    if(long < 0.28){                             // 二塁打
+    if(long < p3 + 0.18){                        // 二塁打
       const runs = (on[1]?1:0) + (on[2]?1:0) + (on[0] && rnd() < 0.42 ? 1 : 0);
       const wasFirst = on[0];
       on[2] = wasFirst && runs < 3 ? false : false;
@@ -4130,7 +4152,7 @@ function trySteal(st, runner, pit, rec, team){
   const sb = runner.sb || 0;
   const P = POL_STEAL[team ? polOf(team).steal : "normal"] || POL_STEAL.normal;
   if(sb < (P.mul > 1.2 ? 4 : 8)) return;              // 足の無い選手は走らない
-  const go = clamp(sb / 250 * P.mul, 0.02, 0.62);     // 仕掛ける頻度
+  const go = clamp(sb / 200 * P.mul, 0.02, 0.62);     // 仕掛ける頻度(NPBの実勢は1試合0.5個前後)
   if(rnd() > go) return;
   const ok = rnd() < clamp(0.60 + sb / 420 + P.ok, 0.50, 0.88);   // 成功率
   if(ok){
@@ -4142,13 +4164,15 @@ function trySteal(st, runner, pit, rec, team){
   }
 }
 // 半イニング。3アウトまで打席を回す
-function playHalf(order, idx, pit, park, rec, team){
+function playHalf(order, idx, pit, park, rec, team, sub){
   const st = {outs:0, on:[false,false,false]};
   let runs = 0;
   let guard = 0;
   let prev = null;                                     // 一塁走者(直前に出た打者)
   while(st.outs < 3 && guard++ < 40){
-    const bat = order[idx % order.length];
+    const at = idx % order.length;
+    if(sub) subPinchHit(sub, order, at, st, runs);
+    const bat = order[at];
     idx++;
     trySteal(st, prev, pit, rec, team);
     if(st.outs >= 3) break;
@@ -4156,14 +4180,96 @@ function playHalf(order, idx, pit, park, rec, team){
     runs += playPA(st, bat, pit, park, rec);
     prev = (st.on[0] && !before) ? bat : (st.on[0] ? prev : null);
     if(st.on[0] && !prev) prev = bat;
+    if(sub && prev === bat && st.on[0] && !st.on[1]) prev = subPinchRun(sub, order, at, runs) || prev;
   }
   return {runs, idx};
+}
+// ---- 控えの起用 ----
+// 以前は離脱者の穴埋めでしか控えが出ず、シーズン0試合の控えがほとんどだった。
+// 現実の一軍と同じく、休養日・代打・代走・守備固め・大差がついた後の入れ替えで出番を作る
+function slotGrpOf(key){ const d = SLOT_DEFS.find(x => x.key === key); return d ? d.grp : "DH"; }
+function benchFits(p, key){ const g = slotGrpOf(key); return g === "DH" || g === "BN" || (p.pos || "").includes(g); }
+function gameLineup(t){
+  const bench = benchOf(t).filter(p => !isOut(p)).sort((a, b) => b.ovr - a.ovr);
+  const order = [], keys = [];
+  const take = key => {
+    if(!bench.length) return null;
+    let i = bench.findIndex(p => benchFits(p, key));
+    if(i < 0) i = 0;
+    return bench.splice(i, 1)[0];
+  };
+  const total = (state.schedule && state.schedule.length) || 0;
+  const race = total && state.day >= total - 14;         // 終盤の勝負どころは主力を休ませない
+  let rested = 0;
+  for(const k of orderKeys(t)){
+    const p = t.slots[k];
+    if(!p) continue;
+    if(isOut(p)){ const s = take(k); if(s){ order.push(s); keys.push(k); } continue; }   // 控えが穴を埋める
+    const restP = race ? 0 : k === "C" ? 0.14 : k === "DH" ? 0.03 : 0.06;                  // 捕手は週1で休む
+    if(rested < 2 && bench.length && rnd() < restP && bench.some(b => benchFits(b, k))){
+      const s = take(k); rested++;
+      order.push(s); keys.push(k); continue;
+    }
+    order.push(p); keys.push(k);
+  }
+  return {order, keys, bench};
+}
+// sub = {team, inn, lead(攻撃側から見た点差), bench, keys, enter(p)}
+function subSwap(sub, order, at, p){
+  const i = sub.bench.indexOf(p);
+  if(i >= 0) sub.bench.splice(i, 1);
+  order[at] = p;
+  sub.enter(p);
+}
+// 代打: 終盤の競った場面で、打線の弱いところに控えの打者を送る
+function subPinchHit(sub, order, at, st, runsNow){
+  if(sub.inn < 7 || !sub.bench.length) return;
+  const lead = sub.lead + runsNow;
+  if(lead > 1 || lead < -4) return;
+  const bat = order[at];
+  const weak = order.slice().sort((a, b) => a.ovr - b.ovr).slice(0, 3);
+  if(weak.indexOf(bat) < 0) return;
+  const ph = sub.bench.slice().sort((a, b) => b.ovr - a.ovr)[0];
+  const chance = (ph.ovr >= bat.ovr - 5 ? 0.5 : 0.16) * ((st.on[1] || st.on[2]) ? 1.3 : 1) * (sub.inn >= 9 ? 1.3 : 1);
+  if(rnd() < chance) subSwap(sub, order, at, ph);
+}
+// 代走: 終盤の1点を争う場面で、足のない走者に俊足の控えを送る
+function subPinchRun(sub, order, at, runsNow){
+  if(sub.inn < 8 || !sub.bench.length) return null;
+  const lead = sub.lead + runsNow;
+  if(lead > 1 || lead < -2) return null;
+  const bat = order[at];
+  if((bat.sb || 0) >= 10) return null;
+  const pr = sub.bench.slice().sort((a, b) => (b.sb||0) - (a.sb||0))[0];
+  if((pr.sb || 0) < 12 || rnd() > 0.55) return null;
+  subSwap(sub, order, at, pr);
+  return pr;
+}
+// 守りに就く前の入れ替え。逃げ切りの守備固めと、大差がついた後の主力の休養
+function subDefense(sub, order){
+  if(sub.inn < 7 || !sub.bench.length) return;
+  const lead = -sub.lead;                                 // 守る側から見た点差
+  const blow = Math.abs(lead) >= 6;
+  if(!blow && !(sub.inn >= 8 && lead >= 1 && lead <= 3)) return;
+  let n = blow ? 2 : 1;
+  if(rnd() > (blow ? 0.7 : 0.45)) return;
+  while(n-- > 0 && sub.bench.length){
+    // 守備固めは一発屋の大砲と交代、大差なら主力から下げる
+    const cand = order.map((p, i) => ({p, i})).filter(x => slotGrpOf(sub.keys[x.i]) !== "DH" && sub.bench.some(b => benchFits(b, sub.keys[x.i])))
+      .filter(x => benchOf(sub.team).indexOf(x.p) < 0);
+    if(!cand.length) return;
+    cand.sort((a, b) => blow ? b.p.ovr - a.p.ovr : ((a.p.sb||0) - (b.p.sb||0)));
+    const x = cand[Math.floor(rnd() * Math.min(3, cand.length))];
+    const b = sub.bench.find(q => benchFits(q, sub.keys[x.i]));
+    subSwap(sub, order, x.i, b);
+  }
 }
 // 出目を作るだけ。反映は applyGame で行う。
 // 采配の選択を挟むあいだ、結果を確定させずに保留しておく必要があるため分けてある
 function rollGame(A, B, keep){
   const park = parkOf(B);              // Bがホーム(Aが表の攻撃)
-  const oa = activeLineup(A), ob = activeLineup(B);
+  const LA = gameLineup(A), LB = gameLineup(B);
+  const oa = LA.order, ob = LB.order;
   if(!oa.length || !ob.length) return {rA:0, rB:0};
   // keep が真のときだけ成績を積む(試算・采配の下見では積まない)
   const seen = keep ? {bat:new Set(), pit:new Set()} : null;
@@ -4172,26 +4278,41 @@ function rollGame(A, B, keep){
   const snap = keep ? gameSnap(A, B) : null;                            // 試合前の数字(快挙の判定用)
   let rA = 0, rB = 0, ia = 0, ib = 0;
   const spA = starterOf(A), spB = starterOf(B);
+  const enterOf = t => p => { if(!keep) return; const s = lineOf(t, p); if(s) seen.bat.add(s); };
+  const subA = {team:A, bench:LA.bench, keys:LA.keys, enter:enterOf(A), inn:1, lead:0};
+  const subB = {team:B, bench:LB.bench, keys:LB.keys, enter:enterOf(B), inn:1, lead:0};
+  // 責任投手。リードを奪った時点で投げていた投手に勝ち、奪われた投手に負けが付く
+  const dec = {wp:null, lp:null, usedA:new Set(), usedB:new Set(), holdA:new Set(), holdB:new Set(), finA:null, finB:null};
+  let lastA = spA, lastB = spB;
+  const half = function(top, inn){
+    const bat = top ? A : B, pit = top ? B : A;
+    const lead0 = top ? rB - rA : rA - rB;                 // 守る側から見た点差
+    const sp = top ? spB : spA;
+    const p = pitcherForInning(pit, inn, sp, lead0, top ? rA : rB).p;
+    const used = top ? dec.usedB : dec.usedA;
+    if(!used.has(p)){ used.add(p); if(top) dec.finB = {p, leadIn:lead0}; else dec.finA = {p, leadIn:lead0}; }
+    const sub = top ? subA : subB, dsub = top ? subB : subA;
+    dsub.inn = inn; dsub.lead = -lead0; subDefense(dsub, top ? ob : oa);
+    sub.inn = inn; sub.lead = -lead0;
+    const r = playHalf(top ? oa : ob, top ? ia : ib, p, park, top ? recA : recB, bat, sub);
+    if(top){ rA += r.runs; ia = r.idx; lastB = p; } else { rB += r.runs; ib = r.idx; lastA = p; }
+    const lead1 = lead0 - r.runs;
+    if(lead0 >= 0 && lead1 < 0){ dec.wp = top ? lastA : lastB; dec.lp = p; }          // 攻撃側が勝ち越した
+    else if(lead1 === 0 && lead0 !== 0){ dec.wp = null; dec.lp = null; }              // 追いつかれた
+    if(p !== sp && lead0 >= 1 && lead0 <= 3 && lead1 >= 1) (top ? dec.holdB : dec.holdA).add(p);
+  };
   for(let inn = 1; inn <= 9; inn++){
-    const pB = pitcherForInning(B, inn, spB, rB - rA).p;   // Aの攻撃を受けるのはBの投手
-    const ra = playHalf(oa, ia, pB, park, recA, A);
-    rA += ra.runs; ia = ra.idx;
+    half(true, inn);
     if(inn === 9 && rB > rA) break;               // 裏の攻撃は不要
-    const pA = pitcherForInning(A, inn, spA, rA - rB).p;
-    const rb = playHalf(ob, ib, pA, park, recB, B);
-    rB += rb.runs; ib = rb.idx;
+    half(false, inn);
     if(inn === 9 && rB > rA) break;               // サヨナラ
   }
   // 延長は最大3イニング。決着しなければ引き分け
   for(let ex = 0; ex < 3 && rA === rB; ex++){
-    const pB = pitcherForInning(B, 9, spB, rB - rA).p;
-    const ra = playHalf(oa, ia, pB, park, recA, A);
-    rA += ra.runs; ia = ra.idx;
-    const pA = pitcherForInning(A, 9, spA, rA - rB).p;
-    const rb = playHalf(ob, ib, pA, park, recB, B);
-    rB += rb.runs; ib = rb.idx;
+    half(true, 10 + ex);
+    half(false, 10 + ex);
   }
-  if(keep){ creditGame(A, B, rA, rB, seen); return {rA, rB, facts: gameFacts(snap)}; }
+  if(keep){ creditGame(A, B, rA, rB, seen, dec); return {rA, rB, facts: gameFacts(snap)}; }
   return {rA, rB};
 }
 // 試合前に打者・投手の数字を写しておき、終わったあとの差で「その試合に何が起きたか」を知る
@@ -7172,25 +7293,28 @@ function reliefOf(t, n){
   return ps[(gi + n) % ps.length];
 }
 // lead は「そのイニングを投げる側の点差」。1〜3点差の9回だけ抑えが出る
-function pitcherForInning(t, inn, sp, lead){
+function pitcherForInning(t, inn, sp, lead, ra){
   const st = (sp && !isOut(sp)) ? sp : starterOf(t);
   const PP = POL_PITCH[polOf(t).pitch] || POL_PITCH.normal;
-  if(inn <= 5) return {p:st, key:"SP", label:"先発"};
-  if(inn === 6 && PP.exit !== 6) return {p:st, key:"SP", label:"先発"};
-  if(inn === 6) return {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"};
-  // 好投した日は7回も投げる。采配の下見と本番で結果が変わらないよう、
-  // 消化試合数と投手の力から決める(乱数は使わない)
-  if(inn === 7 && PP.exit === 7) return {p:st, key:"SP", label:"先発"};
-  if(inn === 7 && PP.exit !== 6 &&
-     (((t.W||0)+(t.L||0)+(t.T||0) + (st.ovr||78)) % 5) < 2)
-    return {p:st, key:"SP", label:"先発"};
-  if(inn === 7) return {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"};
-  if(inn === 8) return {p:reliefOf(t, 1), key:"RP", label:"セットアッパー"};
+  const R = ra === undefined ? 2 : ra;                     // ここまでの失点。好投していれば先発を引っ張る
+  // 采配の下見と本番で結果が変わらないよう、消化試合数と投手の力から決める(乱数は使わない)
+  const h = (t.W||0) + (t.L||0) + (t.T||0) + (st.ovr||78);
+  const SPI = {p:st, key:"SP", label:"先発"};
+  if(inn <= 5) return SPI;
+  if(inn === 6) return (PP.exit === 6 || R >= 6) ? {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"} : SPI;
+  if(inn === 7){
+    if(PP.exit !== 6 && R < 6 && (PP.exit === 7 ? R <= 4 : (R <= 1 || (R <= 3 && h % 5 < 3)))) return SPI;
+    return {p:reliefOf(t, 0), key:"RP", label:"中継ぎ"};
+  }
+  // 8・9回。零封中(たまに1失点)なら続投、零封か大差なら完投まで。それ以外は救援陣に任せる
+  const deep = PP.exit !== 6 && R <= 1 && (R === 0 || lead >= 4 || h % 3 === 1);   // 1点差の8回は守護神級の救援に託す
+  if(inn === 8) return deep ? SPI : {p:reliefOf(t, 1), key:"RP", label:"セットアッパー"};
   const save = lead === undefined || (lead >= 1 && lead <= 3);
+  if(inn === 9 && deep && ra !== undefined && (R === 0 || (lead >= 4 && h % 2 === 0)) && lead >= 1) return SPI;
   const cl = t.slots.CL;
   if(save && cl && !isOut(cl)) return {p:cl, key:"CL", label:"抑え"};
   if(save) return {p:reliefOf(t, 2), key:"CL", label:"抑え"};
-  return {p:reliefOf(t, 2), key:"RP", label:"中継ぎ"};
+  return {p:reliefOf(t, inn > 9 ? inn - 7 : 2), key:"RP", label:"中継ぎ"};
 }
 function basesLabel(b){
   const on = [b[0]?"一":"", b[1]?"二":"", b[2]?"三":""].filter(Boolean);
@@ -7409,7 +7533,7 @@ function buildGameScript(g){
       for(let k = 0; k < inn - 1; k++){ sa += ia[k]; sb += ib[k]; }
       if(!top) sa += ia[inn-1];
       const lead = top ? (sb - sa) : (sa - sb);
-      const info = pitcherForInning(pitT, inn, top ? g.spB : g.spA, lead);
+      const info = pitcherForInning(pitT, inn, top ? g.spB : g.spA, lead, top ? sa : sb);
       const prev = top ? prevPA : prevPB;
       if(prev && prev !== info.p){
         script.push({t:"chg", text:`― 投手交代　${pitT.name}　${prev.name} → ${info.p.name}（${info.label}）―`});

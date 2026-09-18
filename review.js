@@ -405,7 +405,7 @@ function gesture(c, done){
   const col = teamCol(c.victim, "#e0a600");
   if(c.kind === "abs"){
     if(!c.batting && SCENES.abs.challengePitcher){SCENES.abs.challengePitcher(c,done);return;}
-    const lefty=c.lefty, bx=c.batting?(lefty?140:284):66, by=c.batting?294:298, sc=c.batting?1.75:1.9;
+    const lefty=c.lefty, bx=c.batting?(lefty?152:284):66, by=c.batting?294:298, sc=c.batting?1.75:1.9;
     const initial=c.batting?takePose(9999,0):P.stand, facing=c.batting?(lefty?1:-1):1;
     g.innerHTML=figSvg("rv-gfig",initial,bx,by,sc,facing,col,"#192a37");svg.appendChild(g);
     const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
@@ -1115,7 +1115,7 @@ SCENES.abs = (function(){
   const R = 3.65 / 43.18 * ZB.w;                                     // 奥での球の大きさ
   const CM = 43.18 / ZB.w;
   const MITT0 = {x:208, y:250};                    // 構えたミットの位置
-  const PIT = {x:76, y:324, S:80};                 // 投手の足元(手前・左下)。S=足元での 1m の px
+  const PIT = {x:60, y:324, S:80};                 // 投手の足元(手前・左下)。S=足元での 1m の px
   function truthOf(c){
     // MLB 2026: midpoint of plate; width 17 inches; top 53.5%, bottom 27% of height.
     // Legacy data has no measured height: a fixed 180 cm model is used, never a random zone.
@@ -1269,7 +1269,7 @@ SCENES.abs = (function(){
   }
   function stage(c, tr){
     const lefty = c.lefty, rhp = !(c.pitP && c.pitP.th === "左");
-    const bx = lefty ? 140 : 284;                    // センターから見て右打者は右(三塁側)。左打者は投手と重ならない位置
+    const bx = lefty ? 152 : 284;                    // センターから見て右打者は右(三塁側)。左打者は投手と重ならない位置
     const defCol = teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), batCol = teamCol(c.batting ? c.victim : c.opp, "#e0a600");
     return stageOpen(300, "#0b1626") + stands(120) + boards() +
       '<rect x="0" y="178" width="360" height="122" fill="url(#rvGrass)"/>' +
@@ -1294,7 +1294,7 @@ SCENES.abs = (function(){
     const tr=truthOf(c); RV.truth=tr;
     $r("rv-stage").innerHTML=stage(c,tr);
     setLbl("満塁　フルカウント");
-    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左"),bx=lefty?140:284;
+    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左"),bx=lefty?152:284;
     const defCol=teamCol(c.batting?c.opp:c.victim,"#4f8fe8"),batCol=teamCol(c.batting?c.victim:c.opp,"#e0a600");
     const rel=pitcher3dHand(P3_RELEASE,PIT.x,PIT.y,PIT.S,rhp), flight=16800/(clampN(c.kmh||148,90,175)/3.6);
     const received=RELEASE+flight+25, mitt={x:tr.px,y:tr.py+2};

@@ -22,6 +22,7 @@ const LIMIT = Number(val("--limit") || 0);
 const DRY = opt("--dry"), NOPHOTO = opt("--nophoto");
 const ONLY = val("--names") ? val("--names").split(",") : null;
 const ARTICLES = opt("--articles");
+const FORCE = opt("--force"), DEBUG = opt("--debug");   // --force: 名鑑にいても査定し直す(確認用) --debug: 表の行を出す
 const MLB_MODE = opt("--mlb");                          // メジャーの選手を MLB_DB に足す(表の球団欄は NYY のような略号)
 const FROM = Number(val("--from") || 0);                // この年以降のシーズンだけを査定に使う(2000年〜の厚み出し)
 const CATS = val("--cats") ? val("--cats").split(",") : null;      // カテゴリを指定
@@ -134,7 +135,9 @@ async function seasons(title, isPit){
       const isYear = /^(19|20)\d\d/.test(cs[0]);
       const isTotal = /^(通算|通　算|NPB|日本)/.test(cs[0]);
       if(!isYear && !isTotal) continue;
-      if(isYear){ lastYear = cs[0]; if(cs[1]) lastTeam = cs[1]; }
+      // 「'13計」はシーズン途中の移籍の合計行。球団の引き継ぎには使わず、その年は移籍先の球団として数える
+      const sumRow = isYear && /計$/.test(cs[1] || "");
+      if(isYear){ lastYear = cs[0]; if(cs[1] && !sumRow) lastTeam = cs[1]; }
       const off = isTotal ? head.length - cs.length : 0;
       const row = {};
       let bold = 0;
@@ -143,7 +146,7 @@ async function seasons(title, isPit){
         const n = num(cs[ci]); if(n !== null) row[k] = n;
         if(isYear && /<b>|<strong>|font-weight:\s*bold/.test(raw[ci] || "") && (isPit ? BOLD_P : BOLD_B).includes(k)) bold++;
       }
-      if(isYear){ row.year = Number(cs[0].slice(0, 4)); row.team = cs[1] || ""; row.bold = bold; yrs.push(row); }
+      if(isYear){ row.year = Number(cs[0].slice(0, 4)); row.team = sumRow ? lastTeam : (cs[1] || ""); row.bold = bold; yrs.push(row); }
       else if(!totals.length || /^NPB|^日本/.test(cs[0])) totals.push(row);
     }
     if(yrs.length) return {yrs, total: totals[0] || null};
@@ -244,7 +247,7 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
   const dup = n => { const k = jr(norm(n)); if(have.has(k)) return true; if(MLB_MODE) return false; const parts = k.split("・"); return parts.length > 1 && haveLast.has(parts[parts.length - 1]); };
   let names = ONLY || (ARTICLES ? await candidatesFromArticles() : await candidates());
   const skipPrev = fs.existsSync(SKIP) ? JSON.parse(fs.readFileSync(SKIP, "utf8")) : {};
-  names = names.filter(n => !dup(n) && !(n in skipPrev && !(NOPHOTO && /写真なし/.test(skipPrev[n])) && !(FROM && /規定に届く年なし/.test(skipPrev[n]) === false && false)));
+  names = names.filter(n => FORCE || !dup(n) && !(n in skipPrev && !(NOPHOTO && /写真なし/.test(skipPrev[n])) && !(FROM && /規定に届く年なし/.test(skipPrev[n]) === false && false)));
   console.log("候補 " + names.length + "人(名鑑に無い人)");
   if(LIMIT) names = names.slice(0, LIMIT);
   let nextPh = Math.max(0, ...DB.map(p => p.ph || 0), ...MLB.map(p => p.ph || 0), ...fs.readdirSync(FACE).map(f => Number(f.replace(/\D/g, "")) || 0)) + 1;
@@ -265,10 +268,11 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
       const best = pickBest(st.yrs, isPit);
       if(!best){ skipped.push([title, "規定に届く年なし"]); continue; }
       const titles = st.yrs.reduce((a, r) => a + (frOf(r.team) ? r.bold : 0), 0);
-      const photo = await freePhoto(ib.title);
-      if(!photo && !NOPHOTO){ skipped.push([title, "自由な写真なし"]); await sleep(200); continue; }
+      const photo = FORCE ? null : await freePhoto(ib.title);
+      if(!photo && !NOPHOTO && !FORCE){ skipped.push([title, "自由な写真なし"]); await sleep(200); continue; }
       const name = jr(norm(ib.title));
-      if(doneNames.has(name) || have.has(name)){ skipped.push([title, "重複"]); continue; }
+      if(!FORCE && (doneNames.has(name) || have.has(name))){ skipped.push([title, "重複"]); continue; }
+      if(DEBUG) st.yrs.forEach(r => console.log("   ", JSON.stringify(r)));
       doneNames.add(name);
       const e = {name, cat: isPit ? "P" : "B", team: MLB_MODE ? mlbTeam(best.team) : teamShort(best.team), fr: MLB_MODE ? "MLB" : frOf(best.team), year: best.year};
       if(MLB_MODE) e.mlb = true;
@@ -308,10 +312,26 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
   if(!DRY){ skipped.forEach(x => { if(!/位置不明|成績表なし|ERR/.test(x[1]) || apiFail === 0) skipPrev[x[0]] = x[1]; }); fs.writeFileSync(SKIP, JSON.stringify(skipPrev, null, 1), "utf8"); }
   skipped.slice(0, 40).forEach(x => console.log("  -", x[0], x[1]));
   if(!DRY && added.length){
-    const ins = added.map(e => JSON.stringify(e)).join(",\n");
-    const a = src.indexOf(MLB_MODE ? "const MLB_DB = [" : "const DB = ["); const b = src.indexOf("];", a);
-    if(a < 0 || b < 0) throw new Error("DB block not found");
-    fs.writeFileSync(path.join(ROOT, "players.js"), src.slice(0, b) + ",\n" + ins + "\n" + src.slice(b), "utf8");
+    let out = src, fresh = [];
+    if(FORCE){
+      // 同名の行(この道具で足した1行1人の形)があれば置き換える。写真は前の行のものを引き継ぐ
+      const esc = t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      added.forEach(e => {
+        const re = new RegExp('^\\{"name":"' + esc(e.name) + '","cat":"' + e.cat + '".*\\}\\r?$', "m");   // 行末が CRLF でも合うように
+        const m = out.match(re);
+        if(!m){ fresh.push(e); return; }
+        try{ const old = JSON.parse(m[0]); if(e.ph === undefined && old.ph !== undefined){ e.ph = old.ph; e.pa = old.pa; e.pl = old.pl; e.pu = old.pu; } }catch(_){}
+        out = out.replace(re, JSON.stringify(e));
+      });
+      console.log("置き換え " + (added.length - fresh.length) + "人");
+    }else fresh = added;
+    if(fresh.length){
+      const ins = fresh.map(e => JSON.stringify(e)).join(",\n");
+      const a = out.indexOf(MLB_MODE ? "const MLB_DB = [" : "const DB = ["); const b = out.indexOf("];", a);
+      if(a < 0 || b < 0) throw new Error("DB block not found");
+      out = out.slice(0, b) + ",\n" + ins + "\n" + out.slice(b);
+    }
+    fs.writeFileSync(path.join(ROOT, "players.js"), out, "utf8");
     fs.writeFileSync(LOG, JSON.stringify(prevLog.concat(added.map(e => ({name: e.name, cat: e.cat, year: e.year, ph: e.ph}))), null, 1), "utf8");
     console.log("players.js に追記しました");
   }

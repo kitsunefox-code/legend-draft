@@ -405,6 +405,15 @@ function verdictSign(safe, isHR, done){
 // ============================================================
 // 4. 結末 ── 覆れば得点が動く。得点・士気・ニュースへ
 // ============================================================
+// 実際はどうだったか(検証しなかったときに添える)
+function truthNote(c){
+  const tr = RV && RV.truth;
+  let actual;
+  if(c.kind === "abs") actual = (c.callIsStrike ? !c.wrong : c.wrong) ? "ストライク" : "ボール";
+  else if(!tr) return "";
+  else actual = c.play === "hr" ? (tr.safe ? "本塁打" : "ファウル") : c.play === "catch" ? (tr.safe ? "ワンバウンド" : "直接捕球") : (tr.safe ? "セーフ" : "アウト");
+  return "。実際は「" + actual + "」── " + (c.wrong ? "申請していれば覆っていた" : "判定は正しかった");
+}
 function rvSettle(go){
   if(!RV || RV.phase === "done") return;
   const c = RV.c, v = c.victim;
@@ -413,7 +422,7 @@ function rvSettle(go){
   let head, body, cls;
   if(go && over){ head = "判定が覆った！"; body = c.flipText + "。采配ポイント +1"; cls = "win"; }
   else if(go){ head = "判定どおり"; body = c.holdText + "。士気が少し落ちる"; cls = "lose"; }
-  else { head = "判定を受け入れた"; body = "映像検証を行わず、当初の判定で試合を再開"; cls = "ok"; }
+  else { head = "判定を受け入れた"; body = "映像検証を行わず、当初の判定で試合を再開" + truthNote(c); cls = "ok"; }
   // 得点を動かす(その日の結果はまだ確定していない)
   const r = c.game;
   if(over){
@@ -810,7 +819,7 @@ SCENES.home = (function(){
 // ---- 二塁の盗塁(センターカメラ): 一塁走者が左奥から手前の二塁へ。奥の捕手が送球し、遊撃手がベース上でタッチ ----
 SCENES.steal = (function(){
   // 順番: 投手が投げる(0.45秒で捕手へ) → 走者はモーションと同時に走り出す → 捕手が受けて二塁へ送球 → 遊撃手がベースの上でタッチ
-  const D = DIAMOND.cf, RUN0 = 180, RUNT = 2050, PITCH = 430, CATCH = 800, THROW = 1000;
+  const D = DIAMOND.cf, RUN0 = 180, RUNT = 2050, PITCH = 500, CATCH = 850, THROW = 1000, PSC = 0.62, PSPEED = 2.44;   // PITCH=リリース(ABSの骨格 1220ms を 2.44倍速で)
   const FROM = {x:56, y:191}, TO = {x:172, y:258};                          // 一塁のリード → 二塁の手前
   const CAT = {x:188, y:134}, BAT = {x:160, y:134}, SS = {x:205, y:262}, UMP = {x:252, y:240}, MOUND = {x:180, y:210};
   const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
@@ -820,34 +829,34 @@ SCENES.steal = (function(){
       figAt("rv-bat", P.bat, BAT, 1, runCol(c), "#222") +
       figAt("rv-cat", P.crouch, CAT, 1, defCol(c), "#222") +
       figAt("rv-run", lead, FROM, 1, runCol(c), "#222") +
-      figAt("rv-pit", P.pset, MOUND, -1, defCol(c), "#222") +
+      SCENES.abs.pitcherBack("rv-pit", MOUND.x, MOUND.y, PSC, defCol(c), SCENES.abs.pitching(0), !(c.pitP && c.pitP.th === "左")) +
       figAt("rv-ump", P.ready, UMP, -1, "#2b2b30", "#111") +
       figAt("rv-ss", P.ready, SS, -1, defCol(c), "#222") +
       shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(D.second.x - 32, D.second.y + 12, D.second.x + 32, D.second.y + 12) + big(180, 70) + lbl() +
       camTag("cf", "センターカメラ　一塁 → 二塁") + '</svg>';
   }
-  // 投手: セット → 足を上げる → 踏み出して投げる → 投げ終わり
-  function pitchPose(t){
-    if(t < 60) return P.pset;
-    if(t < 260) return lerpP(P.pset, P.plift, ease((t - 60) / 200));
-    if(t < PITCH) return lerpP(P.plift, P.pstride, ease((t - 260) / (PITCH - 260)));
-    if(t < PITCH + 260) return lerpP(P.pstride, P.follow, ease((t - PITCH) / 260));
-    return lerpP(P.follow, P.look, ease(Math.min(1, (t - PITCH - 260) / 500)));
+  // 投手: ABS と同じ背中の骨格(セット → 足上げ → 踏み出し → テイクバック → リリース → フォロースルー)をクイックで
+  function drawPitcher(t, c){
+    const el = $r("rv-pit"); if(!el) return null;
+    const k = SCENES.abs.pitching(Math.min(t * PSPEED, 2400));
+    el.outerHTML = SCENES.abs.pitcherBack("rv-pit", MOUND.x, MOUND.y, PSC, defCol(c), k, !(c.pitP && c.pitP.th === "左"));
+    const e = $r("rv-pit"); return e ? {x: Number(e.dataset.handX), y: Number(e.dataset.handY)} : null;
   }
   function draw(t, tr, c){
     // 走者: 投手のモーションと同時にスタート
     if(t < RUN0){ const at = anchorFig(lead, FROM, dsc(FROM.y), 1, "toe"); setFig("rv-run", lead, at.x, at.y, dsc(FROM.y), 1, runCol(c), "#192a37"); }
     else drawRunner("rv-run", t - RUN0, RUNT - RUN0, FROM, TO, true, runCol(c));
     const tag = drawTag("rv-ss", t, RUNT + tr.delta, RUNT, TO, SS, defCol(c));
-    moveFig("rv-pit", pitchPose(t), MOUND, -1, defCol(c), "#192a37");
+    const hand = drawPitcher(t, c) || {x: MOUND.x, y: MOUND.y - 30};
     // 捕手: 投球を受けるまで構え、受けたら立ち上がって二塁へ
     moveFig("rv-cat", t < CATCH - 130 ? P.crouch : throwPose(t, THROW), CAT, 1, defCol(c), "#192a37");
-    if(t < PITCH){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
+    if(t < PITCH){ ball("rv-ball", hand.x, hand.y, 2.6, t * PSPEED >= 950); ball("rv-sh", 0, 0, 0, false); return; }   // 踏み出してからは手の中の球が見える
     if(t < CATCH){                                                            // 投球: 投手の手から捕手のミットへ
-      const hand = figPoint(P.pstride, MOUND.x, MOUND.y, dsc(MOUND.y), -1, "glove");
+      if(!draw.rel) draw.rel = hand;
       const mitt = figPoint(P.crouch, CAT.x, CAT.y, dsc(CAT.y), 1, "glove");
+      const hand0 = draw.rel;
       const q = (t - PITCH) / (CATCH - PITCH);
-      ball("rv-ball", hand.x + (mitt.x - hand.x) * q, hand.y + (mitt.y - hand.y) * q - Math.sin(q * Math.PI) * 3, 3.2 - q, true);
+      ball("rv-ball", hand0.x + (mitt.x - hand0.x) * q, hand0.y + (mitt.y - hand0.y) * q - Math.sin(q * Math.PI) * 3, 2.8 - q, true);
       ball("rv-sh", 0, 0, 0, false); return;
     }
     if(t < THROW){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
@@ -856,7 +865,7 @@ SCENES.steal = (function(){
     else { ball("rv-ball", tag.glove.x, tag.glove.y, 2.3, false); ball("rv-sh", 0, 0, 0, false); }
   }
   return {
-    play(c){ const tr = timing(c, 25, 75); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("二塁への盗塁");
+    play(c){ const tr = timing(c, 25, 75); RV.truth = tr; draw.rel = null; $r("rv-stage").innerHTML = stage(c); setLbl("二塁への盗塁");
       realtime(t => draw(t, tr, c), Math.max(RUNT, RUNT + tr.delta) + 300, function(){ umpCall("rv-ump", UMP.x, hipY(UMP), -1, !c.callOut, false, dsc(UMP.y)); ping(440, 0.06, 0.06); RV.timer = rvLater(rvAsk, 420); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = rvLater(function(){ if(RV) rvSettle(false); }, 400); return; }
@@ -1002,9 +1011,15 @@ SCENES.abs = (function(){
   ].map(a=>Object.fromEntries(keys.map((k,i)=>[k,a[i]])));
   const KT=[950,1100,1220,1450,1750,2000];
   const RELEASE=1220;
+  // 着地より前(セット → 左脚を高く上げる → 保持 → 踏み出し)も同じ背中の骨格で描く
+  const PK_SET=Object.fromEntries(keys.map((k,i)=>[k,[ 0,-33,  0,-58,  0,-73, -7,-18, -8,  0,  7,-18,  8, 0,  12,-44,  2,-52,  -1,-54,-12,-44, 0][i]]));
+  const PK_LIFT=Object.fromEntries(keys.map((k,i)=>[k,[ 2,-34,  2,-59,  2,-74, -9,-40, -6,-26,  7,-18,  8, 0,  12,-46,  2,-55,  -1,-57,-12,-46, .2][i]]));
   function lerpK(a,b,t){const o={};for(const k of keys)o[k]=a[k]+(b[k]-a[k])*t;return o;}
   function pitching(t){
-    if(t<=KT[0]) return PK[0];
+    if(t<380) return PK_SET;
+    if(t<620) return lerpK(PK_SET,PK_LIFT,ease((t-380)/240));
+    if(t<760) return PK_LIFT;
+    if(t<=KT[0]) return lerpK(PK_LIFT,PK[0],ease((t-760)/(KT[0]-760)));
     for(let i=1;i<KT.length;i++)if(t<=KT[i])return lerpK(PK[i-1],PK[i],ease((t-KT[i-1])/(KT[i]-KT[i-1])));
     return PK[PK.length-1];
   }
@@ -1134,16 +1149,8 @@ SCENES.abs = (function(){
     const received=RELEASE+flight+25, mitt={x:tr.px,y:tr.py+2};
     const facing=rhp?1:-1, SX=PIT.x+8*facing;
     const drawPit=k=>{const el=$r("rv-pit");if(el)el.outerHTML=pitcherBack("rv-pit",PIT.x,PIT.y,PIT.sc,defCol,k,rhp);};
-    // 横向きの絵(セット〜踏み出し)と背中の絵(着地〜)を、体が回る 880-1000ms で溶かしてつなぐ
-    const drawPitcher=(t,k)=>{
-      const el=$r("rv-pit"); if(!el) return;
-      if(t<880){ el.outerHTML=figSvg("rv-pit",sidePose(t),SX,PIT.y,PIT.sc*0.98,facing,defCol,"#192a37"); return; }
-      const q=clampN((t-880)/120,0,1);
-      if(q>=1){ drawPit(k); return; }
-      const side=figSvg("rv-pit-side",sidePose(t),SX,PIT.y,PIT.sc*0.98,facing,defCol,"#192a37").replace('<g id="rv-pit-side"','<g id="rv-pit-side" opacity="'+(1-q).toFixed(2)+'"');
-      const back=pitcherBack("rv-pit-back",PIT.x,PIT.y,PIT.sc,defCol,k,rhp).replace('<g id="rv-pit-back"','<g id="rv-pit-back" opacity="'+q.toFixed(2)+'"');
-      el.outerHTML='<g id="rv-pit">'+side+back+'</g>';
-    };
+    // 最初から最後まで背中の絵(センターカメラなので投手は背を向けている)
+    const drawPitcher=(t,k)=>drawPit(k);
     const drawCat=m=>{const el=$r("rv-cat");if(el)el.outerHTML=catcherFront("rv-cat",CAT.x,CAT.y,CAT.sc,defCol,m);};
     let start=0;
     function f(ts){
@@ -1237,7 +1244,7 @@ SCENES.abs = (function(){
     }
     RV.raf=rvFrame(f);
   }
-  return {play, reveal, challengePitcher};
+  return {play, reveal, challengePitcher, pitcherBack, pitching, RELEASE};
 
 })();
 })();

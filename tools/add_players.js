@@ -22,6 +22,18 @@ const LIMIT = Number(val("--limit") || 0);
 const DRY = opt("--dry"), NOPHOTO = opt("--nophoto");
 const ONLY = val("--names") ? val("--names").split(",") : null;
 const ARTICLES = opt("--articles");
+const MLB_MODE = opt("--mlb");                          // メジャーの選手を MLB_DB に足す(表の球団欄は NYY のような略号)
+const FROM = Number(val("--from") || 0);                // この年以降のシーズンだけを査定に使う(2000年〜の厚み出し)
+const CATS = val("--cats") ? val("--cats").split(",") : null;      // カテゴリを指定
+const PAGES = val("--pages") ? val("--pages").split(",") : null;   // 一覧記事を指定
+// MLBの球団略号 → 名鑑の呼び名
+const MLB_ABBR = {NYY:"ヤンキース", BOS:"レッドソックス", TB:"レイズ", TBD:"レイズ", TBR:"レイズ", TOR:"ブルージェイズ", BAL:"オリオールズ",
+  CLE:"ガーディアンズ", DET:"タイガース", MIN:"ツインズ", CWS:"ホワイトソックス", CHW:"ホワイトソックス", KC:"ロイヤルズ", KCR:"ロイヤルズ",
+  HOU:"アストロズ", LAA:"エンゼルス", ANA:"エンゼルス", CAL:"エンゼルス", OAK:"アスレチックス", ATH:"アスレチックス", SEA:"マリナーズ", TEX:"レンジャーズ",
+  ATL:"ブレーブス", NYM:"メッツ", PHI:"フィリーズ", WSH:"ナショナルズ", WSN:"ナショナルズ", WAS:"ナショナルズ", MON:"エクスポズ", MIA:"マーリンズ", FLA:"マーリンズ",
+  CHC:"カブス", MIL:"ブルワーズ", STL:"カージナルス", PIT:"パイレーツ", CIN:"レッズ", LAD:"ドジャース", SF:"ジャイアンツ", SFG:"ジャイアンツ",
+  SD:"パドレス", SDP:"パドレス", ARI:"ダイヤモンドバックス", AZ:"ダイヤモンドバックス", COL:"ロッキーズ"};
+const mlbTeam = txt => { const s = String(txt || "").trim(); for(const k of Object.keys(MLB_ABBR).sort((a, b) => b.length - a.length)){ if(s === k || s.indexOf(k) === 0) return MLB_ABBR[k]; } return null; };
 const SKIP = path.join(ROOT, "data", "add_skip.json");   // 一度見送った人は次回から飛ばす
 
 let apiFail = 0;
@@ -51,7 +63,9 @@ const FR_MAP = [
   [/日本ハム|日拓|東映|東急|急映|セネタース/, "日本ハム", null], [/オリックス|阪急/, "オリックス", null], [/近鉄/, "近鉄", "近鉄"], [/楽天/, "楽天", "楽天"],
   [/大映|高橋|トンボ|金星|ゴールドスター|西日本|イーグルス|黒鷲|大和|翼|朝日|名古屋金鯱|ライオン/, "その他", null],
 ];
-function frOf(team){ if(/KBO|CPBL|MLB|韓国|台湾|米国|マイナー|3A|2A|1A|独立|メキシコ|MEX|AAA/.test(team)) return null; for(const [re, fr] of FR_MAP){ if(re.test(team)) return fr; } return null; }
+function frOf(team){
+  if(MLB_MODE) return mlbTeam(team) ? "MLB" : null;   // メジャーの年だけを査定に使う
+  if(/KBO|CPBL|MLB|韓国|台湾|米国|マイナー|3A|2A|1A|独立|メキシコ|MEX|AAA/.test(team)) return null; for(const [re, fr] of FR_MAP){ if(re.test(team)) return fr; } return null; }
 // 表の球団欄は「セネタース東急急映」のように複数がつながることがある。名鑑に載せる短い呼び名を一つ選ぶ
 const TEAM_NAMES = ["巨人","阪神","中日","ヤクルト","国鉄","サンケイ","アトムズ","広島","DeNA","横浜","大洋","洋松","松竹","ソフトバンク","ダイエー","南海","西武","西鉄","太平洋","クラウン","ロッテ","毎日","大毎","東京","日本ハム","日拓","東映","東急","急映","セネタース","オリックス","阪急","近鉄","楽天","大映","高橋","トンボ","金星","西日本","名古屋","産業","大和","朝日","黒鷲","イーグルス","ライオン"];
 function teamShort(txt){ const s = String(txt || ""); let best = null, bi = 1e9; TEAM_NAMES.forEach(n => { const i = s.indexOf(n); if(i >= 0 && i < bi){ bi = i; best = n; } }); return best || s.replace(/\s/g, "").slice(0, 6); }
@@ -140,6 +154,14 @@ function pickBest(rows, isPit){
   let best = null, bs = -1e9;
   rows.forEach(r => {
     if(!frOf(r.team)) return;   // MLBなど日本以外の年は査定に使わない
+    if(FROM && r.year < FROM) return;
+    // 厚みを出す追加(--from)では、水準に届く年だけを査定に使う(凡庸な年で名鑑に載せない)
+    if(FROM){
+      if(isPit){ const ip = r.ip || 0, w = r.w || 0, sv = r.sv || 0, hld = r.hld || 0, era = r.era || 9, so = r.so || 0;
+        if(!((w >= 10 && era <= 4.2) || (w >= 13) || sv >= 20 || hld >= 20 || so >= 150 || (ip >= 140 && era <= 3.2))) return; }
+      else{ const ops = r.ops || ((r.obp || 0) + (r.slg || 0)) || 0, avg = r.avg || 0, hr = r.hr || 0, sb = r.sb || 0, rbi = r.rbi || 0;
+        if(!(ops >= 0.78 || avg >= 0.295 || hr >= 20 || sb >= 25 || rbi >= 75)) return; }
+    }
     let s;
     if(isPit){
       const ip = r.ip || 0, w = r.w || 0, sv = r.sv || 0, hld = r.hld || 0, era = r.era || 9, so = r.so || 0;
@@ -174,7 +196,7 @@ async function download(url, dest){
   fs.writeFileSync(dest, Buffer.from(await res.arrayBuffer()));
 }
 async function candidates(){
-  const cats = ["首位打者 (NPB)","本塁打王 (NPB)","打点王 (NPB)","盗塁王 (NPB)","最多勝利 (NPB)","最優秀防御率 (NPB)","最多奪三振 (NPB)","沢村栄治賞","最優秀選手 (NPB)","最優秀中継ぎ投手 (NPB)","最高出塁率 (NPB)","最多安打 (NPB)","最多セーブ投手 (NPB)","最多セーブ (NPB)","最優秀救援投手 (NPB)","最優秀新人 (NPB)","日本プロ野球名球会","ベストナイン (NPB)","ゴールデングラブ賞受賞者","野球殿堂表彰者 (日本)","月間MVP (NPB)","日本シリーズMVP","オールスターゲームMVP (NPB)","正力松太郎賞"];
+  const cats = CATS || ["首位打者 (NPB)","本塁打王 (NPB)","打点王 (NPB)","盗塁王 (NPB)","最多勝利 (NPB)","最優秀防御率 (NPB)","最多奪三振 (NPB)","沢村栄治賞","最優秀選手 (NPB)","最優秀中継ぎ投手 (NPB)","最高出塁率 (NPB)","最多安打 (NPB)","最多セーブ投手 (NPB)","最多セーブ (NPB)","最優秀救援投手 (NPB)","最優秀新人 (NPB)","日本プロ野球名球会","ベストナイン (NPB)","ゴールデングラブ賞受賞者","野球殿堂表彰者 (日本)","月間MVP (NPB)","日本シリーズMVP","オールスターゲームMVP (NPB)","正力松太郎賞"];
   const names = new Set();
   for(const c of cats){
     let cont = "";
@@ -191,7 +213,7 @@ async function candidates(){
 }
 // 一覧記事(ベストナイン、ゴールデングラブ賞、永久欠番、名球会、殿堂、最多セーブ)のリンク先から候補を集める
 async function candidatesFromArticles(){
-  const pages = ["ベストナイン (日本プロ野球)", "ゴールデングラブ賞", "永久欠番", "日本プロ野球名球会", "野球殿堂 (日本)", "最多セーブ投手 (日本プロ野球)"];
+  const pages = PAGES || ["ベストナイン (日本プロ野球)", "ゴールデングラブ賞", "永久欠番", "日本プロ野球名球会", "野球殿堂 (日本)", "最多セーブ投手 (日本プロ野球)"];
   const names = new Set();
   for(const t of pages){
     const j = await ja("action=parse&prop=links&redirects=1&page=" + encodeURIComponent(t));
@@ -214,17 +236,18 @@ function loadDB(){
 const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").replace(/（[^）]*）$/, "");
 
 (async function main(){
-  const {src, DB} = loadDB();
-  const have = new Set(DB.filter(p => p.cat !== "M").map(p => norm(p.name)));
-  // 外国人は名鑑では姓だけ(バース、クロマティ)のことが多い。姓が一致すれば同じ人とみなす
+  const {src, DB, MLB} = loadDB();
+  const jr = n => n.replace(/・ジュニア$/, "Jr.").replace(/・シニア$/, "Sr.");
+  const have = new Set((MLB_MODE ? MLB : DB).filter(p => p.cat !== "M").map(p => jr(norm(p.name))));
+  // 外国人は名鑑では姓だけ(バース、クロマティ)のことが多い。姓が一致すれば同じ人とみなす(MLBモードでは姓が重なりすぎるので使わない)
   const haveLast = new Set([...have].map(n => n.split("・").pop()));
-  const dup = n => { const k = norm(n); if(have.has(k)) return true; const parts = k.split("・"); return parts.length > 1 && haveLast.has(parts[parts.length - 1]); };
+  const dup = n => { const k = jr(norm(n)); if(have.has(k)) return true; if(MLB_MODE) return false; const parts = k.split("・"); return parts.length > 1 && haveLast.has(parts[parts.length - 1]); };
   let names = ONLY || (ARTICLES ? await candidatesFromArticles() : await candidates());
   const skipPrev = fs.existsSync(SKIP) ? JSON.parse(fs.readFileSync(SKIP, "utf8")) : {};
-  names = names.filter(n => !dup(n) && !(n in skipPrev));
+  names = names.filter(n => !dup(n) && !(n in skipPrev && !(NOPHOTO && /写真なし/.test(skipPrev[n])) && !(FROM && /規定に届く年なし/.test(skipPrev[n]) === false && false)));
   console.log("候補 " + names.length + "人(名鑑に無い人)");
   if(LIMIT) names = names.slice(0, LIMIT);
-  let nextPh = Math.max(0, ...DB.map(p => p.ph || 0), ...fs.readdirSync(FACE).map(f => Number(f.replace(/\D/g, "")) || 0)) + 1;
+  let nextPh = Math.max(0, ...DB.map(p => p.ph || 0), ...MLB.map(p => p.ph || 0), ...fs.readdirSync(FACE).map(f => Number(f.replace(/\D/g, "")) || 0)) + 1;
   const added = [], skipped = [], doneNames = new Set();
   const prevLog = fs.existsSync(LOG) ? JSON.parse(fs.readFileSync(LOG, "utf8")) : [];
   for(let i = 0; i < names.length; i++){
@@ -244,10 +267,11 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
       const titles = st.yrs.reduce((a, r) => a + (frOf(r.team) ? r.bold : 0), 0);
       const photo = await freePhoto(ib.title);
       if(!photo && !NOPHOTO){ skipped.push([title, "自由な写真なし"]); await sleep(200); continue; }
-      const name = norm(ib.title);
+      const name = jr(norm(ib.title));
       if(doneNames.has(name) || have.has(name)){ skipped.push([title, "重複"]); continue; }
       doneNames.add(name);
-      const e = {name, cat: isPit ? "P" : "B", team: teamShort(best.team), fr: frOf(best.team), year: best.year};
+      const e = {name, cat: isPit ? "P" : "B", team: MLB_MODE ? mlbTeam(best.team) : teamShort(best.team), fr: MLB_MODE ? "MLB" : frOf(best.team), year: best.year};
+      if(MLB_MODE) e.mlb = true;
       if(isPit){
         const sv = best.sv || 0, hld = best.hld || 0;
         e.role = sv >= 15 ? "CL" : (hld >= 15 || (best.ip || 0) < 100) ? "RP" : "SP";
@@ -285,7 +309,7 @@ const norm = s => String(s).replace(/\s|　/g, "").replace(/\([^)]*\)$/, "").rep
   skipped.slice(0, 40).forEach(x => console.log("  -", x[0], x[1]));
   if(!DRY && added.length){
     const ins = added.map(e => JSON.stringify(e)).join(",\n");
-    const a = src.indexOf("const DB = ["); const b = src.indexOf("];", a);
+    const a = src.indexOf(MLB_MODE ? "const MLB_DB = [" : "const DB = ["); const b = src.indexOf("];", a);
     if(a < 0 || b < 0) throw new Error("DB block not found");
     fs.writeFileSync(path.join(ROOT, "players.js"), src.slice(0, b) + ",\n" + ins + "\n" + src.slice(b), "utf8");
     fs.writeFileSync(LOG, JSON.stringify(prevLog.concat(added.map(e => ({name: e.name, cat: e.cat, year: e.year, ph: e.ph}))), null, 1), "utf8");

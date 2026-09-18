@@ -832,3 +832,18 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 .pic-fx.bad{background:#fdecea;color:#7a1010;border-color:#f0a8a0;} .pic-fx.bad i{background:#c9463a;}
 .pl-fx{display:block;font-size:10.5px;font-weight:700;color:#1f5a33;margin-top:2px;} .pl-fx.bad{color:#a02020;}
 .pl-fx::before{content:"影響: ";font-weight:400;color:#6b6a63;}
+
+/* ---- 長押しの名鑑: 今季・球歴・表彰 ---- */
+#modal{margin:auto;}
+.m-yr.m-now{color:#e8bf72;}
+.m-yr.m-now small{font-weight:400;font-size:11px;margin-left:8px;opacity:.75;}
+.m-lore{margin-top:4px;}
+.m-chron,.m-awards{list-style:none;margin:4px 0 0;padding:0;font-size:12.5px;line-height:1.5;}
+.m-chron li{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px dashed rgba(128,128,128,.35);}
+.m-chron li b{font-weight:600;}
+.m-chron li span{white-space:nowrap;opacity:.7;font-family:"Oswald",sans-serif;letter-spacing:.3px;}
+.m-awards li{padding:3px 0;border-bottom:1px dashed rgba(128,128,128,.35);}
+.m-awards li b{font-weight:600;}
+.m-awards li i{font-style:normal;font-family:"Oswald",sans-serif;color:#e8bf72;margin-left:6px;}
+.m-awards li span{display:block;font-size:11px;opacity:.65;}
+.m-awards li.more{opacity:.6;font-size:11px;border:0;}

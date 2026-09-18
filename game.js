@@ -1339,8 +1339,47 @@ function ssNext(){
   ssRender();
 }
 function ssLore(p){
-  const L = (typeof SS_LORE !== "undefined") ? SS_LORE[p.name] : null;
+  const L = ((typeof LORE !== "undefined") ? LORE[p.name] : null) ||          // 全選手ぶん(lore.js、新しい)
+            ((typeof SS_LORE !== "undefined") ? SS_LORE[p.name] : null);
   return L || {chron: [], awards: [], src: ""};
+}
+// 名鑑: 今季ここまでの成績(ペナント中だけ)
+function seasonFigs(p){
+  if(!state.statIdx || !state.parts) return null;
+  for(const t of state.parts){
+    const s = lineOf(t, p);
+    if(!s || !s.g) continue;
+    const c = v => Math.round(v || 0);
+    if(s.kind === "B") return {t, figs:[
+      {k:"試合", v:c(s.g)}, {k:"打率", v:avg3(s.avg)}, {k:"本塁打", v:c(s.hr)}, {k:"打点", v:c(s.rbi)},
+      {k:"盗塁", v:c(s.sb)}, {k:"OPS", v:(s.ops || 0).toFixed(3).replace(/^0/, "")}]};
+    const figs = [{k:"登板", v:c(s.g)}, {k:"勝敗", v:c(s.w) + "-" + c(s.l)}];
+    if(s.role === "CL" || s.sv) figs.push({k:"セーブ", v:c(s.sv)});
+    if(s.role === "RP" || s.hld) figs.push({k:"ホールド", v:c(s.hld)});
+    if(s.cg) figs.push({k:"完投", v:c(s.cg)});
+    figs.push({k:"投球回", v:(Math.round((s.outs || 0) / 3 * 10) / 10).toFixed(1)}, {k:"防御率", v:s.era.toFixed(2)}, {k:"奪三振", v:c(s.so)});
+    return {t, figs};
+  }
+  return null;
+}
+// 名鑑: 球歴とタイトル・表彰。SS紹介と同じ出典(Wikipedia)から
+function loreHtml(p){
+  const L = ssLore(p);
+  const chron = (L.chron || []).slice(0, 9), awards = (L.awards || []);
+  if(!chron.length && !awards.length) return "";
+  let h = '<div class="m-lore">';
+  if(chron.length) h += '<div class="m-yr">球歴</div><ol class="m-chron">' + chron.map(function(x){
+    const m = String(x).match(/^(.*?)\s*[（(]([^（）()]*\d{4}[^（）()]*)[）)]\s*$/);
+    return '<li>' + (m ? '<b>' + esc(m[1]) + '</b><span>' + esc(m[2]) + '</span>' : '<b>' + esc(x) + '</b>') + '</li>';
+  }).join("") + '</ol>';
+  if(awards.length){
+    const show = awards.slice(0, 10);
+    h += '<div class="m-yr">タイトル・表彰</div><ul class="m-awards">' + show.map(function(x){
+      const m = String(x).match(/^(.*?)[：:]\s*(\d+回)\s*[（(](.*)[）)]\s*$/);
+      return '<li>' + (m ? '<b>' + esc(m[1]) + '</b><i>' + esc(m[2]) + '</i><span>' + esc(m[3]) + '</span>' : '<b>' + esc(x) + '</b>') + '</li>';
+    }).join("") + (awards.length > show.length ? '<li class="more">ほか' + (awards.length - show.length) + '件</li>' : '') + '</ul>';
+  }
+  return h + '</div>';
 }
 function ssRender(){
   const c = ssCtx;
@@ -2200,11 +2239,13 @@ function openModal(id){
       '<span>二刀流。指名打者と先発の2枠を同時に埋めます</span></div>';
   }
   const cf = careerFigs(p);
+  const sf = p.cat === "M" ? null : seasonFigs(p);
   $("m-stats").innerHTML =
-    '<div class="m-yr">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
+    (sf ? '<div class="m-yr m-now">今季　' + esc(sf.t.name) + '<small>' + dateLabel(Math.max(0, state.day - 1)) + 'まで</small></div>' + figuresHtml(sf.figs) : "") +
+    '<div class="m-yr' + (sf ? ' m-yr2' : '') + '">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
     figuresHtml(statFigures(p)) + (typeof abilChips === "function" ? abilChips(p) : "") + extra +
     (cf ? '<div class="m-yr m-yr2">通算' + (p.car.yr ? "　" + p.car.yr + "年" : "") + '</div>' +
-          figuresHtml(cf.map(function(x){ return {k:x[0], v:x[1]}; })) : "");
+          figuresHtml(cf.map(function(x){ return {k:x[0], v:x[1]}; })) : "") + loreHtml(p);
   // プロフィールと写真の出典。表示が要るライセンスがあるので必ず添える
   const life = [];
   if(p.y) life.push(p.y);

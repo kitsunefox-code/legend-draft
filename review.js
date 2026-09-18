@@ -405,7 +405,7 @@ function gesture(c, done){
   const col = teamCol(c.victim, "#e0a600");
   if(c.kind === "abs"){
     if(!c.batting && SCENES.abs.challengePitcher){SCENES.abs.challengePitcher(c,done);return;}
-    const lefty=c.lefty, bx=c.batting?(lefty?152:284):66, by=c.batting?294:298, sc=c.batting?1.75:1.9;
+    const lefty=c.lefty, bx=c.batting?(lefty?150:262):66, by=c.batting?286:298, sc=c.batting?1.45:1.9;
     const initial=c.batting?takePose(9999,0):P.stand, facing=c.batting?(lefty?1:-1):1;
     g.innerHTML=figSvg("rv-gfig",initial,bx,by,sc,facing,col,"#192a37");svg.appendChild(g);
     const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
@@ -596,7 +596,7 @@ function zoomIn(fx, fy){
     svg.insertBefore(world, $r("rv-lbl") || null);
     ["rv-bigg","rv-lbl","rv-tag","rv-gap"].forEach(id => { const n = $r(id); if(n) svg.appendChild(n); });   // 文字の帯は舞台より手前に
   }
-  const k = 2.4, R = 56, zx = fx > 180 ? 82 : 278, zy = 174;
+  const k = 2.8, R = 62, zx = fx > 180 ? 80 : 280, zy = 172;
   const g = document.createElementNS(NS, "g"); g.setAttribute("id", "rv-zoom");
   g.innerHTML = '<clipPath id="rvZc"><circle cx="' + zx + '" cy="' + zy + '" r="' + R + '"/></clipPath>' +
     '<g clip-path="url(#rvZc)"><rect x="' + (zx - R) + '" y="' + (zy - R) + '" width="' + (R * 2) + '" height="' + (R * 2) + '" fill="#0c2419"/>' +
@@ -604,7 +604,7 @@ function zoomIn(fx, fy){
     '<circle cx="' + zx + '" cy="' + zy + '" r="' + R + '" fill="none" stroke="#ffd257" stroke-width="3"/>' +
     '<circle cx="' + fx + '" cy="' + fy + '" r="14" fill="none" stroke="#ffd257" stroke-width="1.6" stroke-dasharray="3 3"/>' +
     '<line x1="' + fx + '" y1="' + fy + '" x2="' + (zx + (fx > zx ? R : -R) * 0.7) + '" y2="' + (zy + R * 0.7) + '" stroke="#ffd257" stroke-width="1.2" stroke-dasharray="3 3"/>' +
-    '<text x="' + zx + '" y="' + (zy - R - 6) + '" text-anchor="middle" font-family="Oswald,sans-serif" font-size="9" fill="#ffd257" letter-spacing="2">CLOSE-UP ×2.4</text>';
+    '<text x="' + zx + '" y="' + (zy - R - 6) + '" text-anchor="middle" font-family="Oswald,sans-serif" font-size="9" fill="#ffd257" letter-spacing="2">CLOSE-UP ×2.8</text>';
   fadeIn(g, 320);
   svg.appendChild(g);
 }
@@ -1110,17 +1110,17 @@ function pitcher3dQ(id, q, gx, gy, S, col, rhp){
 function pitcher3dHand(t, gx, gy, S, rhp){ const q = p3Pose(t), cam = p3Cam(gx, gy, S); return cam([q.handR[0] * (rhp ? 1 : -1), q.handR[1], q.handR[2]]); }
 
 SCENES.abs = (function(){
-  const CAT = {x:200, y:280, sc:1.6};              // 捕手の足元。本塁より奥(画面では上)
-  const ZB = {x:180, y:203, w:40, h:44};           // ゾーン: 打者の膝〜胸 × ベースの幅(生の場面では薄く描く)
+  const CAT = {x:200, y:268, sc:1.35};             // 捕手の足元。本塁より奥(画面では上)
+  const ZB = {x:184, y:227, w:32, h:35};           // ゾーン: 打者の膝〜胸 × ベースの幅(生の場面には描かない)
   const R = 3.65 / 43.18 * ZB.w;                                     // 奥での球の大きさ
   const CM = 43.18 / ZB.w;
-  const MITT0 = {x:208, y:250};                    // 構えたミットの位置
-  const PIT = {x:60, y:324, S:80};                 // 投手の足元(手前・左下)。S=足元での 1m の px
+  const MITT0 = {x:206, y:252};                    // 構えたミットの位置
+  const PIT = {x:58, y:318, S:72};                 // 投手の足元(手前・左下)。S=足元での 1m の px
   function truthOf(c){
     // MLB 2026: midpoint of plate; width 17 inches; top 53.5%, bottom 27% of height.
     // Legacy data has no measured height: a fixed 180 cm model is used, never a random zone.
     const height=clampN(Number(c.batP.heightCm)||180,150,220), scale=ZB.w/43.18;
-    const Z = {x:ZB.x, y:292-height*.535*scale, w:ZB.w, h:height*(.535-.27)*scale};
+    const Z = {x:ZB.x, y:298-height*.535*scale, w:ZB.w, h:height*(.535-.27)*scale};
     const inside = c.callIsStrike ? !c.wrong : c.wrong;
     const pen = inside ? rnd1(.35, 1.3) : -rnd1(.35, 1.3);   // 球の縁が線を越える深さ(px)
     const off = R - pen;
@@ -1269,18 +1269,18 @@ SCENES.abs = (function(){
   }
   function stage(c, tr){
     const lefty = c.lefty, rhp = !(c.pitP && c.pitP.th === "左");
-    const bx = lefty ? 152 : 284;                    // センターから見て右打者は右(三塁側)。左打者は投手と重ならない位置
+    const bx = lefty ? 150 : 262;                    // センターから見て右打者は右(三塁側)。左打者は投手と重ならない位置
     const defCol = teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), batCol = teamCol(c.batting ? c.victim : c.opp, "#e0a600");
     return stageOpen(300, "#0b1626") + stands(120) + boards() +
       '<rect x="0" y="178" width="360" height="122" fill="url(#rvGrass)"/>' +
-      '<ellipse cx="200" cy="284" rx="140" ry="28" fill="#8a5a34"/>' +
+      '<ellipse cx="200" cy="282" rx="130" ry="24" fill="#8a5a34"/>' +
       '<path d="M0 300 Q120 268 240 300 Z" fill="#7a4d2a"/>' +
       '<line x1="34" y1="296" x2="148" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/><line x1="360" y1="294" x2="252" y2="282" stroke="#f4f1e6" stroke-opacity=".5" stroke-width="1.4"/>' +
-      '<path d="M183 300 l17 -8 l17 8 v6 h-34 z" fill="#f4f1e6" stroke="#333" stroke-width=".8"/>' +
-      '<rect x="120" y="282" width="42" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="238" y="282" width="42" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
-      umpFront(CAT.x + (lefty ? -18 : 18), CAT.y - 8, 1.3, 0, 0) +
+      '<path d="M186 290 l14 -7 l14 7 v5 h-28 z" fill="#f4f1e6" stroke="#333" stroke-width=".8"/>' +
+      '<rect x="132" y="274" width="38" height="20" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="230" y="274" width="38" height="20" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
+      umpFront(CAT.x + (lefty ? -16 : 16), CAT.y - 8, 1.1, 0, 0) +
       catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
-      figSvg("rv-bat", P.bat, bx, 294, 1.75, lefty ? 1 : -1, batCol, "#222") +
+      figSvg("rv-bat", P.bat, bx, 286, 1.45, lefty ? 1 : -1, batCol, "#222") +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
       pitcher3d("rv-pit", 0, PIT.x, PIT.y, PIT.S, defCol, rhp) +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
@@ -1294,7 +1294,7 @@ SCENES.abs = (function(){
     const tr=truthOf(c); RV.truth=tr;
     $r("rv-stage").innerHTML=stage(c,tr);
     setLbl("満塁　フルカウント");
-    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左"),bx=lefty?152:284;
+    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左"),bx=lefty?150:262;
     const defCol=teamCol(c.batting?c.opp:c.victim,"#4f8fe8"),batCol=teamCol(c.batting?c.victim:c.opp,"#e0a600");
     const rel=pitcher3dHand(P3_RELEASE,PIT.x,PIT.y,PIT.S,rhp), flight=16800/(clampN(c.kmh||148,90,175)/3.6);
     const received=RELEASE+flight+25, mitt={x:tr.px,y:tr.py+2};
@@ -1305,7 +1305,7 @@ SCENES.abs = (function(){
     function f(ts){
       if(!start)start=ts;
       const t=ts-start,k=pitching(t);drawPitcher(t,k);
-      setFig("rv-bat",takePose(t-RELEASE,flight+25),bx,294,1.75,lefty?1:-1,batCol,"#192a37");
+      setFig("rv-bat",takePose(t-RELEASE,flight+25),bx,286,1.45,lefty?1:-1,batCol,"#192a37");
       const follow=ease((t-RELEASE-110)/(flight-110));
       drawCat(lerpPt(MITT0,mitt,follow));
       const hand=pitcher3dHand(t,PIT.x,PIT.y,PIT.S,rhp);
@@ -1325,7 +1325,7 @@ SCENES.abs = (function(){
       drawCat(mitt);$r("rv-cap").textContent=(c.kmh||148)+"km　"+(c.type||"");
       crowd(.045,.018);ping(155,.045,.025,"triangle");
       RV.timer=rvLater(()=>{
-        const u=$r("rv-ump");if(u)u.outerHTML=umpFront(CAT.x+(lefty?-18:18),CAT.y-8,1.3,c.callIsStrike?1:0,c.callIsStrike?1:0);
+        const u=$r("rv-ump");if(u)u.outerHTML=umpFront(CAT.x+(lefty?-16:16),CAT.y-8,1.1,c.callIsStrike?1:0,c.callIsStrike?1:0);
         setLbl(c.callIsStrike?"球審の判定：ストライク":"球審の判定：ボール");
         RV.timer=rvLater(rvAsk,380);
       },280);

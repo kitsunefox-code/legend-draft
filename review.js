@@ -201,8 +201,15 @@ const P = {
   batRest: {lean:4,  la:24,  lb:-14, ra:14,  rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:12, batHand:"R"}, // バットを下ろし、後ろの手で脇に
   helmet:  {lean:6,  la:140, lb:92,  ra:14,  rb:6,   lu:8,   lk:-2,  ru:-8,  rk:-2, bat:12, batHand:"R"}, // 後ろの手にバット、前の手でヘルメットの上を叩く
   square:  {gesture:"review",lean:2,  la:60,  lb:-100,ra:-60, rb:100, lu:8,   lk:-2,  ru:-8,  rk:-2},                  // 胸の前で両手の四角(リクエスト)
-  bat:     {lean:12, la:-40, lb:-70, ra:-30, rb:-80, lu:16,  lk:-4,  ru:-20, rk:-4, bat:-155},        // 構え。手は後ろの肩の高さ、バットは立てる
-  swing:   {lean:-6, la:82,  lb:8,   ra:70,  rb:18,  lu:34,  lk:-10, ru:-36, rk:-4, bat:100},         // インパクト。両腕を伸ばしバットは前へ
+  // 打撃: 構え(足を開き膝を内へ、手は後ろの肩の高さ、後ろの肘は下げて畳む、バットは45度)
+  //       → 割れ(体重を後ろへ、手はさらに後ろへ、前の膝が内に入る) → 踏み込み(前足を着く、手は肩の後ろに残る=トップ)
+  //       → インパクト(両腕を伸ばし前足の内側の前で当てる、バットの先は手より上、前脚は突っ張り後ろ脚は踵が上がる)
+  //       → フォロー(手は前の肩まで回り、バットは背中側へ、腰が回りきる)
+  bat:     {lean:10, la:-55, lb:-75, ra:-95, rb:60,  lu:16,  lk:-8,  ru:-18, rk:-8, bat:-140},        // 構え
+  batLoad: {lean:8,  la:-70, lb:-72, ra:-112,rb:66,  lu:8,   lk:-14, ru:-22, rk:-10, bat:-135},       // 割れ
+  batStride:{lean:4, la:-72, lb:-70, ra:-116,rb:66,  lu:36,  lk:-10, ru:-22, rk:-4, bat:-135},        // 踏み込み(トップ)
+  swing:   {lean:-4, la:84,  lb:-6,  ra:88,  rb:-12, lu:30,  lk:0,   ru:-22, rk:34, bat:80},          // インパクト
+  batFollow:{lean:-8,la:-16, lb:-92, ra:-6,  rb:-104,lu:26,  lk:-4,  ru:-30, rk:44, bat:-112},        // フォロー(バットは背中側へ寝る)
   wind:    {lean:-10,la:30,  lb:-100,ra:22,  rb:-100,lu:78,  lk:-105,ru:2,   rk:0, glove:"L"},        // 前脚を高く上げ、両手は胸の前
   release: {lean:36, la:-40, lb:-60, ra:118, rb:-6,  lu:58,  lk:-16, ru:-48, rk:8, glove:"L"},        // 踏み出して腕を振る
   follow:  {lean:62, la:-30, lb:-40, ra:20,  rb:-24, lu:56,  lk:-10, ru:-64, rk:40, glove:"L"},       // 振り切って上体が倒れる
@@ -212,6 +219,23 @@ const P = {
   pstride: {lean:6,  la:92,  lb:-6,  ra:-76, rb:-12, lu:58,  lk:-18, ru:-30, rk:10, glove:"L"},        // 踏み出し: グラブは的へ、投げる腕は下へ引く
   leap:    {lean:4,  la:170, lb:2,   ra:162, rb:2,   lu:40,  lk:-80, ru:12,  rk:-60, glove:"L"},      // 跳ぶ。腕を上げ、膝を畳む
 };
+// スイング: t はインパクトを 0 とするミリ秒(-380 から)。構え→割れ→踏み込み→加速→インパクト→フォロー
+function swingPose(t){
+  if(t < -380) return P.bat;
+  if(t < -220) return lerpP(P.bat, P.batLoad, ease((t + 380) / 160));
+  if(t < -90) return lerpP(P.batLoad, P.batStride, ease((t + 220) / 130));
+  if(t < 0) return lerpP(P.batStride, P.swing, ease((t + 90) / 90));
+  if(t < 240) return lerpP(P.swing, P.batFollow, ease(t / 240));
+  return P.batFollow;
+}
+// 見逃し: t はリリースを 0 とするミリ秒。割れ→踏み込みまでは同じ、振らずにトップで止め、捕手が受けたら構えをほどく
+function takePose(t, caught){
+  if(t < -330) return P.bat;
+  if(t < -170) return lerpP(P.bat, P.batLoad, ease((t + 330) / 160));
+  if(t < 60) return lerpP(P.batLoad, P.batStride, ease((t + 170) / 230));
+  if(t < caught + 350) return P.batStride;
+  return lerpP(P.batStride, P.batRest, ease(Math.min(1, (t - caught - 350) / 420)));
+}
 function run(t, amp){ // 走り。t=位相。脚と逆に腕を振り、肘は90度。前へ振り出す脚の膝は曲がる
   const a = amp || 1, s = Math.sin(t), c = Math.sin(t + Math.PI);
   return {lean:14 * a, la:-42 * s * a - 6, lb:88, ra:-42 * c * a - 6, rb:88,
@@ -346,6 +370,34 @@ function announce(txt){
   a.innerHTML = '<i>場内</i>' + esc(txt);
   a.className = "show";
 }
+// 正面を向いた監督。k={lx,ly,rx,ry}=両手の位置(足元を原点、上が負)。人差し指で四角を描くための絵
+function managerFront(id, x, y, sc, col, k){
+  const pt = (dx, dy) => (x + dx * sc).toFixed(1) + " " + (y + dy * sc).toFixed(1);
+  const w = v => (v * sc).toFixed(1);
+  const line = (d, c, wd) => '<path d="' + d + '" stroke="' + c + '" stroke-width="' + w(wd) + '" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+  const arm = (sx, sy, hx, hy) => {                       // 肩→肘(脇に置く)→手。前腕で胸の前に手を運ぶ
+    const ex = sx < 0 ? -14 : 14, ey = -42;
+    return line('M' + pt(sx, sy) + ' L' + pt(ex, ey), col, 6.5) + line('M' + pt(ex, ey) + ' L' + pt(hx, hy), "#c98f68", 4.2) +
+      '<circle cx="' + (x + hx * sc).toFixed(1) + '" cy="' + (y + hy * sc).toFixed(1) + '" r="' + w(2.6) + '" fill="#c98f68"/>' +
+      line('M' + pt(hx, hy) + ' l0 ' + (-4.5 * sc).toFixed(1), "#c98f68", 1.6);   // 人差し指を立てる
+  };
+  // 描いた四角の線(指の軌跡)。k.q: 0〜1
+  let trace = "";
+  if(k.q !== undefined && k.half){
+    const top = k.top, bot = k.bot, half = k.half, L = half + (bot - top) + half;
+    const len = k.q < .25 ? half * (k.q / .25) : k.q < .6 ? half + (bot - top) * ((k.q - .25) / .35) : k.q < .85 ? half + (bot - top) + half * ((k.q - .6) / .25) : L;
+    const path = side => 'M' + pt(0, top) + ' L' + pt(side * half, top) + ' L' + pt(side * half, bot) + ' L' + pt(0, bot);
+    trace = [1, -1].map(side => '<path d="' + path(side) + '" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="' + w(1.4) + '" stroke-dasharray="' + (len * sc).toFixed(1) + ' 999"/>').join("");
+  }
+  return '<g id="' + id + '"><ellipse cx="' + x.toFixed(1) + '" cy="' + (y + 1).toFixed(1) + '" rx="' + w(13) + '" ry="' + w(3) + '" fill="#09130e" opacity=".24"/>' +
+    line('M' + pt(-6, -30) + ' L' + pt(-8, 0), "#e5e2d8", 7.5) + line('M' + pt(6, -30) + ' L' + pt(8, 0), "#e5e2d8", 7.5) +
+    line('M' + pt(-11, 1) + ' h7 M' + pt(4, 1) + ' h7', "#151c23", 3) +
+    '<path d="M' + pt(-13, -31) + ' L' + pt(-13, -55) + ' Q' + pt(0, -60) + ' ' + pt(13, -55) + ' L' + pt(13, -31) + ' Z" fill="' + col + '" stroke="' + shade(col, .64) + '" stroke-width=".8"/>' +
+    trace + arm(-11, -53, k.lx, k.ly) + arm(11, -53, k.rx, k.ry) +
+    '<circle cx="' + x.toFixed(1) + '" cy="' + (y - 65 * sc).toFixed(1) + '" r="' + w(7) + '" fill="#c98f68"/>' +
+    '<path d="M' + pt(-7.5, -66) + ' a7.5 7.5 0 0 1 15 0 l1 2 h-17 z" fill="#111"/>' +
+    '</g>';
+}
 // 申請の所作を舞台の上に重ねる
 function gesture(c, done){
   const svg = $r("rv-svg"); if(!svg){ done(); return; }
@@ -369,15 +421,30 @@ function gesture(c, done){
     }
     RV.raf=rvFrame(f);
   }else{
-    // 監督が画面の端から歩いてきて、両手で四角
+    // 監督がベンチから小走りで審判の前へ → 正面を向き、両手の人差し指で長方形(スクリーンサイン)を描く
+    //   NPBの流儀: 胸の前で指を合わせ、横に開いて上辺、下ろして両辺、内へ寄せて下辺
     g.innerHTML = figSvg("rv-gfig", P.stand, 0, 0, 1, 1, col, "#111");
     svg.appendChild(g);
     const H = Number(svg.getAttribute("viewBox").split(" ")[3]);
+    const MX = 72, MY = H - 6, MS = 1.05;
+    const box = q => {                                     // q: 0〜1 で四角を一周(胸の前、肩幅の内側)
+      const top = -52, bot = -38, half = 10, o = {q, top, bot, half};
+      if(q < .25){ const u = q / .25; return Object.assign(o, {lx: -half * u, ly: top, rx: half * u, ry: top}); }
+      if(q < .6){ const u = (q - .25) / .35; return Object.assign(o, {lx: -half, ly: top + (bot - top) * u, rx: half, ry: top + (bot - top) * u}); }
+      if(q < .85){ const u = (q - .6) / .25; return Object.assign(o, {lx: -half * (1 - u), ly: bot, rx: half * (1 - u), ry: bot}); }
+      return Object.assign(o, {lx: 0, ly: bot, rx: 0, ry: bot});
+    };
     let start = 0;
     function f(ts){ if(!RV) return; if(!start) start = ts; const t = (ts - start);
-      if(t < 700){ const p = ease(t / 700); setFig("rv-gfig", run(t / 105, 0.6), -20 + 90 * p, H - 6, 1.05, 1, col, "#111"); }
-      else { const q = Math.min(1, (t - 700) / 420); setFig("rv-gfig", lerpP(P.stand, P.square, ease(q)), 70, H - 6, 1.05, 1, col, "#111"); }
-      if(t < 1120) RV.raf = rvFrame(f); else {
+      if(t < 700){ const p = ease(t / 700); setFig("rv-gfig", run(t / 105, 0.6), -20 + (MX + 20) * p, MY, MS, 1, col, "#111"); }
+      else {
+        const el = $r("rv-gfig"); if(!el) return;
+        let k;
+        if(t < 1000){ const u = ease((t - 700) / 300); k = {lx: -9 + 9 * u, ly: -22 - 30 * u, rx: 9 - 9 * u, ry: -22 - 30 * u}; }   // 手を胸の前へ
+        else k = box(Math.min(1, (t - 1000) / 1000));
+        el.outerHTML = managerFront("rv-gfig", MX, MY, MS, col, k);
+      }
+      if(t < 2150) RV.raf = rvFrame(f); else {
         const meet=document.createElementNS(NS,"g");meet.id="rv-conference";
         meet.innerHTML=figSvg("rv-meet-ump1",P.stand,203,H-18,.85,1,"#2b2b30","#111")+figSvg("rv-meet-ump2",{...P.stand,la:55,lb:-60},232,H-12,.9,-1,"#2b2b30","#111");
         g.appendChild(meet);announce("審判団が集まり、判定と検証する映像を確認しています");
@@ -770,7 +837,7 @@ SCENES.first = (function(){
 // ---- 本塁のクロスプレー(バックネット裏): 三塁走者が左奥から手前の本塁へ。外野からの返球を捕手が受けてタッチ ----
 SCENES.home = (function(){
   // 順番: 打者がライト前へ(0〜0.6秒) → 三塁走者は打った瞬間に突入 → 右翼手が捕って本塁へ送球(0.95秒) → 捕手が受けてタッチ
-  const D = DIAMOND.plate, RUN0 = 90, RUNT = 2150, HIT = 620, THROW = 950;
+  const D = DIAMOND.plate, CT = 330, RUN0 = CT + 60, RUNT = 2150, HIT = CT + 620, THROW = CT + 950;   // CT=インパクト
   const FROM = {x:54, y:190}, TO = {x:170, y:257};                          // 三塁のリード → 本塁の手前
   const CAT = {x:205, y:262}, UMP = {x:238, y:282}, RF = {x:312, y:156};   // 捕手は本塁の一塁側で構え、球審はその後ろ
   const BATP = {x:186, y:263}, FIRST = {x:322, y:184};                      // 打者の立ち位置 → 一塁
@@ -792,13 +859,14 @@ SCENES.home = (function(){
     if(t < RUN0){ const at = anchorFig(lead, FROM, dsc(FROM.y), 1, "toe"); setFig("rv-run", lead, at.x, at.y, dsc(FROM.y), 1, runCol(c), "#192a37"); }
     else drawRunner("rv-run", t - RUN0, RUNT - RUN0, FROM, TO, true, runCol(c));
     // 打者: 振り抜いて一塁へ走る
-    if(t < 140) moveFig("rv-bat", lerpP(P.bat, P.swing, ease(t / 140)), BATP, 1, runCol(c), "#192a37");
-    else drawRunner("rv-bat", t - 140, 1750, BATP, FIRST, false, runCol(c));
+    if(t < CT + 240) moveFig("rv-bat", swingPose(t - CT), BATP, 1, runCol(c), "#192a37");
+    else drawRunner("rv-bat", t - CT - 240, 1650, BATP, FIRST, false, runCol(c));
     const tag = drawTag("rv-cat", t, RUNT + tr.delta, RUNT, TO, CAT, defCol(c));
     // 右翼手: 打球を待って捕り、本塁へ送球
     moveFig("rv-rf", t < HIT - 80 ? P.ready : throwPose(t, THROW), RF, -1, defCol(c), "#192a37");
+    if(t < CT){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
     if(t < HIT){                                                            // 打球: 本塁からライト前へ低く伸びる
-      const q = t / HIT, gx = D.home.x + (RF.x - 8 - D.home.x) * q, gy = D.home.y + (RF.y + 2 - D.home.y) * q;
+      const q = (t - CT) / (HIT - CT), gx = D.home.x + (RF.x - 8 - D.home.x) * q, gy = D.home.y + (RF.y + 2 - D.home.y) * q;
       ball("rv-ball", gx, gy - Math.sin(q * Math.PI) * 26, br(gy), true); ball("rv-sh", gx, gy, 0, true); return;
     }
     if(t < THROW){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
@@ -1013,7 +1081,7 @@ SCENES.abs = (function(){
   const RELEASE=1220;
   // 着地より前(セット → 左脚を高く上げる → 保持 → 踏み出し)も同じ背中の骨格で描く
   const PK_SET=Object.fromEntries(keys.map((k,i)=>[k,[ 0,-33,  0,-58,  0,-73, -7,-18, -8,  0,  7,-18,  8, 0,  12,-44,  2,-52,  -1,-54,-12,-44, 0][i]]));
-  const PK_LIFT=Object.fromEntries(keys.map((k,i)=>[k,[ 2,-34,  2,-59,  2,-74, -9,-40, -6,-26,  7,-18,  8, 0,  12,-46,  2,-55,  -1,-57,-12,-46, .2][i]]));
+  const PK_LIFT=Object.fromEntries(keys.map((k,i)=>[k,[ 3,-35,  4,-60,  4,-75,-16,-40,-13,-24,  7,-18,  8, 0,  12,-48,  3,-56,   0,-58,-12,-48, .3][i]]));
   function lerpK(a,b,t){const o={};for(const k of keys)o[k]=a[k]+(b[k]-a[k])*t;return o;}
   function pitching(t){
     if(t<380) return PK_SET;
@@ -1138,13 +1206,12 @@ SCENES.abs = (function(){
       '<rect x="124" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="236" y="270" width="40" height="22" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
       umpFront(CAT.x + (lefty ? -18 : 18), CAT.y - 8, 1.45, 0, 0) +
       catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
-      '<rect id="rv-zone" x="' + ZB.x + '" y="' + ZB.y + '" width="' + ZB.w + '" height="' + ZB.h + '" fill="rgba(255,255,255,.05)" stroke="#fff" stroke-opacity=".38" stroke-width="1" stroke-dasharray="3 2"/>' +
       figSvg("rv-bat", P.bat, bx, 292, 1.75, lefty ? 1 : -1, batCol, "#222") +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
       figSvg("rv-pit", P.pset, PIT.x + 8 * (rhp ? 1 : -1), PIT.y, PIT.sc * 0.98, rhp ? 1 : -1, defCol, "#192a37") +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
       // 右下: 中継のスコア表示(回、チームと得点、S/B/Oの灯)
-      '<g transform="translate(0 -118)">' + scoreBug(c) + '</g>' +
+      '<g transform="translate(-254 -118)">' + scoreBug(c) + '</g>' +
       // 左下: 球速(投球のあとに出る)
       '<text id="rv-cap" x="14" y="291" font-family="Oswald,sans-serif" font-weight="700" font-size="13" fill="#fff" letter-spacing="1" style="paint-order:stroke" stroke="#06110b" stroke-width="3"></text>' +
       lbl() + '</svg>';
@@ -1153,8 +1220,8 @@ SCENES.abs = (function(){
     const tr=truthOf(c); RV.truth=tr;
     $r("rv-stage").innerHTML=stage(c,tr);
     setLbl("満塁　フルカウント");
-    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左");
-    const defCol=teamCol(c.batting?c.opp:c.victim,"#4f8fe8");
+    const lefty=c.lefty,rhp=!(c.pitP&&c.pitP.th==="左"),bx=lefty?138:272;
+    const defCol=teamCol(c.batting?c.opp:c.victim,"#4f8fe8"),batCol=teamCol(c.batting?c.victim:c.opp,"#e0a600");
     const rel=pitchHand(PK[2],rhp), flight=16800/(clampN(c.kmh||148,90,175)/3.6);
     const received=RELEASE+flight+25, mitt={x:tr.px,y:tr.py+2};
     const facing=rhp?1:-1, SX=PIT.x+8*facing;
@@ -1166,6 +1233,7 @@ SCENES.abs = (function(){
     function f(ts){
       if(!start)start=ts;
       const t=ts-start,k=pitching(t);drawPitcher(t,k);
+      setFig("rv-bat",takePose(t-RELEASE,flight+25),bx,292,1.75,lefty?1:-1,batCol,"#192a37");
       const follow=ease((t-RELEASE-110)/(flight-110));
       drawCat(lerpPt(MITT0,mitt,follow));
       const hand=pitchHand(k,rhp);
@@ -1257,4 +1325,5 @@ SCENES.abs = (function(){
   return {play, reveal, challengePitcher, pitcherBack, pitching, RELEASE};
 
 })();
+window.rvDebug = {figSvg, P, lerpP, swingPose, takePose, managerFront, run, SCENES};
 })();

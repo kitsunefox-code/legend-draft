@@ -796,30 +796,51 @@ SCENES.home = (function(){
 
 // ---- 二塁の盗塁(センターカメラ): 一塁走者が左奥から手前の二塁へ。奥の捕手が送球し、遊撃手がベース上でタッチ ----
 SCENES.steal = (function(){
-  const D = DIAMOND.cf, RUNT = 1750, THROW = 650;
-  const FROM = {x:103, y:216}, TO = {x:172, y:258};
-  const CAT = {x:188, y:134}, BAT = {x:160, y:134}, SS = {x:205, y:262}, UMP = {x:270, y:214}, PIT = {x:118, y:204};
-  const GLOVE = {x:196, y:246};
+  // 順番: 投手が投げる(0.45秒で捕手へ) → 走者はモーションと同時に走り出す → 捕手が受けて二塁へ送球 → 遊撃手がベースの上でタッチ
+  const D = DIAMOND.cf, RUN0 = 180, RUNT = 2050, PITCH = 430, CATCH = 800, THROW = 1000;
+  const FROM = {x:56, y:191}, TO = {x:172, y:258};                          // 一塁のリード → 二塁の手前
+  const CAT = {x:188, y:134}, BAT = {x:160, y:134}, SS = {x:205, y:262}, UMP = {x:252, y:240}, MOUND = {x:180, y:210};
   const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
+  const lead = Object.assign({}, P.ready, {lean:26, glove:undefined});      // リード: 低く構えて二塁の方を向く
   function stage(c){
     return stageOpen(300) + stands(120) + diamondSvg("cf") +
       figAt("rv-bat", P.bat, BAT, 1, runCol(c), "#222") +
       figAt("rv-cat", P.crouch, CAT, 1, defCol(c), "#222") +
-      figAt("rv-pit", P.crouch, PIT, 1, defCol(c), "#222") +
+      figAt("rv-run", lead, FROM, 1, runCol(c), "#222") +
+      figAt("rv-pit", P.pset, MOUND, -1, defCol(c), "#222") +
       figAt("rv-ump", P.ready, UMP, -1, "#2b2b30", "#111") +
-      figAt("rv-run", P.stand, FROM, 1, runCol(c), "#222") +
       figAt("rv-ss", P.ready, SS, -1, defCol(c), "#222") +
       shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(D.second.x - 32, D.second.y + 12, D.second.x + 32, D.second.y + 12) + big(180, 70) + lbl() +
       camTag("cf", "センターカメラ　一塁 → 二塁") + '</svg>';
   }
+  // 投手: セット → 足を上げる → 踏み出して投げる → 投げ終わり
+  function pitchPose(t){
+    if(t < 60) return P.pset;
+    if(t < 260) return lerpP(P.pset, P.plift, ease((t - 60) / 200));
+    if(t < PITCH) return lerpP(P.plift, P.pstride, ease((t - 260) / (PITCH - 260)));
+    if(t < PITCH + 260) return lerpP(P.pstride, P.follow, ease((t - PITCH) / 260));
+    return lerpP(P.follow, P.look, ease(Math.min(1, (t - PITCH - 260) / 500)));
+  }
   function draw(t, tr, c){
-    drawRunner("rv-run",t,RUNT,FROM,TO,true,runCol(c));
-    const tag=drawTag("rv-ss",t,RUNT+tr.delta,RUNT,TO,SS,defCol(c));
-    moveFig("rv-cat",throwPose(t,THROW),CAT,1,defCol(c),"#192a37");
-    if(t<THROW){ball("rv-ball",0,0,3,false);ball("rv-sh",0,0,0,false);return;}
-    const release=figPoint(P.release,CAT.x,CAT.y,dsc(CAT.y),1,"hand");
-    if(t<tag.received) measuredThrow((t-THROW)/(tag.received-THROW),release,tag.start,11);
-    else {ball("rv-ball",tag.glove.x,tag.glove.y,2.3,false);ball("rv-sh",0,0,0,false);}
+    // 走者: 投手のモーションと同時にスタート
+    if(t < RUN0){ const at = anchorFig(lead, FROM, dsc(FROM.y), 1, "toe"); setFig("rv-run", lead, at.x, at.y, dsc(FROM.y), 1, runCol(c), "#192a37"); }
+    else drawRunner("rv-run", t - RUN0, RUNT - RUN0, FROM, TO, true, runCol(c));
+    const tag = drawTag("rv-ss", t, RUNT + tr.delta, RUNT, TO, SS, defCol(c));
+    moveFig("rv-pit", pitchPose(t), MOUND, -1, defCol(c), "#192a37");
+    // 捕手: 投球を受けるまで構え、受けたら立ち上がって二塁へ
+    moveFig("rv-cat", t < CATCH - 130 ? P.crouch : throwPose(t, THROW), CAT, 1, defCol(c), "#192a37");
+    if(t < PITCH){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
+    if(t < CATCH){                                                            // 投球: 投手の手から捕手のミットへ
+      const hand = figPoint(P.pstride, MOUND.x, MOUND.y, dsc(MOUND.y), -1, "glove");
+      const mitt = figPoint(P.crouch, CAT.x, CAT.y, dsc(CAT.y), 1, "glove");
+      const q = (t - PITCH) / (CATCH - PITCH);
+      ball("rv-ball", hand.x + (mitt.x - hand.x) * q, hand.y + (mitt.y - hand.y) * q - Math.sin(q * Math.PI) * 3, 3.2 - q, true);
+      ball("rv-sh", 0, 0, 0, false); return;
+    }
+    if(t < THROW){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
+    const release = figPoint(P.release, CAT.x, CAT.y, dsc(CAT.y), 1, "hand");
+    if(t < tag.received) measuredThrow((t - THROW) / (tag.received - THROW), release, tag.start, 11);
+    else { ball("rv-ball", tag.glove.x, tag.glove.y, 2.3, false); ball("rv-sh", 0, 0, 0, false); }
   }
   return {
     play(c){ const tr = timing(c, 25, 75); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("二塁への盗塁");
@@ -870,38 +891,53 @@ SCENES.catch = (function(){
 
 // ---- ポール際: 高い打球がポールの内か外か。外野手は壁で見上げ、審判はポールを見る ----
 SCENES.hr = (function(){
-  const G = 264, POLE = 262, WALL = 178, FLY = 1500;
+  // ライン際のカメラ: 手前(打席側)から上がった大飛球が、ポールの脇を通ってスタンドへ落ちる。
+  // ポールの左がフェア、右がファウル。通過の瞬間の左右の差(数十センチ)だけが答え
+  const G = 264, POLE = 262, WALL = 178, FLY = 1600, CROSS_Y = 92, LAND = 650;
+  const START = {x:118, y:302};
   function stage(c){
     return stageOpen(300, "#0b1626") + stands(120) +
       '<rect x="0" y="' + WALL + '" width="360" height="' + (G - WALL) + '" fill="#1f3d2e"/><rect x="0" y="' + WALL + '" width="360" height="4" fill="#e0a600"/>' +
       ground(G, 64) +
       '<rect x="' + (POLE - 3) + '" y="40" width="6" height="' + (WALL - 40) + '" fill="#ffd257"/><rect x="' + (POLE-29) + '" y="40" width="26" height="' + (WALL - 40) + '" fill="#ffd257" opacity=".22"/>' +
       '<text x="' + (POLE + 13) + '" y="34" text-anchor="middle" font-family="Oswald" font-size="9" fill="#ffd257" letter-spacing="2">FOUL POLE</text>' +
-      figSvg("rv-of", P.look, POLE - 40, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
-      figSvg("rv-ump", P.look, 60, G, 0.9, 1, "#2b2b30", "#111") +
-      ballSvg("rv-ball") + flashLine(POLE - 40, 60, POLE + 40, 60) + big(120, 110) + lbl() + '</svg>';
+      '<text x="' + (POLE - 44) + '" y="' + (WALL - 8) + '" text-anchor="middle" font-family="Noto Sans JP,sans-serif" font-size="8" fill="#cfe0d4" opacity=".7">フェア</text>' +
+      '<text x="' + (POLE + 40) + '" y="' + (WALL - 8) + '" text-anchor="middle" font-family="Noto Sans JP,sans-serif" font-size="8" fill="#cfe0d4" opacity=".7">ファウル</text>' +
+      figSvg("rv-of", P.look, POLE - 78, G, 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222") +
+      figSvg("rv-ump", P.look, POLE + 52, G, 0.9, -1, "#2b2b30", "#111") +
+      ballSvg("rv-ball") + flashLine(POLE - 40, CROSS_Y, POLE + 40, CROSS_Y) + big(120, 110) + lbl() + '</svg>';
   }
-  // 真実: fair なら打球はポールの内側(左)を通って壁を越える。差は数十センチ = 数px
+  // 真実: fair なら打球はポールの内側(左)を通る。差は数十センチ = 数px
   function truthOf(c){ const fair = c.callOut ? c.wrong : !c.wrong; const px = rnd1(5, 10); return {safe:fair, gap:px, x: fair ? POLE - px : POLE + px}; }
+  // 打球の位置。通過(t=FLY)までは手前から上がる放物線、通過後はスタンドの中へ落ちて消える
+  function ballAt(t, tr){
+    if(t <= FLY){
+      const p = t / FLY, ex = 1 - (1 - p) * (1 - p);                        // 横の動きは終盤ほど小さく(通過の瞬間はほぼ真上へ)
+      return {x: START.x + (tr.x - START.x) * ex, y: START.y - 480 * p + 270 * p * p, r: 5.2 - p * 1.8, show:true};
+    }
+    const q = (t - FLY) / LAND;
+    return {x: tr.x + (tr.safe ? -1 : 1) * 3 * q, y: CROSS_Y + 26 * q, r: 3.4 - 0.8 * q, show: q < 1};
+  }
   function draw(t, tr, c){
-    const p = Math.min(1, t / FLY);
-    const x = -10 + (tr.x + 10) * p, y = 240 - 500 * p + 350 * p * p;   // 高い放物線。壁の上で落ちてくる
-    ball("rv-ball", x, y, 5 - p * 1.5, true);
-    setFig("rv-of", lerpP(P.look, P.leap, ease(Math.max(0, (p - 0.75) / 0.25))), POLE - 40, G - (p > 0.85 ? 16 * Math.sin((p - 0.85) / 0.15 * Math.PI) : 0), 1, 1, teamCol(c.batting ? c.opp : c.victim, "#4f8fe8"), "#222");
-    setFig("rv-ump", Object.assign({}, P.look, {headx: 20 + 30 * p}), 60, G, 0.9, 1, "#2b2b30", "#111");
+    const b = ballAt(t, tr);
+    ball("rv-ball", b.x, b.y, b.r, b.show);
+    const p = Math.min(1, t / FLY), col = teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
+    // 外野手: 打球を目で追いながら、ポールの下まで走って見上げる(フェンスのはるか上なので跳ばない)
+    const ox = POLE - 78 + 42 * ease(Math.min(1, t / 1100));
+    setFig("rv-of", t < 1100 ? Object.assign(run(t / 110, 0.55), {headx: 26}) : Object.assign({}, P.look, {headx: 24 + 22 * p}), ox, G, 1, 1, col, "#222");
+    setFig("rv-ump", Object.assign({}, P.look, {headx: 18 + 30 * p}), POLE + 52, G, 0.9, -1, "#2b2b30", "#111");
   }
   return {
     play(c){ const tr = truthOf(c); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("ポール際の大飛球");
-      realtime(t => draw(t, tr, c), FLY + 350, function(){ umpCall("rv-ump", 60, G, 1, !c.callOut, true); crowd(0.9, 0.08); RV.timer = rvLater(rvAsk, 420); }); },
+      realtime(t => draw(t, tr, c), FLY + LAND + 150, function(){ umpCall("rv-ump", POLE + 52, G, -1, !c.callOut, true, 0.9); crowd(0.9, 0.08); RV.timer = rvLater(rvAsk, 420); }); },
     reveal(go){ const tr = RV.truth, c = RV.c;
       if(!go){ RV.timer = rvLater(function(){ if(RV) rvSettle(false); }, 400); return; }
-      // ポールの真上でコマ送り
+      // ポールの真横でコマ送り
       slowReplay(t => draw(t, tr, c), FLY, FLY + 90, function(){
-        
-        const m = document.createElementNS(NS, "g"); m.innerHTML = '<line x1="' + POLE + '" y1="90" x2="' + tr.x + '" y2="90" stroke="#ffd257" stroke-width="2"/><text x="' + ((POLE + tr.x) / 2) + '" y="62" text-anchor="middle" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="12" fill="#ffd257" style="paint-order:stroke" stroke="#0b1626" stroke-width="4">' + (tr.safe ? 'フェア側' : 'ファウル側') + '</text>';
+        const m = document.createElementNS(NS, "g"); m.innerHTML = '<line x1="' + POLE + '" y1="' + CROSS_Y + '" x2="' + tr.x + '" y2="' + CROSS_Y + '" stroke="#ffd257" stroke-width="2"/><text x="' + (tr.safe ? POLE - 30 : POLE + 30) + '" y="' + (CROSS_Y - 14) + '" text-anchor="middle" font-family="Oswald,Noto Sans JP,sans-serif" font-weight="700" font-size="12" fill="#ffd257" style="paint-order:stroke" stroke="#0b1626" stroke-width="4">' + (tr.safe ? 'フェア側' : 'ファウル側') + '</text>';
         $r("rv-svg").appendChild(m);
         finishReplay(c, tr, "ポールのフェア側を通過", "ポールのファウル側を通過", true);
-      }, {x:POLE, y:90}); },
+      }, {x:POLE, y:CROSS_Y}); },
   };
 })();
 

@@ -760,29 +760,42 @@ SCENES.first = (function(){
 
 // ---- 本塁のクロスプレー(バックネット裏): 三塁走者が左奥から手前の本塁へ。外野からの返球を捕手が受けてタッチ ----
 SCENES.home = (function(){
-  const D = DIAMOND.plate, RUNT = 1850, THROW = 900;
-  const FROM = {x:103, y:216}, TO = {x:170, y:257};                        // 三塁 → 本塁の手前
-  const CAT = {x:205, y:262}, UMP = {x:238, y:282}, RF = {x:316, y:152};   // 捕手は本塁の三塁側で構え、球審はその後ろ
-  const GLOVE = {x:190, y:250};
+  // 順番: 打者がライト前へ(0〜0.6秒) → 三塁走者は打った瞬間に突入 → 右翼手が捕って本塁へ送球(0.95秒) → 捕手が受けてタッチ
+  const D = DIAMOND.plate, RUN0 = 90, RUNT = 2150, HIT = 620, THROW = 950;
+  const FROM = {x:54, y:190}, TO = {x:170, y:257};                          // 三塁のリード → 本塁の手前
+  const CAT = {x:205, y:262}, UMP = {x:238, y:282}, RF = {x:312, y:156};   // 捕手は本塁の一塁側で構え、球審はその後ろ
+  const BATP = {x:186, y:263}, FIRST = {x:322, y:184};                      // 打者の立ち位置 → 一塁
   const runCol = c => teamCol(c.batting ? c.victim : c.opp, "#e0a600"), defCol = c => teamCol(c.batting ? c.opp : c.victim, "#4f8fe8");
+  const lead = Object.assign({}, P.ready, {lean:26, glove:undefined});      // リード: 低く構えて本塁の方を向く
   function stage(c){
     return stageOpen(300) + stands(120) + diamondSvg("plate") +
-      figAt("rv-rf", P.look, RF, -1, defCol(c), "#222") +
+      figAt("rv-rf", P.ready, RF, -1, defCol(c), "#222") +
       figAt("rv-pit", P.look, {x:D.mound.x, y:D.mound.y + 2}, -1, defCol(c), "#222") +
-      figAt("rv-run", P.stand, FROM, 1, runCol(c), "#222") +
+      figAt("rv-run", lead, FROM, 1, runCol(c), "#222") +
       figAt("rv-cat", P.crouch, CAT, -1, defCol(c), "#222") +
+      figAt("rv-bat", P.bat, BATP, 1, runCol(c), "#222") +
       figAt("rv-ump", P.ready, UMP, -1, "#2b2b30", "#111") +
       shadowSvg("rv-sh") + ballSvg("rv-ball") + flashLine(D.home.x - 32, D.home.y + 12, D.home.x + 32, D.home.y + 12) + big(180, 70) + lbl() +
       camTag("plate", "バックネット裏カメラ　三塁 → 本塁") + '</svg>';
   }
   function draw(t, tr, c){
-    drawRunner("rv-run",t,RUNT,FROM,TO,true,runCol(c));
-    const tag=drawTag("rv-cat",t,RUNT+tr.delta,RUNT,TO,CAT,defCol(c));
-    moveFig("rv-rf",throwPose(t,THROW),RF,-1,defCol(c),"#192a37");
-    if(t<THROW){ball("rv-ball",0,0,3,false);ball("rv-sh",0,0,0,false);return;}
-    const release=figPoint(P.release,RF.x,RF.y,dsc(RF.y),-1,"hand");
-    if(t<tag.received) measuredThrow((t-THROW)/(tag.received-THROW),release,tag.start,14);
-    else {ball("rv-ball",tag.glove.x,tag.glove.y,2.3,false);ball("rv-sh",0,0,0,false);}
+    // 三塁走者: 打った瞬間にスタート
+    if(t < RUN0){ const at = anchorFig(lead, FROM, dsc(FROM.y), 1, "toe"); setFig("rv-run", lead, at.x, at.y, dsc(FROM.y), 1, runCol(c), "#192a37"); }
+    else drawRunner("rv-run", t - RUN0, RUNT - RUN0, FROM, TO, true, runCol(c));
+    // 打者: 振り抜いて一塁へ走る
+    if(t < 140) moveFig("rv-bat", lerpP(P.bat, P.swing, ease(t / 140)), BATP, 1, runCol(c), "#192a37");
+    else drawRunner("rv-bat", t - 140, 1750, BATP, FIRST, false, runCol(c));
+    const tag = drawTag("rv-cat", t, RUNT + tr.delta, RUNT, TO, CAT, defCol(c));
+    // 右翼手: 打球を待って捕り、本塁へ送球
+    moveFig("rv-rf", t < HIT - 80 ? P.ready : throwPose(t, THROW), RF, -1, defCol(c), "#192a37");
+    if(t < HIT){                                                            // 打球: 本塁からライト前へ低く伸びる
+      const q = t / HIT, gx = D.home.x + (RF.x - 8 - D.home.x) * q, gy = D.home.y + (RF.y + 2 - D.home.y) * q;
+      ball("rv-ball", gx, gy - Math.sin(q * Math.PI) * 26, br(gy), true); ball("rv-sh", gx, gy, 0, true); return;
+    }
+    if(t < THROW){ ball("rv-ball", 0, 0, 3, false); ball("rv-sh", 0, 0, 0, false); return; }
+    const release = figPoint(P.release, RF.x, RF.y, dsc(RF.y), -1, "hand");
+    if(t < tag.received) measuredThrow((t - THROW) / (tag.received - THROW), release, tag.start, 14);
+    else { ball("rv-ball", tag.glove.x, tag.glove.y, 2.3, false); ball("rv-sh", 0, 0, 0, false); }
   }
   return {
     play(c){ const tr = timing(c, 25, 75); RV.truth = tr; $r("rv-stage").innerHTML = stage(c); setLbl("本塁のクロスプレー");

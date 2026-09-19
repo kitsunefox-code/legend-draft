@@ -110,3 +110,9 @@
 .pc.ld-card.sz-m .ld-card-bottom{padding:0 10px 8px;}
 .pc.ld-card.sz-s .ld-card-name{margin:2px -6px 2px;padding:2px 6px;border-left-width:3px;}
 .pc.ld-card.sz-s .ld-card-nm{font-size:10px;}
+
+/* 小さい札の長い名前: 「.ld-name-long .ld-card-nm」(22px)が sz-s の10pxより強く効いて巨大な字になっていた */
+.pc.ld-card.sz-s .ld-card-name.ld-name-long .ld-card-nm{font-size:10px;}
+.pc.ld-card.sz-m .ld-card-name.ld-name-long .ld-card-nm{font-size:13px;}
+.pc.ld-card.sz-l .ld-card-name.ld-name-long .ld-card-nm{font-size:20px;}
+@media(max-width:480px){.pc.ld-card.sz-s .ld-card-name.ld-name-long .ld-card-nm{font-size:9px;}}

@@ -868,3 +868,14 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 .od-tile-pos .apt{font-size:11px;margin-left:1px;color:#1a1206;}
 .od-tile-pos .apt.a2{color:#1f5c34;} .od-tile-pos .apt.a1{color:#8c2412;} .od-tile-pos .apt.a0{color:#8c2412;}
 .od-pk-r .od-pos .apt{font-size:12px;margin-left:1px;}
+
+/* 名鑑(長押し)の字は薄い色を使わない。見出し・年・回数も濃い字で */
+#modal .mf-k,#modal .m-yr,#modal .mf-v i,#modal .m-extra,#modal .m-why,#modal .mk-y,#modal .m-sub,#modal .m-apt,#modal .desc{color:#2b2823;}
+#modal .m-extra span{color:#3d3a33;}
+#modal .m-chron li span{opacity:1;color:#2b2823;}
+#modal .m-awards li i{color:#8c2412;font-weight:700;}
+#modal .m-awards li span{opacity:1;color:#3d3a33;}
+#modal .m-awards li.more{opacity:1;color:#3d3a33;}
+#modal .m-sec-h{background:#2b2823;color:#fff;}
+#modal .tag{color:#2b2823;}
+#modal .mk-apt .ap{color:#2b2823;} #modal .mk-apt .ap.a3{color:#fff;}

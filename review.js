@@ -1203,8 +1203,8 @@ SCENES.abs = (function(){
     const s = v => (v * sc).toFixed(1);
     const P = (dx, dy) => (x + dx * sc).toFixed(1) + " " + (y + dy * sc).toFixed(1);
     const dark = shade(col, .72);
-    const sh = {x: x + 9 * sc, y: y - 40 * sc};
-    const dx = mitt.x - sh.x, dy = mitt.y - sh.y, d = Math.hypot(dx, dy), L = 13 * sc;
+    const sh = {x: x + 9 * sc, y: y - 37 * sc};
+    const dx = mitt.x - sh.x, dy = mitt.y - sh.y, d = Math.hypot(dx, dy), L = 19 * sc;
     const reach = Math.min(d, 2 * L - 0.1), ang = Math.atan2(dy, dx), bend = Math.acos(reach / (2 * L));
     const ex = sh.x + Math.cos(ang - bend) * L, ey = sh.y + Math.sin(ang - bend) * L;
     const hx = sh.x + Math.cos(ang) * reach, hy = sh.y + Math.sin(ang) * reach;
@@ -1321,7 +1321,7 @@ SCENES.abs = (function(){
         ball("rv-ball",x,y,5.2+(R-5.2)*q,true);
       }else{
         const q=clampN((t-RELEASE-flight)/25,0,1);
-        ball("rv-ball",tr.px,tr.py+2*q,R,t<received);
+        ball("rv-ball",tr.px,tr.py+2*q,R,true);
       }
       if(t<received){RV.raf=rvFrame(f);return;}
       drawCat(mitt);$r("rv-cap").textContent=(c.kmh||148)+"km　"+(c.type||"");
@@ -1400,5 +1400,5 @@ SCENES.abs = (function(){
   return {play, reveal, challengePitcher, pitcherBack, pitching, RELEASE};
 
 })();
-window.rvDebug = {figSvg, P, lerpP, swingPose, takePose, managerFront, run, SCENES, pitcher3d};
+window.rvDebug = {figSvg, P, lerpP, swingPose, takePose, managerFront, run, SCENES, pitcher3d, get rv(){ return RV; }};
 })();

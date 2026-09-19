@@ -407,18 +407,15 @@ function gesture(c, done){
   const col = teamCol(c.victim, "#e0a600");
   if(c.kind === "abs"){
     if(!c.batting && SCENES.abs.challengePitcher){SCENES.abs.challengePitcher(c,done);return;}
-    const lefty=c.lefty, bx=c.batting?(lefty?150:262):66, by=c.batting?286:298, sc=c.batting?1.45:1.9;
-    const initial=c.batting?takePose(9999,0):P.stand, facing=c.batting?(lefty?1:-1):1;
-    g.innerHTML=figSvg("rv-gfig",initial,bx,by,sc,facing,col,"#192a37");svg.appendChild(g);
-    const old=$r(c.batting?"rv-bat":"rv-pit");if(old)old.setAttribute("opacity",0);
+    const lefty=c.lefty, bx=lefty?150:262;
+    g.innerHTML=batter3d("rv-gfig",B3_KF.stride,bx,288,52,col,!lefty);svg.appendChild(g);
+    const old=$r("rv-bat");if(old)old.setAttribute("opacity",0);
     let start=0;
     function f(ts){if(!start)start=ts;const t=ts-start;
-      // 見逃しなのでバットは振らない: まず下ろして後ろの手に持ち替え、それから前の手でヘルメットを叩く
-      const pose = !c.batting ? lerpP(initial,P.helmet,ease(Math.min(1,t/430)))
-        : t<300 ? lerpP(initial,P.batRest,ease(t/300)) : lerpP(P.batRest,P.helmet,ease(Math.min(1,(t-300)/350)));
-      // Two small taps, then hold the challenge gesture.
-      if(t>650)pose.la+=Math.sin(Math.min(1,(t-650)/300)*Math.PI*4)*4;
-      setFig("rv-gfig",pose,bx,by,sc,facing,col,"#192a37");
+      // 見逃しなのでバットは振らない: バットを後ろの手で下げて、前の手でヘルメットの上を2回叩く
+      const q=b3Lerp(B3_KF.stride,B3_KF.helmet,ease(Math.min(1,t/450)));
+      if(t>650) q.handL=[q.handL[0],q.handL[1]+Math.sin(Math.min(1,(t-650)/300)*Math.PI*4)*.04,q.handL[2]];
+      const e=$r("rv-gfig"); if(e) e.outerHTML=batter3d("rv-gfig",q,bx,288,52,col,!lefty);
       if(t<950)RV.raf=rvFrame(f);else RV.timer=rvLater(done,180);
     }
     RV.raf=rvFrame(f);
@@ -1066,18 +1063,21 @@ function p3Pose(t){
 }
 // カメラ: 投手の後ろ 4.6m・高さ 2.3m から、13度見下ろす。足元(原点)が (gx, gy) に来て、原点の奥行きで 1m が S px
 function p3Cam(gx, gy, S){
-  const C = [0, 2.3, 4.6], ph = 13 * Math.PI / 180, F = [0, -Math.sin(ph), -Math.cos(ph)], U = [0, Math.cos(ph), -Math.sin(ph)];
+  const C = [0.9, 2.3, 4.6], ph = 13 * Math.PI / 180, F = [0, -Math.sin(ph), -Math.cos(ph)], U = [0, Math.cos(ph), -Math.sin(ph)];
   const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const o = [0 - C[0], 0 - C[1], 0 - C[2]], d0 = dot(o, F), f = S * d0;
-  const oy = dot(o, U) / d0 * f;                          // 原点(足元)の画面上の高さ。これを (gx, gy) に合わせる
+  const ox = o[0] / d0 * f, oy = dot(o, U) / d0 * f;      // 原点(足元)の画面上の位置。これを (gx, gy) に合わせる
   return function(p){
     const d = [p[0] - C[0], p[1] - C[1], p[2] - C[2]], dep = dot(d, F);
-    return {x: gx + d[0] / dep * f, y: gy - (dot(d, U) / dep * f - oy), k: d0 / dep, dep};
+    return {x: gx + (d[0] / dep * f - ox), y: gy - (dot(d, U) / dep * f - oy), k: d0 / dep, dep};
   };
 }
 // 描く。S=足元での 1m の px。col=ユニ色。rhp=右投手
 function pitcher3d(id, t, gx, gy, S, col, rhp){ return pitcher3dQ(id, p3Pose(t), gx, gy, S, col, rhp); }
-function pitcher3dQ(id, q, gx, gy, S, col, rhp){
+function pitcher3dQ(id, q, gx, gy, S, col, rhp){ return body3dQ(id, q, gx, gy, S, col, rhp, {glove:true, ball:true}); }
+// 体の描画。opts: glove=左手にグラブ, ball=右手に球, bat=[x,y,z] バットの先(右手が握り)
+function body3dQ(id, q, gx, gy, S, col, rhp, opts){
+  opts = opts || {};
   const m = rhp ? 1 : -1, cam = p3Cam(gx, gy, S);
   const pt = a => cam([a[0] * m, a[1], a[2]]);
   const rot = (c, w, deg) => { const r = deg * Math.PI / 180; return [[c[0] + Math.cos(r) * w, c[1], c[2] + Math.sin(r) * w], [c[0] - Math.cos(r) * w, c[1], c[2] - Math.sin(r) * w]]; };   // [右, 左]
@@ -1099,9 +1099,14 @@ function pitcher3dQ(id, q, gx, gy, S, col, rhp){
     [J.shL, J.shR].map(p => '<circle cx="' + p.x.toFixed(1) + '" cy="' + p.y.toFixed(1) + '" r="' + (.075 * S * p.k).toFixed(1) + '" fill="' + col + '"/>').join("")});
   // 腕(上腕はユニの色、前腕は肌)。グラブは左手、ボールは右手
   parts.push(seg(J.shL, J.elbL, .11, col), seg(J.elbL, J.handL, .085, skin), seg(J.shR, J.elbR, .11, col), seg(J.elbR, J.handR, .085, skin));
-  const gl = J.handL, gr = (.11 * S * gl.k).toFixed(1);
-  parts.push({dep: gl.dep - .02, h: '<path d="M' + (gl.x - .1 * S * gl.k).toFixed(1) + ' ' + (gl.y + .06 * S * gl.k).toFixed(1) + ' q' + (-.03 * S * gl.k).toFixed(1) + ' ' + (-.2 * S * gl.k).toFixed(1) + ' ' + (.1 * S * gl.k).toFixed(1) + ' ' + (-.2 * S * gl.k).toFixed(1) + ' q' + (.12 * S * gl.k).toFixed(1) + ' 0 ' + (.1 * S * gl.k).toFixed(1) + ' ' + (.2 * S * gl.k).toFixed(1) + ' z" fill="#8d5932" stroke="#54371f" stroke-width="1"/>'});
+  const gl = J.handL;
+  if(opts.glove) parts.push({dep: gl.dep - .02, h: '<path d="M' + (gl.x - .1 * S * gl.k).toFixed(1) + ' ' + (gl.y + .06 * S * gl.k).toFixed(1) + ' q' + (-.03 * S * gl.k).toFixed(1) + ' ' + (-.2 * S * gl.k).toFixed(1) + ' ' + (.1 * S * gl.k).toFixed(1) + ' ' + (-.2 * S * gl.k).toFixed(1) + ' q' + (.12 * S * gl.k).toFixed(1) + ' 0 ' + (.1 * S * gl.k).toFixed(1) + ' ' + (.2 * S * gl.k).toFixed(1) + ' z" fill="#8d5932" stroke="#54371f" stroke-width="1"/>'});
+  else parts.push({dep: gl.dep - .02, h: '<circle cx="' + gl.x.toFixed(1) + '" cy="' + gl.y.toFixed(1) + '" r="' + (.045 * S * gl.k).toFixed(1) + '" fill="' + skin + '"/>'});
   parts.push({dep: J.handR.dep - .02, h: '<circle cx="' + J.handR.x.toFixed(1) + '" cy="' + J.handR.y.toFixed(1) + '" r="' + (.045 * S * J.handR.k).toFixed(1) + '" fill="' + skin + '"/>'});
+  if(opts.bat){   // バット: 右手(握り)から先へ。手前ほど太い
+    const tip = pt(opts.bat), a = J.handR;
+    parts.push({dep: Math.min(a.dep, tip.dep) - .03, h: '<path d="M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' L' + tip.x.toFixed(1) + ' ' + tip.y.toFixed(1) + '" stroke="#b9935e" stroke-width="' + (.06 * S * (a.k + tip.k) / 2).toFixed(1) + '" stroke-linecap="round"/><path d="M' + a.x.toFixed(1) + ' ' + a.y.toFixed(1) + ' L' + (a.x + (tip.x - a.x) * .22).toFixed(1) + ' ' + (a.y + (tip.y - a.y) * .22).toFixed(1) + '" stroke="#282a29" stroke-width="' + (.045 * S * a.k).toFixed(1) + '" stroke-linecap="round"/>'});
+  }
   // 頭と帽子(後ろ姿なので顔は無い)
   const hd = J.head, hr = .12 * S * hd.k;
   parts.push({dep: hd.dep, h: '<circle cx="' + hd.x.toFixed(1) + '" cy="' + hd.y.toFixed(1) + '" r="' + hr.toFixed(1) + '" fill="' + skin + '"/><path d="M' + (hd.x - hr).toFixed(1) + ' ' + (hd.y + hr * .05).toFixed(1) + ' a' + hr.toFixed(1) + ' ' + hr.toFixed(1) + ' 0 0 1 ' + (hr * 2).toFixed(1) + ' 0 v' + (hr * .55).toFixed(1) + ' h' + (-hr * 2).toFixed(1) + ' z" fill="#192b3d"/>'});
@@ -1110,6 +1115,40 @@ function pitcher3dQ(id, q, gx, gy, S, col, rhp){
   return '<g id="' + id + '" data-hand-x="' + J.handR.x.toFixed(1) + '" data-hand-y="' + J.handR.y.toFixed(1) + '"><ellipse cx="' + J.hip.x.toFixed(1) + '" cy="' + (gnd.y + 1).toFixed(1) + '" rx="' + (.32 * S).toFixed(1) + '" ry="' + (.07 * S).toFixed(1) + '" fill="#101710" opacity=".23"/>' + parts.map(p => p.h).join("") + '</g>';
 }
 function pitcher3dHand(t, gx, gy, S, rhp){ const q = p3Pose(t), cam = p3Cam(gx, gy, S); return cam([q.handR[0] * (rhp ? 1 : -1), q.handR[1], q.handR[2]]); }
+
+
+// ============================================================
+// 打撃フォーム(3次元)。右打者。原点は両足の中点、胸は本塁(-x)を向き、前足(左)は投手側(+z)
+//   sy/hy: 肩・腰の向き。-90 = 胸が -x(構え)、-175 = 胸が投手(+z)(インパクト)
+// ============================================================
+const B3_KF = {
+  stance:  {hip:[.05,.92,0],    sh:[.08,1.38,-.05], head:[.02,1.6,.04],   elbL:[-.26,1.14,.06], handL:[-.15,1.34,-.2],  elbR:[.06,1.12,-.36], handR:[-.13,1.32,-.22], kneeL:[.02,.5,.3],  footL:[0,0,.35],   kneeR:[.02,.5,-.3],  footR:[0,0,-.35],  hy:-90,  sy:-90,  bat:[.28,1.95,-.5]},
+  load:    {hip:[.05,.92,-.08], sh:[.08,1.4,-.12],  head:[.02,1.62,-.02], elbL:[-.24,1.16,-.02],handL:[-.12,1.4,-.32],  elbR:[.1,1.15,-.46],  handR:[-.1,1.38,-.34],  kneeL:[.06,.5,.28], footL:[0,0,.35],   kneeR:[.02,.5,-.3],  footR:[0,0,-.35],  hy:-100, sy:-102, bat:[.32,1.98,-.62]},
+  stride:  {hip:[.05,.9,.04],   sh:[.08,1.38,-.06], head:[.02,1.6,.03],   elbL:[-.24,1.16,0],   handL:[-.12,1.4,-.3],   elbR:[.1,1.14,-.44],  handR:[-.1,1.38,-.32],  kneeL:[.02,.5,.42], footL:[0,0,.5],    kneeR:[.02,.5,-.3],  footR:[0,0,-.35],  hy:-96,  sy:-100, bat:[.32,1.96,-.6]},
+  contact: {hip:[.02,.92,.1],   sh:[0,1.35,.12],    head:[0,1.58,.14],    elbL:[-.3,1.2,.22],   handL:[-.5,1.05,.25],   elbR:[-.25,1.05,.05], handR:[-.48,1.02,.2],   kneeL:[0,.5,.5],    footL:[0,0,.5],    kneeR:[.05,.5,-.2],  footR:[.02,.1,-.3], hy:-170, sy:-175, bat:[-1.2,1.0,.38]},
+  follow:  {hip:[.02,.92,.12],  sh:[0,1.35,.14],    head:[0,1.58,.2],     elbL:[-.05,1.3,.3],   handL:[.1,1.5,.35],     elbR:[.15,1.2,.2],    handR:[.08,1.48,.33],   kneeL:[0,.5,.5],    footL:[0,0,.5],    kneeR:[.06,.5,-.15], footR:[.05,.08,-.25],hy:-200, sy:-220, bat:[.6,1.7,-.2]},
+  helmet:  {hip:[.05,.92,0],    sh:[.06,1.38,0],    head:[.02,1.6,.04],   elbL:[-.16,1.4,.14],  handL:[-.02,1.72,.08],  elbR:[.1,1.12,-.2],   handR:[.12,.92,-.28],   kneeL:[.02,.5,.3],  footL:[0,0,.35],   kneeR:[.02,.5,-.3],  footR:[0,0,-.35],  hy:-90,  sy:-90,  bat:[.2,.05,-.6]},   // 帽子を叩く(バットは後ろの手で下げる)
+};
+function b3Lerp(a, b, u){ const o = p3Lerp(a, b, u); o.bat = [0, 1, 2].map(i => a.bat[i] + (b.bat[i] - a.bat[i]) * u); return o; }
+// 見逃し: t はリリースを 0 とするミリ秒。割れ→踏み込みで止める(振らない)
+function b3Take(t, caught){
+  const K = B3_KF;
+  if(t < -330) return K.stance;
+  if(t < -170) return b3Lerp(K.stance, K.load, ease((t + 330) / 160));
+  if(t < 60) return b3Lerp(K.load, K.stride, ease((t + 170) / 230));
+  return K.stride;
+}
+// スイング: t はインパクトを 0 とするミリ秒
+function b3Swing(t){
+  const K = B3_KF;
+  if(t < -380) return K.stance;
+  if(t < -220) return b3Lerp(K.stance, K.load, ease((t + 380) / 160));
+  if(t < -90) return b3Lerp(K.load, K.stride, ease((t + 220) / 130));
+  if(t < 0) return b3Lerp(K.stride, K.contact, ease((t + 90) / 90));
+  if(t < 240) return b3Lerp(K.contact, K.follow, ease(t / 240));
+  return K.follow;
+}
+function batter3d(id, q, gx, gy, S, col, righty){ return body3dQ(id, q, gx, gy, S, col, righty, {bat: q.bat}); }
 
 SCENES.abs = (function(){
   const CAT = {x:200, y:268, sc:1.35};             // 捕手の足元。本塁より奥(画面では上)
@@ -1282,7 +1321,7 @@ SCENES.abs = (function(){
       '<rect x="132" y="274" width="38" height="20" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/><rect x="230" y="274" width="38" height="20" fill="none" stroke="#f4f1e6" stroke-opacity=".55" stroke-width="1.2"/>' +
       umpFront(CAT.x + (lefty ? -16 : 16), CAT.y - 8, 1.1, 0, 0) +
       catcherFront("rv-cat", CAT.x, CAT.y, CAT.sc, defCol, MITT0) +
-      figSvg("rv-bat", P.bat, bx, 286, 1.45, lefty ? 1 : -1, batCol, "#222") +
+      batter3d("rv-bat", B3_KF.stance, bx, 288, 52, batCol, !lefty) +
       '<g id="rv-trail"></g>' + ballSvg("rv-ball") +
       pitcher3d("rv-pit", 0, PIT.x, PIT.y, PIT.S, defCol, rhp) +
       '<g id="rv-measure" opacity="0"></g>' + big(180, 60) +
@@ -1307,7 +1346,7 @@ SCENES.abs = (function(){
     function f(ts){
       if(!start)start=ts;
       const t=ts-start,k=pitching(t);drawPitcher(t,k);
-      setFig("rv-bat",takePose(t-RELEASE,flight+25),bx,286,1.45,lefty?1:-1,batCol,"#192a37");
+      { const e=$r("rv-bat"); if(e) e.outerHTML=batter3d("rv-bat",b3Take(t-RELEASE,flight+25),bx,288,52,batCol,!lefty); }
       const follow=ease((t-RELEASE-110)/(flight-110));
       drawCat(lerpPt(MITT0,mitt,follow));
       const hand=pitcher3dHand(t,PIT.x,PIT.y,PIT.S,rhp);
@@ -1400,5 +1439,5 @@ SCENES.abs = (function(){
   return {play, reveal, challengePitcher, pitcherBack, pitching, RELEASE};
 
 })();
-window.rvDebug = {figSvg, P, lerpP, swingPose, takePose, managerFront, run, SCENES, pitcher3d, get rv(){ return RV; }};
+window.rvDebug = {figSvg, P, lerpP, swingPose, takePose, managerFront, run, SCENES, pitcher3d, batter3d, B3_KF, b3Take, b3Swing, get rv(){ return RV; }};
 })();

@@ -4625,7 +4625,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 .setup-go .btn.lg,.gc-foot .btn.lg,.pl-foot .btn.lg,.pk-foot .btn.lg{border-radius:14px;}
 
 </style>
-<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"><link rel="stylesheet" href="compact.css?v=4"><link rel="stylesheet" href="extras.css?v=17"><link rel="stylesheet" href="ceremony.css?v=7"><link rel="stylesheet" href="cards2.css?v=7"><link rel="stylesheet" href="fit.css?v=37"><link rel="stylesheet" href="review.css?v=6"><link rel="stylesheet" href="intro.css?v=3">
+<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"><link rel="stylesheet" href="compact.css?v=4"><link rel="stylesheet" href="extras.css?v=17"><link rel="stylesheet" href="ceremony.css?v=7"><link rel="stylesheet" href="cards2.css?v=7"><link rel="stylesheet" href="fit.css?v=38"><link rel="stylesheet" href="review.css?v=6"><link rel="stylesheet" href="intro.css?v=3">
 </head>
 <body>
 <div class="wrap">
@@ -4700,8 +4700,18 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
       </button>
       <button type="button" class="mode-tile" data-mode="gacha" onclick="setMode('gacha')">
         <span class="mt-k">GACHA</span><span class="mt-t">ガチャ</span>
-        <span class="mt-d">球場→監督→野手15連→投手11連。運だけで球団が決まる。日米ごちゃ混ぜ、デンジャーあり</span>
+        <span class="mt-d">球場→監督→野手15連→投手11連。運だけで球団が決まる。デンジャー(残念助っ人)あり</span>
       </button>
+    </div>
+    <div class="pool-pick" id="pool-pick" data-pool="npb" data-touched="0">
+      <div class="pp-h">選手の範囲<span>ドラフトで指名できる／ガチャで出る選手</span></div>
+      <div class="pp-btns">
+        <button type="button" class="pp-b on" data-pool="npb" onclick="setPool('npb')"><b>日本のみ</b><span>歴代NPB</span></button>
+        <button type="button" class="pp-b" data-pool="mix" onclick="setPool('mix')"><b>日米ごちゃ混ぜ</b><span>NPB＋MLB</span></button>
+        <button type="button" class="pp-b" data-pool="mlb" onclick="setPool('mlb')"><b>メジャーのみ</b><span>歴代MLB</span></button>
+      </div>
+      <div class="pp-note" id="pp-note">日本球界の歴代名選手だけが対象。系譜縛りも効きます</div>
+      <input type="checkbox" id="opt-mlbonly" hidden>
     </div>
   </div>
 
@@ -4726,7 +4736,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
       </div>
     </div>
 
-    <div class="st-row">
+    <div class="st-row" id="row-budget">
       <div class="st-lb"><b>コスト上限</b><span>強い選手ほどコストが跳ね上がります</span></div>
       <div class="st-in">
         <select id="opt-budget">
@@ -4741,24 +4751,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   <div class="panel fold">
     <b onclick="foldPanel(this)">シーズンイベント<span class="pn-cnt" id="ev-cnt"></span><i class="fd-a">＋</i></b>
     <div class="opt-grid">
-      <label class="opt-tile">
-        <input type="checkbox" id="opt-trade" checked onchange="foldSummary()">
-        <span class="ot-box"></span>
-        <span class="ot-main"><span class="ot-t">トレード期限日<span class="ot-tag">7月末</span></span>
-        <span class="ot-d">6月末に自動停止。全球団の「穴」と「出せる選手」が並ぶので、あとは卓上で口頭で交渉。話がついた分だけ何件でも成立させられる</span></span>
-      </label>
-      <label class="opt-tile mlbonly">
-        <input type="checkbox" id="opt-mlbonly" onchange="foldSummary()">
-        <span class="ot-box"></span>
-        <span class="ot-main"><span class="ot-t">メジャー限定<span class="ot-tag">MLB</span></span>
-        <span class="ot-d">日本球界を離れ、歴代メジャーリーガーだけでドラフトする。ルースからスキーンズまで391人・監督19人が対象。系譜縛りとMLB補強は外れます</span></span>
-      </label>
-      <label class="opt-tile">
-        <input type="checkbox" id="opt-mlb" checked onchange="foldSummary()">
-        <span class="ot-box"></span>
-        <span class="ot-main"><span class="ot-t">MLBスター補強</span>
-        <span class="ot-d">7月末に自動停止。最下位から順に歴代メジャーリーガーを指名（コスト不要）</span></span>
-      </label>
+      <div class="opt-h"><b>試合の中で</b><span>打つ・守るの手触りが変わる</span></div>
       <label class="opt-tile">
         <input type="checkbox" id="opt-park" checked onchange="foldSummary()">
         <span class="ot-box"></span>
@@ -4777,23 +4770,37 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
         <span class="ot-main"><span class="ot-t">監督の采配<span class="ot-tag">決断</span></span>
         <span class="ot-d">1点差で負けている試合が、確定する前に止まる。シーズン4回だけ、代打・継投・敬遠を自分で選んで結果をひっくり返せる</span></span>
       </label>
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-review" checked onchange="foldSummary()">
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">リクエスト／ABS<span class="ot-tag">腕試し</span></span>
+        <span class="ot-d">接戦の終盤、1点がかかった場面で際どい判定。監督がリクエスト(一塁・本塁・盗塁・捕球・ポール際)、打者がABSチャレンジ(満塁フルカウント)。目で見て判断し、覆れば得点が動いて勝敗まで変わる。+1点、外れれば士気が落ちる</span></span>
+      </label>
+      <div class="opt-h"><b>補強と事件</b><span>シーズン中に顔ぶれが動く</span></div>
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-trade" checked onchange="foldSummary()">
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">トレード期限日<span class="ot-tag">7月末</span></span>
+        <span class="ot-d">6月末に自動停止。全球団の「穴」と「出せる選手」が並ぶので、あとは卓上で口頭で交渉。話がついた分だけ何件でも成立させられる</span></span>
+      </label>
+      <label class="opt-tile">
+        <input type="checkbox" id="opt-mlb" checked onchange="foldSummary()">
+        <span class="ot-box"></span>
+        <span class="ot-main"><span class="ot-t">MLBスター補強</span>
+        <span class="ot-d">7月末に自動停止。最下位から順に歴代メジャーリーガーを指名（コスト不要）</span></span>
+      </label>
       <label class="opt-tile party">
         <input type="checkbox" id="opt-party" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">パーティーモード<span class="ot-tag">波乱</span></span>
         <span class="ot-d">監督休養・スキャンダル謹慎→緊急補強・助っ人帰国・乱闘・食中毒・珍事件など30種の事件が発生。あなたの決断を迫る選択イベントも</span></span>
       </label>
+      <div class="opt-h"><b>採点とリーグ</b><span>勝ち負け以外の競い方</span></div>
       <label class="opt-tile">
         <input type="checkbox" id="opt-points" checked onchange="foldSummary()">
         <span class="ot-box"></span>
         <span class="ot-main"><span class="ot-t">パーティー総合得点<span class="ot-tag">採点</span></span>
-        <span class="ot-d">順位点に、番記者予想・宿敵との直接対決・推し選手の活躍・采配成功・快挙・オーダー役・ポストシーズンの得点を足して総合順位を決める。切ると順位だけの勝負</span></span>
-      </label>
-      <label class="opt-tile">
-        <input type="checkbox" id="opt-review" checked onchange="foldSummary()">
-        <span class="ot-box"></span>
-        <span class="ot-main"><span class="ot-t">リクエスト／ABS<span class="ot-tag">腕試し</span></span>
-        <span class="ot-d">接戦の終盤、1点がかかった場面で際どい判定。監督がリクエスト(一塁・本塁・盗塁・捕球・ポール際)、打者がABSチャレンジ(満塁フルカウント)。目で見て判断し、覆れば得点が動いて勝敗まで変わる。+1点、外れれば士気が落ちる</span></span>
+        <span class="ot-d">順位点に、番記者予想・推し選手の活躍・背水の陣やスポンサー目標・采配成功・快挙・オーダー役・ポストシーズンの得点を足して総合順位を決める。切ると順位だけの勝負</span></span>
       </label>
       <label class="opt-tile">
         <input type="checkbox" id="opt-cpu" checked onchange="foldSummary()">
@@ -5280,6 +5287,6 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 <script src="data-fixes.js?v=1"></script>
 <script src="party.js?v=202609090300"></script>
 <script src="ss.js?v=202609091200"></script><script src="lore.js?v=2"></script>
-<script src="game.js?v=202609191500"></script><script src="abil.js?v=4"></script>
+<script src="game.js?v=202609191800"></script><script src="abil.js?v=4"></script>
 <script src="premium.js?v=31"></script><script src="pull.js?v=11"></script><script src="ss-story.js?v=13"></script><script src="capsules.js?v=14"></script><script src="club-ceremony.js?v=23"></script><script src="tap-first.js?v=12"></script><script src="extras.js?v=12"></script><script src="review.js?v=34"></script><script src="rvtest.js?v=1"></script><script src="intro.js?v=4"></script></body>
 </html>

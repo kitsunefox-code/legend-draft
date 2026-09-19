@@ -494,7 +494,7 @@ function foldPanel(el){
 function foldSummary(){
   const ev = $("ev-cnt");
   if(ev){
-    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-review","opt-cpu","opt-mlbonly"];
+    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-review","opt-cpu"];
     const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
     ev.textContent = n + "件";
   }
@@ -504,9 +504,32 @@ function setMode(m){
   const cb = $("opt-gacha");
   if(cb) cb.checked = (m === "gacha");
   document.querySelectorAll(".mode-tile").forEach(function(b){ b.classList.toggle("on", b.dataset.mode === m); });
+  // 選手の範囲は、まだ触っていなければ作り方に合わせた既定(ドラフト=日本のみ、ガチャ=日米)にする
+  const pp = $("pool-pick");
+  if(pp && pp.dataset.touched !== "1") setPool(m === "gacha" ? "mix" : "npb", true);
+  const rb = $("row-budget");
+  if(rb) rb.hidden = (m === "gacha");
   foldSummary();
   if(typeof ldSyncSetup === "function") ldSyncSetup();
   seTap();
+}
+// 選手の範囲(日本のみ / 日米ごちゃ混ぜ / メジャーのみ)。ドラフトでもガチャでも同じ選択
+const POOL_NOTE = {
+  npb: "日本球界の歴代名選手だけが対象。系譜縛りも効きます",
+  mix: "歴代NPBと歴代MLBが同じ袋に入る。ガチャは日米入り乱れ、ドラフトはメジャーの大物も指名できます",
+  mlb: "ルースからスキーンズまで歴代メジャーリーガーだけ(監督もMLB)。系譜縛りとMLBスター補強は外れます",
+};
+function poolKey(){ const pp = $("pool-pick"); return pp && pp.dataset.pool ? pp.dataset.pool : "npb"; }
+function setPool(k, silent){
+  const pp = $("pool-pick"); if(!pp) return;
+  pp.dataset.pool = k;
+  if(!silent) pp.dataset.touched = "1";
+  pp.querySelectorAll(".pp-b").forEach(function(b){ b.classList.toggle("on", b.dataset.pool === k); });
+  const cb = $("opt-mlbonly"); if(cb) cb.checked = (k === "mlb");
+  const n = $("pp-note"); if(n) n.textContent = POOL_NOTE[k] || "";
+  const mt = $("opt-mlb") ? $("opt-mlb").closest(".opt-tile") : null;
+  if(mt) mt.classList.toggle("off", k === "mlb");
+  if(!silent){ foldSummary(); seTap(); }
 }
 function goSetup(){
   show("scr-setup");
@@ -645,9 +668,10 @@ function startDraft(){
   if(gachaOn) applyRoster(6, 4, 6);   // ガチャは27人固定: 野手15・投手11(先発6・中継4・抑え1)・監督1
   else applyRoster(optNum("opt-sp", 6), optNum("opt-rp", 3), optNum("opt-bn", 3));
   // メジャー限定。指名の対象を丸ごと差し替える
-  state.opts.mlbOnly = $("opt-mlbonly") ? $("opt-mlbonly").checked : false;
+  state.opts.pool = poolKey();
+  state.opts.mlbOnly = state.opts.pool === "mlb";
   state.opts.gacha = $("opt-gacha") ? $("opt-gacha").checked : false;
-  POOL = state.opts.mlbOnly ? MLB_STARS : (gachaOn ? PLAYERS.concat(MLB_STARS) : PLAYERS);   // ガチャは日米ごちゃ混ぜ
+  POOL = state.opts.pool === "mlb" ? MLB_STARS : state.opts.pool === "mix" ? PLAYERS.concat(MLB_STARS) : PLAYERS;
   emblemPool = null;
   emblemPool = shuffle(Array.from({length:EMBLEM_COUNT}, (_,i)=>i))
     .filter(i => !rows.some(r => Number(r.dataset.em) === i));   // 選ばれた分はCPUに回さない
@@ -6393,7 +6417,7 @@ function tradeCommit(){
 // ============================================================
 // 提示されるMLB組は「超一流は最大2人」。残りは中位以下から
 function mlbOffer(n){
-  const avail = MLB_STARS.filter(p=>p.joined===undefined && rankOK(p));
+  const avail = MLB_STARS.filter(p=>p.joined===undefined && !state.taken.has(p.id) && rankOK(p));
   const elite = shuffle(avail.filter(p=>p.ovr >= 93));
   const rest  = shuffle(avail.filter(p=>p.ovr <  93));
   const eCap  = rnd() < 0.45 ? 1 : (rnd() < 0.7 ? 2 : 0);

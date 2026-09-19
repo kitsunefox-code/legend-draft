@@ -31,7 +31,7 @@ function applyRoster(sp, rp, bn){
   SLOT_DEFS.push({key:"MGR", grp:"MGR", label:"監督"});
   [["C","捕","捕"],["B1","一","一"],["B2","二","二"],["B3","三","三"],["SS","遊","遊"],
    ["OF1","外","左"],["OF2","外","中"],["OF3","外","右"],["DH","DH","指"]]
-    .forEach(x => SLOT_DEFS.push({key:x[0], grp:x[1], label:x[2]}));
+    .forEach(x => SLOT_DEFS.push({key:x[0], grp:x[1], label:x[2], pos:x[2]}));
   BENCH_KEYS.forEach(k => SLOT_DEFS.push({key:k, grp:"BN", label:"控"}));
   SP_KEYS.forEach(k => SLOT_DEFS.push({key:k, grp:"SP", label:"先発"}));
   RP_KEYS.forEach(k => SLOT_DEFS.push({key:k, grp:"RP", label:"中継"}));
@@ -274,9 +274,133 @@ function eligibleGrp(p, grp){
     case "SP": return p.cat === "P" && p.role === "SP";
     case "RP": return p.cat === "P" && (p.role === "RP" || p.role === "CL");
     case "CL": return p.cat === "P" && (p.role === "CL" || p.role === "RP");
-    default: return p.cat === "B" && p.pos.includes(grp);
+    case "外": return p.cat === "B" && (p.pos || "").includes("外");
+    default: return p.cat === "B" && posApt(p, grp) >= 1;
   }
 }
+// ---------- 守備適性 ----------
+// 名鑑の pos は「主戦場が先頭、守れる位置が続く」(例: 遊二三)。外野は「外」一文字なので、
+// 左・中・右の主戦場は有名選手は表で、それ以外は足(盗塁)と長打から見当をつける
+const POS_KEYS = ["捕","一","二","三","遊","左","中","右","指"];
+const APT_MARK = ["×","△","○","◎"];
+function ofMain(p){
+  if(p._of) return p._of;
+  let m = OF_MAIN[p.name] || OF_MAIN[baseName(p.name)];
+  if(!m){
+    const sb = p.sb || 0, hr = p.hr || 0, g = (p.car && p.car.g) || 0, csb = (p.car && p.car.sb) || 0;
+    const rate = g ? csb / g * 143 : sb;
+    const h = [...baseName(p.name)].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % 100;
+    if(sb >= 22 || rate >= 18) m = "中";
+    else if(hr >= 25) m = h < 55 ? "左" : "右";
+    else m = h < 35 ? "中" : h < 68 ? "右" : "左";
+  }
+  p._of = m;
+  return m;
+}
+// 3=◎本職 2=○守れる 1=△急場なら 0=×
+function posApt(p, q){
+  if(!p || p.cat !== "B" || !q) return 0;
+  if(q === "BN") return 2;
+  const s = p.pos || "", main = s[0];
+  if(q === "指" || q === "DH") return s.includes("指") ? (main === "指" ? 3 : 2) : 2;   // 打つだけ。誰でも入れる
+  if(q === "外") return Math.max(posApt(p, "左"), posApt(p, "中"), posApt(p, "右"));
+  if("左中右".includes(q)){
+    if(!s.includes("外")) return 0;
+    const m = ofMain(p), base = main === "外" ? 3 : 2;
+    if(q === m) return base;
+    if(m === "中" || q !== "中") return base - 1;          // 中堅手は両翼を守れる。両翼どうしも
+    return Math.max(1, base - 2);                          // 両翼の選手を中堅に回すのは急場
+  }
+  if(s.includes(q)) return main === q ? 3 : 2;
+  const near = {"二":"遊三", "遊":"二三", "三":"二遊", "一":"三捕外二"};   // q を急場で守れるのは、こういう位置の選手
+  if(near[q] && [...near[q]].some(c => s.includes(c))) return 1;
+  return 0;
+}
+function slotPos(key){ const d = SLOT_DEFS.find(x => x.key === key); return d ? (d.pos || d.grp) : null; }
+function aptAt(p, key){ return posApt(p, slotPos(key)); }
+function aptMark(a){ return APT_MARK[Math.max(0, Math.min(3, a))]; }
+function aptHtml(a){ return '<em class="apt a' + a + '">' + aptMark(a) + '</em>'; }
+function posMain(p){
+  if(!p || p.cat !== "B") return "";
+  const m = (p.pos || "")[0] || "";
+  return m === "外" ? ofMain(p) : m;
+}
+// 守れる位置を適性の高い順に(名鑑の一行用)
+function posList(p){
+  if(!p || p.cat !== "B") return [];
+  const out = POS_KEYS.filter(q => q !== "指" || (p.pos || "").includes("指")).map(q => ({pos:q, apt:posApt(p, q)})).filter(x => x.apt >= 1);
+  const main = posMain(p);
+  out.sort((a, b) => (b.apt - a.apt) || ((a.pos === main ? -1 : 0) - (b.pos === main ? -1 : 0)) || (POS_KEYS.indexOf(a.pos) - POS_KEYS.indexOf(b.pos)));
+  return out;
+}
+function posListHtml(p){
+  return '<span class="mk-apt">' + posList(p).map(x => '<span class="ap a' + x.apt + '">' + esc(x.pos) + aptMark(x.apt) + '</span>').join("") + '</span>';
+}
+// 有名選手の外野の主戦場(名鑑に無いので手で持つ)。載っていない選手は数字から見当
+const OF_MAIN = {
+  "イチロー":"右","鈴木誠也":"右","松井秀喜":"左","秋山幸二":"中","新庄剛志":"中","柳田悠岐":"中","糸井嘉男":"右","福本豊":"中",
+  "山本浩二":"中","高橋由伸":"右","青木宣親":"中","赤星憲広":"中","大島洋平":"中","丸佳浩":"中","近藤健介":"左","吉田正尚":"左",
+  "塩見泰隆":"中","張本勲":"左","山内一弘":"左","若松勉":"中","江藤慎一":"左","門田博光":"左","前田智徳":"右","稲葉篤紀":"右",
+  "金本知憲":"左","緒方孝市":"中","谷佳知":"左","内川聖一":"右","松本匡史":"中","屋鋪要":"中","柴田勲":"中","高田繁":"左",
+  "末次利光":"右","簑田浩二":"中","飯田哲也":"中","秋山翔吾":"中","中村晃":"左","栗山巧":"左","荻野貴司":"中","近本光司":"中",
+  "佐野恵太":"左","桑原将志":"中","梶谷隆幸":"右","筒香嘉智":"左","平田良介":"右","大田泰示":"右","西川遥輝":"中","陽岱鋼":"中",
+  "真弓明信":"右","田尾安志":"中","佐々木誠":"中","山本和範":"右","藤井康雄":"右","田口壮":"左","村松有人":"中","柴原洋":"中",
+  "多村仁志":"右","金城龍彦":"中","鈴木尚典":"左","佐伯貴弘":"右","吉村禎章":"左","クロマティ":"中","清水隆行":"左","亀井善行":"右",
+  "長野久義":"右","福留孝介":"右","和田一浩":"左","桧山進次郎":"右","マット・マートン":"左","森下翔太":"右","野間峻祥":"中","西川龍馬":"左",
+  "真中満":"中","バレンティン":"左","雄平":"右","波留敏夫":"中","関根大気":"右","神里和毅":"中","大下弘":"中","森本稀哲":"中",
+  "万波中正":"右","長池徳士":"左","石嶺和彦":"左","坂口智隆":"中","T-岡田":"左","杉本裕太郎":"右","中川圭太":"中","島内宏明":"左",
+  "辰己涼介":"中","岡島豪郎":"右","鉄平":"中","聖澤諒":"中","土井正博":"左","栗橋茂":"右","新井宏昌":"中","ローズ(T)":"中","礒部公一":"左",
+  "大村直之":"中","谷沢健一":"左","大島康徳":"左","平野謙":"右","彦野利勝":"右","井上一樹":"左","英智":"中","岡林勇希":"右","細川成也":"左",
+  "角中勝也":"左","岡田幸文":"中","清田育宏":"右","サブロー":"右","愛甲猛":"左","髙部瑛斗":"中","山口航輝":"右","藤原恭大":"中",
+  "上林誠知":"右","長谷川勇也":"左","周東佑京":"中","栗原陵矢":"左","柳町達":"左","牧原大成":"中","広瀬叔功":"中","ブライアント":"左",
+  "レロン・リー":"左","ラミレス":"左","中田翔":"左","与那嶺要":"中","小鶴誠":"左","青田昇":"中","別当薫":"右","呉昌征":"中","毒島章一":"中",
+  "高倉照幸":"中","白仁天":"中","大熊忠義":"左","中利夫":"中","高沢秀昭":"右","平野光泰":"中","大田卓司":"左","西村徳文":"中","平井光親":"右",
+  "松本剛":"中","パチョレック":"左","エルドレッド":"左","グラシアル":"左","ポランコ":"右","サンタナ":"右","ウォーカー":"右","浅野翔吾":"中",
+  "鈴木尚広":"中","松原聖弥":"中","佐野仙好":"右","亀山努":"中","濱中治":"右","高山俊":"左","髙山俊":"左","中谷将大":"左","前川右京":"左",
+  "森徹":"左","関川浩一":"左","杉浦享":"左","ホージー":"右","福地寿樹":"左","ミレッジ":"左","濱田太貴":"左","嶋重宣":"右","松山竜平":"左",
+  "末包昇大":"左","木村拓也":"中","長嶋清幸":"中","ライトル":"中","シェーン":"中","加藤博一":"中","高木由一":"右","長崎慶一":"右","ブラッグス":"右",
+  "吉村裕基":"右","蝦名達夫":"中","度会隆輝":"右","オースティン":"右","大道典嘉":"左","岸川勝也":"右","明石健志":"中","G.G.佐藤":"左",
+  "赤田将吾":"中","スパンジェンバーグ":"左","金子侑司":"中","弘田澄男":"中","得津高宏":"左","大松尚逸":"左","レオネス・マーティン":"中",
+  "島田誠":"中","坪井智哉":"左","五十幡亮汰":"中","本西厚博":"中","福田周平":"中","鈴木貴久":"右","小郷裕哉":"右","田中和基":"中",
+  "ペゲーロ":"右","平野恵一":"右","荒木貴裕":"左","荒波翔":"中","赤松真人":"中","マティ・アルー":"左","レジー・スミス":"右","ロイ・ホワイト":"左",
+  "ターメル・スレッジ":"左","メル・ホール":"左","バーニー・ウイリアムス":"中","岡大海":"中","西川史礁":"右",
+  "ベーブ・ルース":"右","テッド・ウィリアムズ":"左","ジョー・ディマジオ":"中","ウィリー・メイズ":"中","ハンク・アーロン":"右","ミッキー・マントル":"中",
+  "タイ・カッブ":"中","トリス・スピーカー":"中","スタン・ミュージアル":"左","ロベルト・クレメンテ":"右","フランク・ロビンソン":"右","デューク・スナイダー":"中",
+  "アル・ケーライン":"右","カール・ヤストレムスキー":"左","レジー・ジャクソン":"右","デーブ・ウィンフィールド":"右","リッキー・ヘンダーソン":"左","トニー・グウィン":"右",
+  "カービー・パケット":"中","ケン・グリフィーJr.":"中","バリー・ボンズ":"左","サミー・ソーサ":"右","ウラジーミル・ゲレーロ":"右","イチロー(MLB)":"右",
+  "マニー・ラミレス":"左","アンドリュー・ジョーンズ":"中","ジム・エドモンズ":"中","トリイ・ハンター":"中","トリー・ハンター":"中","カルロス・ベルトラン":"中",
+  "マイク・トラウト":"中","ブライス・ハーパー":"右","ムーキー・ベッツ":"右","アーロン・ジャッジ":"右","フアン・ソト":"右","ロナルド・アクーニャJr.":"右",
+  "クリスチャン・イェリッチ":"左","クリスチャン・イエリッチ":"左","クリスチャン・イエリチ":"左","コーディ・ベリンジャー":"中","コディ・ベリンジャー":"中",
+  "ジョージ・スプリンガー":"中","アンドリュー・マカッチェン":"中","ジャンカルロ・スタントン":"右","ヤシエル・プイグ":"右","カイル・タッカー":"右",
+  "ルー・ブロック":"左","ティム・レインズ":"左","ビンス・コールマン":"左","ケニー・ロフトン":"中","バーニー・ウィリアムズ":"中","ホセ・カンセコ":"右",
+  "ラリー・ウォーカー":"右","ゲイリー・シェフィールド":"右","松井秀喜(MLB)":"左","福留孝介(MLB)":"右","鈴木誠也(MLB)":"右","青木宣親(MLB)":"右","吉田正尚(MLB)":"左",
+  "ウィリー・スタージェル":"左","ビリー・ウィリアムズ":"左","ポール・ウェーナー":"右","メル・オット":"右","アル・シモンズ":"左","ジョー・ジャクソン":"左",
+  "トニー・オリバ":"右","フランク・ハワード":"左","ジム・ライス":"左","フレッド・リン":"中","ドワイト・エバンス":"右","デール・マーフィー":"中",
+  "アンドレ・ドーソン":"右","ダリル・ストロベリー":"右","カーク・ギブソン":"右","エリック・デービス":"中","ポール・オニール":"右","ボビー・アブレイユ":"右",
+  "マグリオ・オルドニェス":"右","マット・ホリデイ":"左","ライアン・ブラウン":"左","ジェイソン・ヘイワード":"右","ヨエニス・セスペデス":"左",
+  "ヨルダン・アルバレス":"左","フリオ・ロドリゲス":"中","コービン・キャロル":"右","マイケル・ハリス2世":"中","ジャレン・デュラン":"左",
+  "ランディ・アロザレーナ":"左","ランディ・アロサレーナ":"左","アドリス・ガルシア":"右","ジャクソン・メリル":"中","ジャクソン・チョウリオ":"右",
+  "バイロン・バクストン":"中","セドリック・マリンズ":"中","ルイス・ロベルトJr.":"中","スティーブン・クワン":"左","ライリー・グリーン":"左",
+  "テオスカー・ヘルナンデス":"右","ニック・カステヤノス":"右","カイル・シュワーバー":"左","ブランドン・ニモ":"左","スターリング・マルテ":"右",
+  "ロレンゾ・ケイン":"中","アダム・ジョーンズ":"中","カーティス・グランダーソン":"中","グレイディ・サイズモア":"中","カルロス・ゴンザレス":"右",
+  "ジャスティン・アップトン":"左","ホセ・バティスタ":"右","ネルソン・クルーズ":"右","ハンター・ペンス":"右","秋信守":"右","ジェイ・ブルース":"右",
+  "アダム・ダン":"左","カール・クロフォード":"左","ジョニー・デイモン":"中","バーノン・ウェルズ":"中","アルフォンソ・ソリアーノ":"左","ラウル・イバニェス":"左",
+  "ボビー・ボンズ":"右","デーブ・パーカー":"右","ボビー・マーサー":"中","ジョージ・フォスター":"左","ケビン・ミッチェル":"左","マーキス・グリッソム":"中",
+  "デボン・ホワイト":"中","スティーブ・フィンリー":"中","モイセス・アルー":"左","モイゼス・アルー":"左","フアン・ゴンザレス":"右","アルバート・ベル":"左",
+  "ショーン・グリーン":"右","ブライアン・ジャイルズ":"右","カルロス・リー":"左","ハック・ウィルソン":"中","チャック・クライン":"右","ジョー・メドウィック":"左",
+  "ラルフ・カイナー":"左","リッチー・アシュバーン":"中","モンテ・アービン":"左","ラリー・ドビー":"中","エノス・スローター":"右","ミニー・ミノーソ":"左",
+  "トミー・デービス":"左","ロジャー・マリス":"右","リコ・カーティ":"左","デビッド・ジャスティス":"右","ジョージ・ベル":"左","ウィリー・マギー":"中",
+  "ダンテ・ビシェット":"左","ルーベン・シエラ":"右","グレッグ・ボーン":"左","ピート・ローズ":"左","ジョシュ・ハミルトン":"中","ベン・ゾブリスト":"右",
+  "クリス・ブライアント":"左","ジャコビー・エルズベリー":"中","マイケル・ブラントリー":"左","マット・ケンプ":"中","アンドレ・イーシアー":"右","ジェイソン・ワース":"右",
+  "アレックス・ゴードン":"左","チャーリー・ブラックモン":"右","トミー・エドマン":"中","アンドリュー・ベニンテンディ":"左","マーセル・オズナ":"左",
+  "ミッチ・ハニガー":"右","ジョク・ピーダーソン":"左","ボビー・ボニーヤ":"右","ロン・ガント":"左","ジョー・カーター":"右","ジェームズ・ウッド":"左",
+  "ジョーイ・ギャロ":"右","カルロス・ゴメス":"中","ルイス・ゴンザレス":"左","ジャッキー・ブラッドリーJr.":"中","クリス・ヤング":"中","ダリン・アースタッド":"中",
+  "ギャレット・アンダーソン":"左","アンソニー・サンタンダー":"右","エロイ・ヒメネス":"左","J.D.マルティネス":"右","ホルヘ・ソレア":"右","メルキー・カブレラ":"左",
+  "J.D.ドリュー":"右","ジェシー・ウィンカー":"左","マイク・キャメロン":"中","ニック・スウィッシャー":"右","コーリー・ディッカーソン":"左","ヤシエル・プイグ":"右",
+  "シェーン・ビクトリーノ":"中","デクスター・ファウラー":"中","マイケル・ボーン":"中","A.J.ポロック":"中","ニック・マーケイキス":"右","ブレント・ルッカー":"左",
+  "ピート・クロウ＝アームストロング":"中","エンダー・インシアーテ":"中","レイ・ランクフォード":"中","アレックス・リオス":"右","ジェシー・バーフィールド":"右",
+  "ウィリー・デービス":"中","マイケル・コンフォルト":"右","スコット・ポドセドニック":"左","ラウル・モンデシー":"右",
+};
 function ovrFor(p, grp){
   if((grp==="SP"||grp==="RP"||grp==="CL") && p.twoWay) return p.pitOvr;
   return p.ovr;
@@ -284,7 +408,10 @@ function ovrFor(p, grp){
 function roleLabel(p){
   if(p.cat==="M") return "監督";
   if(p.cat==="P") return p.role==="SP"?"先発":p.role==="RP"?"中継":"抑え";
-  return p.pos + (p.twoWay ? "/投" : "");
+  const main = posMain(p);
+  const subs = [...(p.pos || "")].filter(c => c !== "外" && c !== main && c !== "指").join("") +
+    ("左中右".includes(main) ? "" : ((p.pos || "").includes("外") ? ofMain(p) : ""));
+  return main + (subs ? "(" + subs + ")" : "") + (p.twoWay ? "/投" : "");
 }
 
 // ---------- 状態 ----------
@@ -1191,7 +1318,8 @@ function gachaBestStarters(t, pulls){
   const used = new Set(), place = {};          // 枠 → 引いた札(同じ選手が二枚あっても札は別)
   lineKeys.forEach(k => {
     const d = SLOT_DEFS.find(z => z.key === k);
-    const cands = ps.filter(x => !used.has(x) && !x.p.twoWay && eligibleGrp(x.p, d.grp)).sort((a, b) => (b.p.ovr - a.p.ovr) || ((b.p.danger?0:1) - (a.p.danger?0:1)));
+    const sc = x => x.p.ovr + (aptAt(x.p, k) - 3) * 4;   // 本職を優先。能力差が大きければそちら
+    const cands = ps.filter(x => !used.has(x) && !x.p.twoWay && eligibleGrp(x.p, d.grp)).sort((a, b) => (sc(b) - sc(a)) || ((b.p.danger?0:1) - (a.p.danger?0:1)));
     if(cands.length){ place[k] = cands[0]; used.add(cands[0]); }
   });
   const rest = ps.filter(x => !used.has(x)).sort((a, b) => b.p.ovr - a.p.ovr);
@@ -1760,7 +1888,8 @@ function assign(t,p){
     t.slots[SP_KEYS.find(k=>!t.slots[k])] = p;
     return;
   }
-  const d = openSlots(t).find(d=>eligibleGrp(p,d.grp));
+  const ds = openSlots(t).filter(d=>eligibleGrp(p,d.grp));
+  const d = ds.slice().sort((a, b) => aptAt(p, b.key) - aptAt(p, a.key))[0];
   if(d) t.slots[d.key] = p;
 }
 function validPool(t, respectFr=true){
@@ -2224,7 +2353,8 @@ function openModal(id){
     '<span class="tag">' + p.decade + '</span>' +
     (p.mlb ? '<span class="tag">MLB</span>' : '<span class="tag">系譜：' + esc(p.fr) + '</span>') +
     (p.tc ? '<span class="tag hot">三冠王</span>' : "") +
-    (p.titles ? '<span class="tag">主要タイトル ' + p.titles + '回</span>' : "");
+    (p.titles ? '<span class="tag">主要タイトル ' + p.titles + '回</span>' : "") +
+    (p.cat === "B" ? '<div class="m-apt">守備適性 ' + posListHtml(p) + '</div>' : "");
 
   let extra = "";
   if(p.cat === "M"){
@@ -2881,7 +3011,7 @@ function startSeason(){
   state.playing = false; state.timer = null; state.finished = false;
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
-  state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; t.haisui = null; });
+  state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.haisui = null; });
   state.sponsor = null; state.sponsorResult = null;
   awardYaku();   // 開幕オーダーの役
   state.parts.forEach(t => { if(mascotAb(t, "luck") && !t.cpu) t.saihai = (t.saihai||0) + 2; t.crowdMark = 0; });   // 幸運: 采配権+2
@@ -3824,12 +3954,7 @@ function showWeekReport(snap){
     const prev = snap.rank[t.name] || (i + 1), mv = prev - (i + 1);
     const r0 = snap.rec[t.name] || {W:t.W, L:t.L, h2h:{}};
     const w = t.W - r0.W, l = t.L - r0.L;
-    let riv = "";
-    if(t.rival){
-      const a = (t.h2h || {})[t.rival.name] || {w:0,l:0}, b = (r0.h2h || {})[t.rival.name] || {w:0,l:0};
-      const dw = a.w - b.w, dl = a.l - b.l;
-      if(dw + dl > 0) riv = '<span class="wk-riv">宿敵戦 ' + dw + '勝' + dl + '敗</span>';
-    }
+    const riv = "";
     return '<div class="wk-row' + (i === 0 ? " top" : "") + (t.cpu ? "" : " human") + '"><span class="wk-rk">' + (i+1) + '</span>' +
       '<span class="wk-mv ' + (mv > 0 ? "up" : mv < 0 ? "down" : "") + '">' + (mv > 0 ? "▲" + mv : mv < 0 ? "▼" + (-mv) : "―") + '</span>' +
       teamEmblem(t, 16) + '<span class="wk-nm">' + esc(t.name) + '</span>' +
@@ -3909,11 +4034,6 @@ function finishSeason(){
   const s = standingsSorted();
   const RANK_PTS = [10, 6, 4, 2, 2, 2];
   s.forEach(function(t, i){ addPts(t, RANK_PTS[i] || 1, (i+1) + "位"); });
-  state.parts.forEach(function(t){
-    if(!t.rival) return;
-    const r = (t.h2h || {})[t.rival.name] || {w:0, l:0};
-    if(r.w > r.l) addPts(t, 3, "宿敵" + t.rival.name + "に勝ち越し " + r.w + "勝" + r.l + "敗");
-  });
   // 推しがタイトルを獲れば+3
   try{
     computeTitles().forEach(function(x){
@@ -4089,7 +4209,7 @@ function paProbs(bat, pit, park){
   // 安打: 打率は「打数あたり」なので、四死球を除いた打数の割合を掛けて打席あたりに直す
   const abShare = 1 - bb - 0.008;
   const avg = clamp(PA_TUNE.avg + (bat.avg - 0.300) * 0.45 + edge * 0.6 + (runF - 1) * 0.08, 0.170, 0.360);
-  let hit = avg * abShare - hr;                // 本塁打ぶんを差し引いた単打・長打
+  let hit = avg * abShare - hr + (park && park.def ? park.def : 0);   // 本塁打ぶんを差し引いた単打・長打。守備の穴があれば増える
   if(hit < 0.04) hit = 0.04;
 
   const rest = 1 - bb - so - hr - hit;
@@ -4237,7 +4357,8 @@ function gameLineup(t){
   const order = [], keys = [];
   const take = key => {
     if(!bench.length) return null;
-    let i = bench.findIndex(p => benchFits(p, key));
+    let i = -1, best = -1;
+    bench.forEach((p, j) => { if(benchFits(p, key)){ const a = aptAt(p, key); if(a > best){ best = a; i = j; } } });
     if(i < 0) i = 0;
     return bench.splice(i, 1)[0];
   };
@@ -4314,6 +4435,10 @@ function rollGame(A, B, keep){
   const LA = gameLineup(A), LB = gameLineup(B);
   const oa = LA.order, ob = LB.order;
   if(!oa.length || !ob.length) return {rA:0, rB:0};
+  // 本職以外を守らせている分だけ相手の安打が増える(○=小さく、△=はっきり)
+  const defPen = L => L.order.reduce((s, p, i) => { const k = L.keys[i]; if(slotGrpOf(k) === "DH") return s; const a = aptAt(p, k); return s + (a >= 3 ? 0 : a === 2 ? 1 : a === 1 ? 3 : 5); }, 0);
+  const parkA = Object.assign({}, park || {}, {def: defPen(LB) * 0.001});   // Aの攻撃はBが守る
+  const parkB = Object.assign({}, park || {}, {def: defPen(LA) * 0.001});
   // keep が真のときだけ成績を積む(試算・采配の下見では積まない)
   const seen = keep ? {bat:new Set(), pit:new Set()} : null;
   const recA = keep ? makeRecorder(A, B, seen.bat, seen.pit) : null;   // Aの攻撃
@@ -4337,7 +4462,7 @@ function rollGame(A, B, keep){
     const sub = top ? subA : subB, dsub = top ? subB : subA;
     dsub.inn = inn; dsub.lead = -lead0; subDefense(dsub, top ? ob : oa);
     sub.inn = inn; sub.lead = -lead0;
-    const r = playHalf(top ? oa : ob, top ? ia : ib, p, park, top ? recA : recB, bat, sub);
+    const r = playHalf(top ? oa : ob, top ? ia : ib, p, top ? parkA : parkB, top ? recA : recB, bat, sub);
     if(top){ rA += r.runs; ia = r.idx; lastB = p; } else { rB += r.runs; ib = r.idx; lastA = p; }
     const lead1 = lead0 - r.runs;
     if(lead0 >= 0 && lead1 < 0){ dec.wp = top ? lastA : lastB; dec.lp = p; }          // 攻撃側が勝ち越した
@@ -5525,7 +5650,7 @@ function odTile(t, key, label, no, cls){
   const grp = slotGrp(key);
   const ovr = p ? ovrFor(p, grp) : 0;
   return '<button type="button" class="od-tile' + (p ? " r-" + r : " empty") + (cls ? " " + cls : "") + '" data-key="' + key + '" onclick="odPickOpen(&quot;' + key + '&quot;)">' +
-    '<span class="od-tile-pos">' + esc(label) + (no ? '<i>' + no + '</i>' : '') + '</span>' +
+    '<span class="od-tile-pos">' + esc(label) + (p && grp !== "DH" && grp !== "BN" && slotPos(key) && p.cat === "B" ? aptHtml(aptAt(p, key)) : '') + (no ? '<i>' + no + '</i>' : '') + '</span>' +
     '<span class="od-tile-ph">' + (p ? faceThumb(p, 52, 60) : '<span class="f-th f-none"></span>') + (p ? '<span class="od-tile-rk">' + rankIcon(p, 16) + '</span>' : '') + '</span>' +
     '<span class="od-tile-nm">' + (p ? esc(p.name) : "空き") + '</span>' + (p && typeof nameTags === "function" ? '<span class="od-tile-tg">' + nameTags(p) + '</span>' : '') +
     '<span class="od-tile-lv">' + (p ? 'OVR ' + ovr : '') + '</span>' +
@@ -5597,7 +5722,7 @@ function odPickOpen(key){
     return '<div class="od-pk-s">' + title + '</div>' + rows.map(x =>
       '<button class="od-pk-r" onclick="odSwap(&quot;' + key + '&quot;,&quot;' + x.key + '&quot;)">' +
         (x.p ? faceThumb(x.p) : '') +
-        '<span class="od-pos">' + x.label + '</span>' +
+        '<span class="od-pos">' + x.label + (p.cat === "B" && slotPos(x.key) && x.grp !== "DH" && x.grp !== "BN" ? aptHtml(aptAt(p, x.key)) : '') + '</span>' +
         (x.p ? '<span class="od-name">' + esc(x.p.name) + (typeof nameTags === "function" ? nameTags(x.p) : "") + rankIcon(x.p, 15) + '</span><span class="od-st">' + orderStat(x.p) + '</span>'
              : '<span class="od-name od-empty">空き枠へ移す</span>') +
       '</button>').join("");
@@ -5878,7 +6003,7 @@ function gmNext(){
   if(c.idx >= c.queue.length){ state.sponsorResult = null; endEventPhase(); return; }
   const t = c.queue[c.idx];
   c.cards = GM_POLICIES.filter(p => !p.need || p.need(t)).sort(()=>rnd()-.5).slice(0, 3);
-  c.pick = null; c.pred = null; c.rival = null; c.oshi = null;   // 前の球団の選択を持ち越さない(他球団の選手が推しになる事故防止)
+  c.pick = null; c.pred = null; c.oshi = null;   // 前の球団の選択を持ち越さない(他球団の選手が推しになる事故防止)
   gmResolve(t);
   $("event-bg").classList.remove("show");
   curtain(t.name + " の番 ── GMの決断",
@@ -5928,19 +6053,21 @@ function gmRender(){
     return '<div class="gm-sec"><div class="gm-h">推し選手を宣言<small>この選手の活躍が自分の得点になる。一人だけ、変えられません</small></div><div class="gm-teams gm-oshi-list">' +
       cands.map(function(p){ return '<button type="button" class="gm-team' + (c.oshi === p ? " on" : "") + '" onclick="gmOshi(&quot;' + String(p.id).replace(/"/g,'') + '&quot;)">' + faceThumb(p, 20, 26) + '<b>' + esc(p.name) + '</b></button>'; }).join("") + '</div></div>';
   })();
+  const orderHtml = '<div class="gm-sec"><div class="gm-h">打順・守備・ローテ<small>先月の結果を見て組み直せます</small></div>' +
+    '<button type="button" class="btn ghost sm gm-order" onclick="gmOrder()">打順を組み直す</button></div>';
   const rivalHtml = t.rival
     ? (function(){ const r = (t.h2h||{})[t.rival.name] || {w:0,l:0}; return '<div class="gm-rival"><span class="gm-lb">宿敵</span>' + teamEmblem(t.rival, 18) + '<b>' + esc(t.rival.name) + '</b><span class="gm-h2h">直接対決 <i>' + r.w + '</i>勝<i>' + r.l + '</i>敗</span><small>勝ち越して終えれば+3点</small></div>'; })()
     : '<div class="gm-sec"><div class="gm-h">宿敵を選ぶ<small>今季の直接対決を勝ち越せば+3点。相手は変えられません</small></div><div class="gm-teams">' +
       others.map(x => '<button type="button" class="gm-team' + (c.rival === x ? " on" : "") + '" onclick="gmRival(' + state.parts.indexOf(x) + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b>' + (x.cpu ? '<small>CPU</small>' : '') + '</button>').join("") + '</div></div>';
   const cards = c.cards.map((p, i) => '<button type="button" class="gm-card' + (c.pick === i ? " on" : "") + '" onclick="gmPick(' + i + ')"><b>' + esc(p.label) + '</b><span>' + esc(p.eff) + '</span></button>').join("");
   const preds = state.parts.map((x, i) => '<button type="button" class="gm-team' + (c.pred === i ? " on" : "") + '" onclick="gmPred(' + i + ')">' + teamEmblem(x, 18) + '<b>' + esc(x.name) + '</b><small>' + (s.indexOf(x)+1) + '位</small></button>').join("");
-  const ready = c.pick !== null && (state.opts.points === false || ((t.rival || c.rival) && (t.oshi || c.oshi)));
+  const ready = c.pick !== null && (state.opts.points === false || (t.oshi || c.oshi));
   $("event-panel").innerHTML =
     '<div class="gm-wrap">' +
     '<h2><span class="kicker">' + (MONTH_LABEL[c.no] || "") + '末</span>GMの決断</h2>' +
     '<div class="gm-team-line">' + teamEmblem(t, 22) + '<b>' + esc(t.name) + '</b><span>' + rank + '位　' + t.W + '勝' + t.L + '敗' + (stk ? '　' + (stk > 0 ? stk + '連勝中' : (-stk) + '連敗中') : '') + '</span><span class="gm-pts">総合 <i>' + (t.pts||0) + '</i>点</span></div>' +
     gmMonthReport(t, c) +
-    (state.opts.points === false ? '' : oshiHtml + rivalHtml) +
+    (state.opts.points === false ? '' : oshiHtml) + orderHtml +
     '<div class="gm-sec"><div class="gm-h">今月の施策<small>一つだけ。必ず得と損が抱き合わせ</small></div><div class="gm-cards">' + cards + '</div></div>' +
 
     '<div class="gm-foot"><span>' + (c.idx+1) + ' / ' + c.queue.length + '球団</span><button class="btn rl-go" ' + (ready ? '' : 'disabled') + ' onclick="gmCommit()">決定</button></div>' +
@@ -5959,13 +6086,12 @@ function gmMonthReport(t, c){
 }
 function gmPick(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pick = i; seTap(); gmRender(); }
 function gmPred(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.pred = i; seTap(); gmRender(); }
-function gmRival(i){ const c = state.eventCtx; if(!c || c.type !== "gm") return; c.rival = state.parts[i]; seTap(); gmRender(); }
+function gmOrder(){ const c = state.eventCtx; if(!c || c.type !== "gm") return; const t = c.queue[c.idx]; seTap(); openOrder(state.parts.indexOf(t)); }
 function gmOshi(id){ const c = state.eventCtx; if(!c || c.type !== "gm") return; const t = c.queue[c.idx]; c.oshi = lineupOf(t).concat(pitchersOf(t)).find(function(p){ return String(p.id) === String(id); }) || null; seTap(); gmRender(); }
 function gmCommit(){
   const c = state.eventCtx;
   if(!c || c.type !== "gm" || c.pick === null) return;
   const t = c.queue[c.idx];
-  if(!t.rival && c.rival) t.rival = c.rival;
   if(!t.oshi && c.oshi) t.oshi = c.oshi;
   const card = c.cards[c.pick];
   const msg = card.run(t) || "";
@@ -6773,6 +6899,7 @@ function mkEntry(p){
     (own ? '<div class="mk-own">' + teamEmblem(own, 15) + esc(own.name) + 'が指名済み</div>' : '') +
     '<div class="mk-m">' +
       '<span><b>' + roleLabel(p) + '</b></span>' +
+      (p.cat === "B" ? '<span class="mk-apt-w">守備適性 ' + posListHtml(p) + '</span>' : '') +
       (p.cat === "M" ? '' : '<span>' + p.th + '投' + p.bh + '打</span>') +
       '<span>' + esc(p.team) + '</span>' +
       '<span>' + p.year + '年</span>' +

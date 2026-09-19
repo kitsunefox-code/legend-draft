@@ -202,7 +202,7 @@ function ldTodayCard(){
   const pool = (typeof PLAYERS !== 'undefined' ? PLAYERS : []).concat(typeof MLB_STARS !== 'undefined' ? MLB_STARS : []).filter(p => p.cat !== 'M' && p.ph !== undefined && p.ovr >= 86);
   if(!pool.length) return;
   const p = pool[Math.floor(Math.random() * pool.length)];
-  const pos = p.cat === 'P' ? (p.role || '投') : (String(p.pos || '').slice(0, 1) || '野');
+  const pos = p.cat === 'P' ? (p.role || '投') : ((typeof posMain === 'function' ? posMain(p) : String(p.pos || '').slice(0, 1)) || '野');
   const fig = document.createElement('figure');
   fig.className = 'bk-today';
   fig.innerHTML = '<div class="bk-today-card">' + cardHtml(p, prank(p), {size:'s', pos, onclick:'ldTodayCard.reroll()'}) + '</div>' +

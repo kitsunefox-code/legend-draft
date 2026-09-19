@@ -492,12 +492,57 @@ function foldPanel(el){
 }
 // 畳んだ見出しに要点を出す。開かずとも今の設定が分かるように
 function foldSummary(){
-  const ev = $("ev-cnt");
-  if(ev){
-    const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-review","opt-cpu"];
-    const n = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
-    ev.textContent = n + "件";
+  const ids = ["opt-trade","opt-mlb","opt-park","opt-injury","opt-saihai","opt-party","opt-points","opt-review","opt-cpu"];
+  const nEv = ids.filter(function(id){ const e = $(id); return e && e.checked; }).length;
+  const ev = $("ev-cnt"); if(ev) ev.textContent = nEv + "件";
+  const nPl = $("p-list") ? $("p-list").children.length : 0;
+  const pc = $("pl-cnt"); if(pc) pc.textContent = nPl + "人";
+  const gacha = $("opt-gacha") && $("opt-gacha").checked;
+  const eras = $("era-chips") ? [...$("era-chips").children].filter(c => c.classList.contains("on") && c.dataset.era) : [];
+  const eraTxt = !eras.length ? "全年代" : eras.length <= 2 ? eras.map(c => c.dataset.era).join("・") : eras.length + "つの年代";
+  const rankSel = $("opt-rank"), rankTxt = rankSel && rankSel.value ? (SEG_LABELS["opt-rank"][rankSel.selectedIndex] || "能力縛り") : "";
+  const budSel = $("opt-budget"), budTxt = (!gacha && budSel) ? "コスト" + budSel.value : "";
+  const sb = $("sb-cnt");
+  if(sb){ const parts = [eraTxt, rankTxt, budTxt].filter(Boolean); sb.textContent = (!eras.length && !rankTxt && (gacha || budSel.value === "140")) ? "なし" : parts.join("・"); }
+  const sum = $("sg-sum");
+  if(sum){
+    const pool = {npb:"日本のみ", mix:"日米ごちゃ混ぜ", mlb:"メジャーのみ"}[poolKey()] || "";
+    const total = 1 + 9 + (gacha ? 6 + 6 + 4 : optNum("opt-bn", 3) + optNum("opt-sp", 4) + optNum("opt-rp", 3)) + 1;
+    sum.innerHTML = [nPl + "人", gacha ? "ガチャ" : "ドラフト", pool, eraTxt, "イベント" + nEv + "件", "全" + total + "枠"]
+      .map(function(x, i){ return '<span class="' + (i === 1 ? "k" : "") + '">' + esc(x) + '</span>'; }).join("");
   }
+}
+// select をタップしやすい段(セグメント)に置き換える。中身は select に持たせたまま同期する
+const SEG_LABELS = {
+  "opt-rank": ["縛りなし", "SS級禁止", "A以下", "B以下"],
+  "opt-budget": ["ゆったり 160", "標準 140", "シビア 120"],
+};
+function buildSeg(id){
+  const sel = $(id); if(!sel || sel.dataset.seg) return;
+  sel.dataset.seg = "1"; sel.classList.add("seg-src");
+  const box = document.createElement("div"); box.className = "seg"; box.dataset.for = id;
+  sel.parentNode.insertBefore(box, sel.nextSibling);
+  renderSeg(id);
+}
+function renderSeg(id){
+  const sel = $(id), box = document.querySelector('.seg[data-for="' + id + '"]'); if(!sel || !box) return;
+  const labels = SEG_LABELS[id];
+  box.innerHTML = [...sel.options].map(function(o, i){
+    return '<button type="button" class="seg-b' + (o.selected ? " on" : "") + '" onclick="segPick(&quot;' + id + '&quot;,' + i + ')">' + esc(labels ? labels[i] : o.textContent) + '</button>';
+  }).join("");
+}
+function segPick(id, i){
+  const sel = $(id); if(!sel) return;
+  sel.selectedIndex = i;
+  sel.dispatchEvent(new Event("change"));
+  renderSeg(id); foldSummary(); seTap();
+}
+// 年代チップ: 「全年代」は他を全部外す。何も選んでいない=全年代
+function eraSync(){
+  const box = $("era-chips"); if(!box) return;
+  const any = [...box.children].some(c => c.dataset.era && c.classList.contains("on"));
+  const all = box.querySelector(".chip.all"); if(all) all.classList.toggle("on", !any);
+  foldSummary();
 }
 // 球団の作り方(ルール)。ドラフト会議かガチャか。中身は隠した opt-gacha に持たせる
 function setMode(m){
@@ -509,6 +554,8 @@ function setMode(m){
   if(pp && pp.dataset.touched !== "1") setPool(m === "gacha" ? "mix" : "npb", true);
   const rb = $("row-budget");
   if(rb) rb.hidden = (m === "gacha");
+  const pr = $("panel-roster");                       // ガチャは27人固定なので編成の枠数は出さない
+  if(pr) pr.hidden = (m === "gacha");
   foldSummary();
   if(typeof ldSyncSetup === "function") ldSyncSetup();
   seTap();
@@ -537,15 +584,21 @@ function goSetup(){
   foldSummary();
   if(!$("p-list").children.length){ addPlayer(); addPlayer(); addPlayer(); }
   if(!$("era-chips").children.length){
+    const all = document.createElement("span");
+    all.className = "chip all on"; all.textContent = "全年代";
+    all.onclick = () => { [...$("era-chips").children].forEach(c => { if(c.dataset.era) c.classList.remove("on"); }); eraSync(); seTap(); };
+    $("era-chips").appendChild(all);
     const decades = [...new Set(POOL.map(p=>p.decade))].sort();
     decades.forEach(d=>{
       const c = document.createElement("span");
       c.className="chip"; c.textContent=d;
-      c.onclick=()=>{ c.classList.toggle("on"); };
+      c.onclick=()=>{ c.classList.toggle("on"); eraSync(); seTap(); };
       c.dataset.era=d;
       $("era-chips").appendChild(c);
     });
   }
+  ["opt-rank","opt-budget","opt-sp","opt-rp","opt-bn"].forEach(buildSeg);
+  foldSummary();
 }
 function optNum(id, dflt){ const e = $(id); return e ? (Number(e.value) || dflt) : dflt; }
 // 設定画面の見取り図。選んだ枚数をそのまま並べて見せる
@@ -588,6 +641,7 @@ function addPlayer(){
     <select><option value="">縛りなし</option>${FRANCHISES.map(f=>`<option>${f}</option>`).join("")}</select>
     <button class="btn ghost sm" onclick="this.parentNode.remove();renumber()">✕</button>`;
   list.appendChild(row);
+  foldSummary();
 }
 // まだ誰も使っていないアイコン番号を返す
 function freeEmblem(){
@@ -627,6 +681,7 @@ function renumber(){
   [...$("p-list").children].forEach((row,i)=>{
     const idx = row.querySelector(".idx"); idx.textContent=i+1; idx.style.background=COLORS[i];
   });
+  foldSummary();
 }
 
 // ============================================================
@@ -679,7 +734,7 @@ function startDraft(){
     row.querySelector("input").value.trim() || `参加者${i+1}`,
     row.querySelector("select").value, false, COLORS[i],
     row.dataset.em !== undefined ? Number(row.dataset.em) : undefined));
-  state.eras = new Set([...$("era-chips").children].filter(c=>c.classList.contains("on")).map(c=>c.dataset.era));
+  state.eras = new Set([...$("era-chips").children].filter(c=>c.classList.contains("on") && c.dataset.era).map(c=>c.dataset.era));   // 「全年代」の札は年代を持たない
   state.opts.trade = $("opt-trade").checked;
   state.opts.mlb = $("opt-mlb").checked && MLB_STARS.length > 0 && !state.opts.mlbOnly;
   if(state.opts.mlbOnly) state.parts.forEach(function(x){ x.fr = ""; });   // 系譜は日本の球団の話

@@ -4625,7 +4625,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 .setup-go .btn.lg,.gc-foot .btn.lg,.pl-foot .btn.lg,.pk-foot .btn.lg{border-radius:14px;}
 
 </style>
-<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"><link rel="stylesheet" href="compact.css?v=4"><link rel="stylesheet" href="extras.css?v=17"><link rel="stylesheet" href="ceremony.css?v=7"><link rel="stylesheet" href="cards2.css?v=7"><link rel="stylesheet" href="fit.css?v=38"><link rel="stylesheet" href="review.css?v=6"><link rel="stylesheet" href="intro.css?v=3">
+<link rel="stylesheet" href="premium.css?v=6"><link rel="stylesheet" href="pull.css?v=8"><link rel="stylesheet" href="cards.css?v=9"><link rel="stylesheet" href="ss-story.css?v=10"><link rel="stylesheet" href="capsules.css?v=10"><link rel="stylesheet" href="club-ceremony.css?v=11"><link rel="stylesheet" href="tap-first.css?v=12"><link rel="stylesheet" href="reveal-finale.css?v=14"><link rel="stylesheet" href="capsule-reveal.css?v=13"><link rel="stylesheet" href="compact.css?v=4"><link rel="stylesheet" href="extras.css?v=17"><link rel="stylesheet" href="ceremony.css?v=7"><link rel="stylesheet" href="cards2.css?v=7"><link rel="stylesheet" href="fit.css?v=39"><link rel="stylesheet" href="review.css?v=6"><link rel="stylesheet" href="intro.css?v=3">
 </head>
 <body>
 <div class="wrap">
@@ -4684,7 +4684,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 
   <div id="setup-body">
   <div class="panel setup-main">
-    <b>参加者<span class="pn-cnt">2〜6人</span></b>
+    <b>参加者<span class="pn-cnt" id="pl-cnt">3人</span></b>
     <div class="sub" style="margin:4px 0 10px;">名前を入れて、球団のエンブレムを選びます。「球団縛り」を付けると、その人はその球団（前身球団を含む）の選手しか指名できません。</div>
     <div id="p-list"></div>
     <button class="btn ghost sm" onclick="addPlayer()">＋ 参加者を追加</button>
@@ -4716,7 +4716,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
   </div>
 
   <div class="panel fold">
-    <b onclick="foldPanel(this)">縛り<span class="pn-cnt">なくても遊べます</span><i class="fd-a">＋</i></b>
+    <b onclick="foldPanel(this)">縛り<span class="pn-cnt" id="sb-cnt">なし</span><i class="fd-a">＋</i></b>
     <div class="sub" style="margin:4px 0 12px;">きつくするほど渋い戦いになります。迷ったらそのままで。</div>
 
     <div class="st-row">
@@ -4811,7 +4811,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
     </div>
   </div>
 
-  <div class="panel fold">
+  <div class="panel fold" id="panel-roster">
     <b onclick="foldPanel(this)">編成<span class="pn-cnt" id="rm-total">全21枠</span><i class="fd-a">＋</i></b>
     <div class="sub" style="margin:4px 0 12px;">枚数を変えると、指名の順番も戦い方も変わります。迷ったらそのままで。</div>
 
@@ -4847,6 +4847,7 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 
   </div>
   <div class="setup-go">
+    <div class="sg-sum" id="sg-sum"></div>
     <div class="sg-note">準備ができたら、監督から順に指名していきます</div>
     <button class="btn lg" onclick="startDraft()">ドラフト会議へ</button>
   </div>
@@ -5287,6 +5288,6 @@ h1 .kicker{background:var(--navy);border-radius:4px;letter-spacing:.12em;}
 <script src="data-fixes.js?v=1"></script>
 <script src="party.js?v=202609090300"></script>
 <script src="ss.js?v=202609091200"></script><script src="lore.js?v=2"></script>
-<script src="game.js?v=202609191800"></script><script src="abil.js?v=4"></script>
+<script src="game.js?v=202609200900"></script><script src="abil.js?v=4"></script>
 <script src="premium.js?v=31"></script><script src="pull.js?v=11"></script><script src="ss-story.js?v=13"></script><script src="capsules.js?v=14"></script><script src="club-ceremony.js?v=23"></script><script src="tap-first.js?v=12"></script><script src="extras.js?v=12"></script><script src="review.js?v=34"></script><script src="rvtest.js?v=1"></script><script src="intro.js?v=4"></script></body>
 </html>

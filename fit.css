@@ -896,3 +896,56 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 .opt-h b{font-size:12.5px;letter-spacing:.06em;color:var(--ink);} .opt-h span{font-size:10.5px;color:var(--ink2);}
 .opt-tile.off{opacity:.45;} .opt-tile.off::after{content:"メジャーのみでは外れます";display:block;font-size:10px;color:#8c2412;margin-top:4px;}
 #row-budget[hidden]{display:none;}
+
+/* ===== 設定画面のUI ===== */
+#setup-body{counter-reset:setup;}
+#setup-body > .panel{border-radius:14px;border:1px solid var(--rule);border-top:none;box-shadow:0 10px 24px -18px rgba(27,42,69,.45),0 1px 0 #fff inset;padding:14px 16px 16px;}
+#setup-body > .panel > b{display:flex;align-items:center;gap:10px;font-family:"Zen Old Mincho","Yu Mincho",serif;font-size:16.5px;letter-spacing:.12em;padding-bottom:10px;margin-bottom:10px;border-bottom:1.5px solid var(--rule);}
+#setup-body > .panel > b::before{counter-increment:setup;content:counter(setup,decimal-leading-zero);flex:none;font:700 11px/1 "Oswald",sans-serif;letter-spacing:.08em;color:#fff;background:var(--navy);border-radius:6px;padding:5px 6px 4px;}
+#setup-body > .setup-main > b::before{background:var(--red);}
+#setup-body > .panel > b .pn-cnt{margin-left:auto;font-size:11px;letter-spacing:.04em;border-radius:99px;padding:2px 10px;background:#f4efe2;border-color:transparent;color:var(--ink);vertical-align:0;max-width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#setup-body > .panel > b .fd-a{margin-left:0;}
+#setup-body > .panel > .sub{margin:-2px 0 10px !important;font-size:11.5px;}
+/* 参加者 */
+#scr-setup .p-row{gap:8px;margin:6px 0;padding:6px 8px;border-radius:10px;background:#faf7ee;border:1px solid #ece5d2;}
+#scr-setup .p-row .idx{border-radius:7px;}
+#scr-setup .p-row input[type=text]{flex:1;min-width:90px;border-radius:8px;}
+#scr-setup .p-row select{border-radius:8px;}
+#scr-setup .p-row .btn.ghost.sm{padding:6px 9px;border-radius:8px;}
+#scr-setup .setup-main > .btn.ghost.sm{margin-top:6px;border-radius:10px;border-style:dashed;width:100%;}
+/* セグメント選択 */
+#scr-setup .seg-src{display:none !important;}
+.seg{display:flex;flex-wrap:wrap;gap:0;border:1.5px solid var(--rule2,#cfc8b4);border-radius:10px;overflow:hidden;background:#fff;}
+.seg-b{flex:1 1 auto;font-family:inherit;font-size:12.5px;font-weight:700;color:var(--ink2);background:#fff;border:0;border-right:1px solid var(--rule,#e3dccb);padding:9px 6px;cursor:pointer;min-width:0;white-space:nowrap;}
+.seg-b:last-child{border-right:0;}
+.seg-b.on{background:var(--navy);color:#fff;}
+.seg-b:active{transform:scale(.97);}
+/* 年代チップ */
+#scr-setup #era-chips{display:flex;flex-wrap:wrap;gap:6px;}
+#scr-setup #era-chips .chip{border-radius:99px;padding:5px 11px;font-size:12px;border:1.5px solid var(--rule2,#cfc8b4);background:#fff;}
+#scr-setup #era-chips .chip.on{background:var(--navy);border-color:var(--navy);color:#fff;}
+#scr-setup #era-chips .chip.all.on{background:var(--ink);border-color:var(--ink);}
+/* 縛り・編成の行 */
+#scr-setup .st-row{padding:12px 0;}
+#scr-setup .st-lb b{font-size:14px;}
+/* イベント: スイッチ */
+#scr-setup .opt-tile{border-radius:12px;border:1px solid var(--rule);border-left:1px solid var(--rule);padding:12px 12px 12px 13px;background:#fff;align-items:center;}
+#scr-setup .opt-tile:has(input:checked){background:linear-gradient(180deg,#fffdf6,#faf3e4);border-color:#e0c98f;box-shadow:0 0 0 1px #f1e2bd inset;}
+#scr-setup .opt-tile .ot-box{order:2;width:40px;height:23px;border-radius:99px;margin:0 0 0 auto;background:#d9d3c3;border:0;flex:none;transition:background .15s;}
+#scr-setup .opt-tile .ot-box::after{content:"";left:2px;top:2px;width:19px;height:19px;border:0;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transform:none;transition:transform .18s cubic-bezier(.2,1.2,.4,1);}
+#scr-setup .opt-tile input:checked ~ .ot-box{background:var(--navy);border:0;}
+#scr-setup .opt-tile input:checked ~ .ot-box::after{transform:translateX(17px);}
+#scr-setup .opt-tile .ot-main{order:1;flex:1;}
+#scr-setup .opt-tile .ot-t{font-size:14px;}
+#scr-setup .opt-tile .ot-d{font-size:11px;line-height:1.55;}
+#scr-setup .opt-h{margin-top:10px;}
+#scr-setup .opt-grid > .opt-h:first-child{margin-top:2px;}
+/* 下の帯: 要約と大きなボタン */
+#scr-setup .setup-go{display:block;padding:8px 12px 10px;background:rgba(240,236,224,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-top:1px solid var(--rule);box-shadow:0 -10px 24px -18px rgba(0,0,0,.4);}
+#scr-setup .sg-sum{display:flex;flex-wrap:wrap;gap:4px 6px;justify-content:center;margin-bottom:8px;}
+#scr-setup .sg-sum span{font-size:11px;font-weight:700;color:var(--ink);background:#fff;border:1px solid var(--rule);border-radius:99px;padding:2px 9px;}
+#scr-setup .sg-sum span.k{background:var(--navy);border-color:var(--navy);color:#fff;}
+#scr-setup .setup-go .sg-note{display:none;}
+#scr-setup .setup-go .btn.lg{width:100%;padding:13px 0;font-size:16px;border-radius:14px;}
+@media (min-width:701px){ #scr-setup .setup-go{position:sticky;bottom:0;z-index:35;margin-top:14px;} }
+#panel-roster[hidden],#row-budget[hidden]{display:none !important;}

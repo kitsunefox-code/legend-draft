@@ -96,7 +96,7 @@ renderGacha=function(){
   $('ld-tabs').innerHTML=GACHA_ROUNDS.map((r,i)=>'<button type="button" '+(!ldDemo?'disabled':'')+' class="'+(i===G.round?'active':'')+'" onclick="ldTrial('+i+')"><small>0'+(i+1)+'</small>'+r.label+'<span>'+({K:'1',M:'1',B:'15',P:'11',C:'1'})[r.k]+'</span></button>').join('');
   $('gc-stage').className='gc-stage'+(G.phase==='drop'?' ld-dropping':'');
   $('gc-stage').innerHTML=(ldResultView&&all&&total>1?ldResults():ldField())+(G.phase==='drop'?'<div class="ld-draw-show" aria-hidden="true"><div class="ld-draw-beams"></div><div class="ld-draw-wave"></div><b>抽選完了</b><span>カプセルを守備位置へ</span></div>':'')+'<div class="gc-hint" role="status" aria-live="polite">'+(G.phase==='drop'?'球場にカプセルが到着中…':all?'全ての開封が完了しました':G.pulls?'気になる守備位置から、開封しよう。':'準備完了。'+total+'連ガチャを回そう。')+'</div>';
-  $('gc-foot').innerHTML='<div class="ld-foot-info"><b>'+(all?'DRAFT COMPLETE':G.pulls?'CAPSULE OPEN':'LEGEND SELECTION')+'</b><span>'+(G.pulls?G.revealed+' / '+total+' 開封済み':total+'連'+(total>=5?'・Aランク以上1人確定':''))+'</span></div><div class="ld-foot-actions">'+ldActions()+'</div>';
+  $('gc-foot').innerHTML='<div class="ld-foot-info"><b>'+(all?'DRAFT COMPLETE':G.pulls?'CAPSULE OPEN':'LEGEND SELECTION')+'</b><span>'+(G.pulls?G.revealed+' / '+total+' 開封済み':total+'連・完全ランダム')+'</span></div><div class="ld-foot-actions">'+ldActions()+'</div>';
   ldSidebar();
 };
 function ldSidebar(){

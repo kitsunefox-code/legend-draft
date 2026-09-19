@@ -1163,13 +1163,11 @@ function gachaPull(auto){
     const open = gachaOpenFor(t, R).slice().sort((a, b) => ORDER.indexOf(a.key) - ORDER.indexOf(b.key));
     for(let n = 0; n < open.length; n++){
       const d = open[n];
-      // 最後の一枚で、まだA以上が出ていなければ保証を効かせる
-      const need = n === open.length - 1 && open.length >= 5 &&
-        !pulls.some(x => x.rank === "SS" || x.rank === "S" || x.rank === "A");
-      const p = gachaDraw(t, d, need ? "A" : null);
+      // 保証なしの完全ランダム。何連でも一枚ごとに同じ確率で引く
+      const p = gachaDraw(t, d, null);
       if(!p) continue;
       assignPick(t, p);
-      pulls.push({d, p, open: !!auto, rank: prank(p), sure: need});
+      pulls.push({d, p, open: !!auto, rank: prank(p)});
     }
   }
   if(R.k === "B") gachaBestStarters(t, pulls);
@@ -1619,7 +1617,7 @@ function renderGacha(){
           '<div class="gc-out">' + (dropping ? '<span class="gc-outcap"></span>' : '') + '</div></div>' +
       '</div>' +
       '<div class="gc-hint">' + (t.cpu ? 'CPUが回しています……' : dropping ? 'ガラガラ……' :
-        (R.k === "K" ? '本拠地が一つ出ます' : nOpen + '連ガチャ' + (nOpen >= 5 ? '。A以上を一枚保証' : ''))) + '</div>';
+        (R.k === "K" ? '本拠地が一つ出ます' : nOpen + '連ガチャ。保証なしの完全ランダム')) + '</div>';
     $("gc-foot").innerHTML = t.cpu || dropping ? '' :
       '<button class="btn lg gc-go" onclick="gachaPull()">' + esc(R.label) + 'を回す</button>';
     return;
@@ -2883,7 +2881,8 @@ function startSeason(){
   state.playing = false; state.timer = null; state.finished = false;
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
-  state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; });
+  state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.rival = null; t.haisui = null; });
+  state.sponsor = null; state.sponsorResult = null;
   awardYaku();   // 開幕オーダーの役
   state.parts.forEach(t => { if(mascotAb(t, "luck") && !t.cpu) t.saihai = (t.saihai||0) + 2; t.crowdMark = 0; });   // 幸運: 采配権+2
   state.eventQueue = [];
@@ -2892,8 +2891,11 @@ function startSeason(){
   [0,1,2,3,4].forEach(function(m){ state.eventQueue.push({after:m, type:"gm", no:m}); });
   initEngagement();
   state.scored = false; state.scoreBoard = null; state.predicted = false;
-  // 月例ルーレット(毎月末)
-  [0,2,4].forEach(function(m){ state.eventQueue.push({after:m, type:"roulette", no:m}); });  // 2か月に1回
+  // 月例ルーレット: 回る月は毎季変わる(2〜3回)
+  shuffle([0,1,2,3,4]).slice(0, rnd() < .5 ? 2 : 3).sort((a,b)=>a-b)
+    .forEach(function(m){ state.eventQueue.push({after:m, type:"roulette", no:m}); });
+  // 季節の出来事: 種類も月も毎季ばらばら(2〜4件、同じ種類は季に一度)
+  scheduleHappenings();
   state.eventQueue.push({after:2, type:"allstar"});                    // 前半戦終了。球宴
   if(state.opts.trade) state.eventQueue.push({after:3, type:"trade"});  // トレード期限日(7月末)
   if(state.opts.mlb) state.eventQueue.push({after:3, type:"mlb"});
@@ -3627,11 +3629,11 @@ function tick(){
   afterDay();
 }
 // 月末ハドル。月報とその月の催しを一連の流れとして、上に小さな帯で進み具合を示す
-const EVENT_LABEL = {gm:"GMの決断", roulette:"ルーレット", allstar:"球宴", trade:"トレード期限", mlb:"MLB補強", kaisei:"起死回生"};
+const EVENT_LABEL = {gm:"GMの決断", roulette:"ルーレット", allstar:"球宴", trade:"トレード期限", mlb:"MLB補強", kaisei:"起死回生", happen:"出来事"};
 function huddleStart(){
   const due = state.eventQueue.filter(e => !e.done && e.after <= state.monthsCompleted);
   const seen = new Set(); const steps = ["月報"];
-  due.forEach(e => { const l = EVENT_LABEL[e.type] || e.type; if(!seen.has(l)){ seen.add(l); steps.push(l); } });
+  due.forEach(e => { const l = e.label || EVENT_LABEL[e.type] || e.type; if(!seen.has(l)){ seen.add(l); steps.push(l); } });
   state.huddle = {steps, i:0, month: state.monthsCompleted};
   huddleRender();
 }
@@ -5819,8 +5821,9 @@ function tradablePlayers(t){
 }
 function startEvent(type, ev){
   $("s-play").disabled = true; $("s-skip").disabled = true;
-  huddleStep(type);
+  huddleStep(ev && ev.label ? ev.label : type);
   if(type==="roulette"){ startRoulette(ev && ev.no !== undefined ? ev.no : 0); return; }
+  if(type==="happen"){ startHappen(ev); return; }
   if(type==="allstar"){ startAllStar(); return; }
   if(type==="gm"){ startGm(ev && ev.no !== undefined ? ev.no : 0); return; }
   if(type==="kaisei"){ if(typeof startKaisei === "function") startKaisei(); else endEventPhase(); return; }
@@ -5863,18 +5866,19 @@ const GM_POLICIES = [
    run(t){ const c = RP_KEYS.concat(["CL"]).map(k => t.slots[k]).filter(Boolean).sort((a,b)=>a.ovr-b.ovr)[0]; c.ovr = Math.min(99, c.ovr+2); return c.name + "を鍛え直した。能力+2"; }},
 ];
 function startGm(no){
+  resolveSponsor();
   const humans = state.parts.filter(t => !t.cpu);
-  if(!humans.length){ endEventPhase(); return; }
+  if(!humans.length){ state.sponsorResult = null; endEventPhase(); return; }
   state.eventCtx = {type:"gm", queue:humans, idx:0, no};
   gmNext();
 }
 function gmNext(){
   const c = state.eventCtx;
   if(!c || c.type !== "gm") return;
-  if(c.idx >= c.queue.length){ endEventPhase(); return; }
+  if(c.idx >= c.queue.length){ state.sponsorResult = null; endEventPhase(); return; }
   const t = c.queue[c.idx];
   c.cards = GM_POLICIES.filter(p => !p.need || p.need(t)).sort(()=>rnd()-.5).slice(0, 3);
-  c.pick = null; c.pred = null;
+  c.pick = null; c.pred = null; c.rival = null; c.oshi = null;   // 前の球団の選択を持ち越さない(他球団の選手が推しになる事故防止)
   gmResolve(t);
   $("event-bg").classList.remove("show");
   curtain(t.name + " の番 ── GMの決断",
@@ -5895,6 +5899,17 @@ function gmResolve(t){
     if(w > l){ addPts(t, 2, "勝負の月 勝ち越し"); t.saihai = Math.min(5, (t.saihai||0)+1); c.report.push({ok:true, txt:"勝負の月: " + w + "勝" + l + "敗で勝ち越し！ +2点・采配権+1"}); }
     else { moodSet(t, -1, 20, "勝負の月の反動"); c.report.push({ok:false, txt:"勝負の月: " + w + "勝" + l + "敗… 士気が20日下がる"}); }
     t.gamble = null;
+  }
+  if(t.haisui){
+    const w = t.W - t.haisui.W, l = t.L - t.haisui.L;
+    if(w > l){ addPts(t, 3, "背水の陣 勝ち越し"); c.report.push({ok:true, txt:"背水の陣: " + w + "勝" + l + "敗で勝ち越し！ 監督続投 +3点"}); }
+    else { addPts(t, -1, "背水の陣 負け越し"); c.report.push({ok:false, txt:"背水の陣: " + w + "勝" + l + "敗… 監督が進退伺いを提出 −1点"}); }
+    t.haisui = null;
+  }
+  if(state.sponsorResult){
+    const r = state.sponsorResult, mine = r.vals[state.parts.indexOf(t)];
+    c.report.push({ok: r.winner === t, txt: "スポンサー目標「" + r.label + "」: " +
+      (r.winner ? r.winner.name + "が" + r.best + "で首位" : "該当なし") + (r.winner === t ? " +2点" : "（自分は" + mine + "）")});
   }
 }
 function gmRender(){
@@ -8925,6 +8940,186 @@ function rouletteNext(){
   ctx.idx++; ctx.result = null; ctx.spinning = false; ctx.wheelDeg = 0;
   if(ctx.idx >= ctx.queue.length){ endEventPhase(); return; }
   rouletteRender();
+}
+
+// ============================================================
+// 季節の出来事 ── 毎季、種類も月もばらばらに2〜4件。ルーレットと違い、
+// 一つの出来事がリーグ全体や複数球団に一度に降りかかる
+// ============================================================
+function tScore(t){ const s = standingsSorted(); return s.indexOf(t); }
+function teamStatSum(t, key){
+  if(key === "W") return t.W;
+  return (state.seasonStats || []).filter(s => s.t === t && s.kind === "B").reduce((a, s) => a + (s[key] || 0), 0);
+}
+function benchKeyWeakest(t){
+  const ks = BENCH_KEYS.filter(k => t.slots[k]);
+  if(!ks.length) return null;
+  return ks.sort((a, b) => t.slots[a].ovr - t.slots[b].ovr)[0];
+}
+const HAPPENINGS = [
+  {id:"shosei", label:"二軍から新星", icon:"昇", color:"#2c5c34", months:[0,1,2,3,4],
+   intro:"ファームで結果を出し続けた若手が、各球団で一軍に呼ばれた",
+   run(){ return state.parts.map(function(t){
+     const c = BENCH_KEYS.concat(RP_KEYS).map(k => t.slots[k]).filter(p => p && !p.twoWay && p.ovr < 95);
+     if(!c.length) return null;
+     const p = pick1(c); p.ovr = Math.min(99, p.ovr + 3); p.form = Math.min(2, (p.form||0) + 1);
+     return {t, cls:"good", txt:t.name+"の"+p.name+"がファーム再調整から化けて帰ってきた。能力+3・調子↑"}; }); }},
+  {id:"natsu", label:"記録的猛暑", icon:"暑", color:"#8c2412", months:[2,3],
+   intro:"連日の猛暑で投手陣の消耗が激しい。暑さに強いチームだけが涼しい顔",
+   run(){ const strong = pick1(state.parts);
+     return state.parts.map(function(t){
+       if(t === strong){ formShift(lineupOf(t), 1); return {t, cls:"good", txt:t.name+"は暑さに強い。打線がむしろ元気になった(調子↑)"}; }
+       formShift(pitchersOf(t), -1); return {t, cls:"bad", txt:t.name+"の投手陣が暑さでバテ気味(調子↓)"}; }); }},
+  {id:"kaze", label:"集団風邪", icon:"咳", color:"#8c2412", months:[0,1,4],
+   intro:"クラブハウスで風邪が大流行。主力が次々と離脱寸前に",
+   run(){ const n = rnd() < .5 ? 1 : 2;
+     return shuffle(state.parts).slice(0, n).map(function(t){
+       formShift(lineupOf(t), -1); moodSet(t, -1, 10, "集団風邪");
+       return {t, cls:"bad", txt:t.name+"のロッカーに風邪が蔓延。打線の調子↓・士気↓(10日)"}; }); }},
+  {id:"fanday", label:"ファン感謝デー", icon:"感", color:"#2c5c34", months:[1,2,3],
+   intro:"全球団が一斉にファン感謝デーを開催。選手たちの表情も明るい",
+   run(){ return state.parts.map(function(t){ moodSet(t, 1.2, 14, "ファン感謝デー");
+     return {t, cls:"good", txt:t.name+"のイベントが大盛況。士気↑(14日)"}; }); }},
+  {id:"kekkon", label:"主力の結婚", icon:"婚", color:"#9a7714", months:[0,1,2,3,4],
+   intro:"シーズン中の吉報。祝福ムードで打棒が冴える",
+   run(){ const n = rnd() < .6 ? 1 : 2;
+     return shuffle(state.parts).slice(0, n).map(function(t){
+       const c = lineupOf(t); if(!c.length) return null;
+       const p = pick1(c); p.form = 2;
+       return {t, cls:"good", txt:t.name+"の"+p.name+"が結婚を発表。幸せ効果で絶好調に"}; }); }},
+  {id:"intai", label:"ベテランの引退表明", icon:"花", color:"#9a7714", months:[3,4],
+   intro:"今季限りの引退を明かした大ベテラン。ナインは花道を飾ろうと燃える",
+   run(){ const t = pick1(state.parts);
+     const c = lineupOf(t).concat(pitchersOf(t)).filter(p => p && p.year);
+     if(!c.length) return null;
+     const p = c.sort((a, b) => a.year - b.year)[0];
+     moodSet(t, 1.5, 25, p.name + "の花道");
+     return [{t, cls:"good", txt:t.name+"の"+p.name+"が今季限りの引退を表明。「最後は胴上げを」とナインが結束(士気↑25日)"}]; }},
+  {id:"taifu", label:"台風で連戦中止", icon:"台", color:"#6e675a", months:[2,3,4],
+   intro:"大型台風で各地の試合が流れた。思わぬ休養日で先発陣が息を吹き返す",
+   run(){ const tired = pick1(state.parts);
+     return state.parts.map(function(t){
+       if(t === tired){ moodSet(t, -1, 8, "遠征の足止め"); return {t, cls:"bad", txt:t.name+"は遠征先で足止め。移動疲れで士気↓(8日)"}; }
+       formShift(SP_KEYS.map(k => t.slots[k]).filter(Boolean), 1);
+       return {t, cls:"good", txt:t.name+"の先発陣が休養十分(調子↑)"}; }); }},
+  {id:"rantou", label:"死球から大乱闘", icon:"乱", color:"#8c2412", months:[1,2,3],
+   intro:"報復死球をきっかけに両軍ベンチが総出。退場者が出る騒ぎに",
+   run(){ if(state.parts.length < 2) return null;
+     const two = shuffle(state.parts).slice(0, 2);
+     moodSet(two[0], 1.2, 12, "乱闘で結束");
+     const c = lineupOf(two[1]); const p = c.length ? pick1(c) : null;
+     if(p) p.form = Math.max(-2, (p.form||0) - 1);
+     return [{t:two[0], cls:"good", txt:two[0].name+"は乱闘をきっかけにナインが結束(士気↑12日)"},
+             {t:two[1], cls:"bad", txt:two[1].name+"は"+(p ? p.name+"が退場処分。しばらく調子↓" : "主力が退場処分")}]; }},
+  {id:"haisui", label:"背水の陣", icon:"背", color:"#8c2412", months:[0,1,2,3], needHuman:true,
+   intro:"低迷する球団の監督が「来月負け越したら辞任」と宣言。ナインは奮い立つ",
+   run(){ const hs = standingsSorted().filter(t => !t.cpu); if(!hs.length) return null;
+     const t = hs[hs.length - 1];
+     moodSet(t, 1.5, 30, "背水の陣"); t.haisui = {W:t.W, L:t.L};
+     return [{t, cls:"good", txt:t.name+"の監督が背水の陣を敷いた。士気↑(30日)。来月勝ち越せば+3点、負け越せば−1点"}]; }},
+  {id:"sponsor", label:"スポンサーの月間目標", icon:"賞", color:"#9a7714", months:[0,1,2,3],
+   intro:"大口スポンサーが来月の目標を発表。達成した球団には報奨金が出る",
+   run(){ const goal = pick1([{key:"hr", label:"本塁打"}, {key:"sb", label:"盗塁"}, {key:"W", label:"勝利数"}]);
+     state.sponsor = {key:goal.key, label:goal.label, base:state.parts.map(t => teamStatSum(t, goal.key))};
+     return [{t:null, cls:"none", txt:"来月「"+goal.label+"」がリーグ最多の球団に+2点(人間の球団のみ)。次のGMの決断で答え合わせ"}]; }},
+  {id:"tokushu", label:"推し選手の特集", icon:"特", color:"#2c5c34", months:[1,2,3,4], needHuman:true,
+   intro:"スポーツ紙が各球団の「推し」を大特集。注目を浴びた選手は張り切っている",
+   run(){ return state.parts.filter(t => !t.cpu && t.oshi).map(function(t){
+     const p = t.oshi; p.form = Math.min(2, (p.form||0) + 1);
+     return {t, cls:"good", txt:t.name+"の"+p.name+"が一面を飾った。調子↑。今月活躍すれば推し得点も狙い目"}; }); }},
+  {id:"suketto", label:"助っ人来日", icon:"助", color:"#9a7714", months:[0,1,2,3], interactive:true,
+   intro:"代理人が各球団に助っ人を売り込んできた。控えと入れ替えで獲得できる",
+   run(){ return null; }},
+];
+function scheduleHappenings(){
+  const n = 2 + Math.floor(rnd() * 3);   // 2〜4件
+  const anyHuman = state.parts.some(t => !t.cpu);
+  const pool = shuffle(HAPPENINGS.filter(h => !h.needHuman || anyHuman));
+  const used = {}; let k = 0;
+  for(const h of pool){
+    if(k >= n) break;
+    const ms = shuffle((h.months || [0,1,2,3,4]).filter(m => !used[m]));
+    if(!ms.length) continue;
+    used[ms[0]] = true;
+    state.eventQueue.push({after: ms[0], type:"happen", id:h.id, label:h.label});
+    k++;
+  }
+}
+function resolveSponsor(){
+  state.sponsorResult = null;
+  const sp = state.sponsor; if(!sp) return; state.sponsor = null;
+  const vals = state.parts.map((t, i) => teamStatSum(t, sp.key) - (sp.base[i] || 0));
+  let best = -1, winner = null;
+  vals.forEach((v, i) => { if(v > best){ best = v; winner = state.parts[i]; } });
+  if(winner && !winner.cpu) addPts(winner, 2, "スポンサー目標 達成");
+  state.sponsorResult = {label: sp.label, vals, best, winner};
+  if(winner) partyNews("賞", winner.cpu ? "fun" : "good", "【スポンサー】月間目標「" + sp.label + "」は" + winner.name + "が" + best + "で首位" + (winner.cpu ? "" : "。報奨金 +2点"), null, winner);
+}
+function startHappen(ev){
+  const h = HAPPENINGS.find(x => x.id === ev.id);
+  if(!h){ endEventPhase(); return; }
+  if(h.interactive){ startSuketto(h, ev); return; }
+  let rows = null;
+  try{ rows = h.run(); }catch(e){ rows = null; }
+  rows = (rows || []).filter(Boolean);
+  if(!rows.length){ endEventPhase(); return; }
+  state.eventCtx = {type:"happen", h, rows, no: ev.after};
+  happenFinish();
+}
+function happenFinish(){
+  const c = state.eventCtx; if(!c || c.type !== "happen") return;
+  const h = c.h;
+  c.rows.forEach(function(r){
+    partyNews(h.icon, r.cls === "good" ? "good" : r.cls === "bad" ? "bad" : "fun", "【" + h.label + "】" + r.txt, null, r.t || undefined);
+  });
+  if(c.rows.some(r => r.cls === "good")) seWin(); else if(c.rows.some(r => r.cls === "bad")) seMiss(); else seTap();
+  renderRosterLive(); renderTeamStrip();
+  happenRender();
+  $("event-bg").classList.add("show");
+}
+function happenRender(){
+  const c = state.eventCtx; if(!c || c.type !== "happen") return;
+  const h = c.h;
+  $("event-panel").innerHTML =
+    '<div class="gm-wrap hp-wrap">' +
+    '<h2><span class="kicker">' + (MONTH_LABEL[c.no] || "") + '末の出来事</span>' + esc(h.label) + '</h2>' +
+    '<div class="hp-lead"><i style="background:' + h.color + '">' + esc(h.icon) + '</i><span>' + esc(h.intro) + '</span></div>' +
+    '<div class="gm-report2 hp-list">' + c.rows.map(function(r){
+      const k = r.cls === "good" ? "ok" : r.cls === "bad" ? "ng" : "";
+      return '<div class="gm-rr ' + k + '"><i>' + (k === "ok" ? "◎" : k === "ng" ? "×" : "・") + '</i><span>' + (r.t ? teamEmblem(r.t, 16) + ' ' : '') + esc(r.txt) + '</span></div>';
+    }).join("") + '</div>' +
+    '<div class="gm-foot"><span>' + c.rows.filter(r => r.t).length + '球団に影響</span><button class="btn rl-go" onclick="happenNext()">次へ</button></div>' +
+    '</div>';
+}
+function happenNext(){ const c = state.eventCtx; if(!c || c.type !== "happen") return; seTap(); endEventPhase(); }
+// 助っ人来日: 球団ごとに一人ずつ売り込みが来る。人間は獲るか見送るかを自分で決める
+function startSuketto(h, ev){
+  const offers = shuffle(state.parts).map(function(t){
+    const key = benchKeyWeakest(t); if(!key) return null;
+    const cur = t.slots[key], d = SLOT_DEFS.find(x => x.key === key);
+    if(!cur || !d) return null;
+    const avail = (typeof MLB_STARS !== "undefined" ? MLB_STARS : []).filter(p => p.joined === undefined && !state.taken.has(p.id) &&
+      rankOK(p) && !p.twoWay && eligibleGrp(p, d.grp) && !nameTaken(p));
+    const cands = bandPick(avail, cur.ovr, 3, 12, 1);
+    if(!cands.length) return null;
+    return {t, key, cur, p: cands[0]};
+  }).filter(Boolean);
+  if(!offers.length){ endEventPhase(); return; }
+  state.eventCtx = {type:"happen", h, rows:[], offers, idx:0, no: ev.after, queue: offers.map(o => o.t)};
+  sukettoNext();
+}
+function sukettoNext(){
+  const c = state.eventCtx; if(!c || c.type !== "happen" || !c.offers) return;
+  if(c.idx >= c.offers.length){ if(!c.rows.length){ endEventPhase(); return; } happenFinish(); return; }
+  const o = c.offers[c.idx];
+  const take = function(){ scoutSign(o.t, o.key, o.cur, o.p); c.rows.push({t:o.t, cls:"good", txt:o.t.name+"が"+o.p.name+"(能力"+o.p.ovr+")を獲得。"+o.cur.name+"と入れ替え"}); c.idx++; sukettoNext(); };
+  const pass = function(){ c.rows.push({t:o.t, cls:"none", txt:o.t.name+"は"+o.p.name+"の獲得を見送った"}); c.idx++; sukettoNext(); };
+  if(o.t.cpu){ if(rnd() < .6) take(); else pass(); return; }
+  $("event-bg").classList.remove("show");
+  curtain(o.t.name + " に助っ人の売り込み",
+    "他の人に見せずに端末を受け取ってください。<br>" + faceThumb(o.p, 44, 58) + "<br><b>" + esc(o.p.name) + "</b>（" + prank(o.p) + "／能力" + o.p.ovr + "）<br>" +
+    "獲得すると控えの <b>" + esc(o.cur.name) + "</b>（能力" + o.cur.ovr + "）と入れ替わります",
+    "獲得する", take, "見送る", pass);
 }
 
 // ============================================================

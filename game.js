@@ -158,6 +158,22 @@ function prepPlayer(p, idPrefix, i){
 }
 const PLAYERS = DB.map((p,i)=>prepPlayer(p,"N",i));
 const MLB_STARS = MLB_DB.map((p,i)=>prepPlayer(p,"M",i));
+// 「写真が本人でない」と申告された選手は、この端末では顔写真を出さない(名前で覚える)
+function badPhotoList(){ try{ const v = JSON.parse(localStorage.getItem("ld_badph") || "[]"); return Array.isArray(v) ? v : []; }catch(e){ return []; } }
+(function(){
+  const bad = new Set(badPhotoList());
+  if(!bad.size) return;
+  PLAYERS.concat(MLB_STARS).forEach(p => { if(bad.has(p.name) && p.ph !== undefined){ p.phHidden = p.ph; delete p.ph; } });
+})();
+function badPhotoFromModal(){
+  const p = state.modalPlayer; if(!p) return;
+  const list = badPhotoList();
+  if(list.indexOf(p.name) < 0){ list.push(p.name); try{ localStorage.setItem("ld_badph", JSON.stringify(list)); }catch(e){} }
+  PLAYERS.concat(MLB_STARS).forEach(q => { if(q.name === p.name && q.ph !== undefined){ q.phHidden = q.ph; delete q.ph; } });
+  if(typeof seTap === "function") seTap();
+  openModal(p.id);
+  if(typeof telop === "function") try{ telop("【名鑑】" + p.name + " の写真を伏せました(この端末だけ)"); }catch(e){}
+}
 // ---------- ランク(伝説度) ----------
 // SSは殿堂: 数字と関係なく、球史に名を刻んだ顔ぶれだけ。S以下は「その年の強さ + タイトル数 + 通算の節目 + その年のMVP」の
 // 伝説度を日本とMLBで別々に上から並べて決める(S 8%・A 16%・B 32%・残りC)。試合の強さ(ovr)はその年の成績のまま
@@ -1568,6 +1584,15 @@ function seasonFigs(p){
   return null;
 }
 // 名鑑: 球歴とタイトル・表彰。SS紹介と同じ出典(Wikipedia)から
+// 海外リーグの球団は国名を添える(千葉ロッテと韓国のロッテ・ジャイアンツが紛れないように)
+const KBO_TEAMS = ["ロッテ・ジャイアンツ","サムスン・ライオンズ","三星ライオンズ","LGツインズ","斗山ベアーズ","ドゥサン・ベアーズ","OBベアーズ","ハンファ・イーグルス","韓火イーグルス","KIAタイガース","起亜タイガース","ヘテ・タイガース","海陶タイガース","SSGランダース","SKワイバーンズ","キウム・ヒーローズ","ネクセン・ヒーローズ","ウリ・ヒーローズ","NCダイノス","KTウィズ","現代ユニコーンズ","ヒョンデ・ユニコーンズ","太平洋ドルフィンズ","サンバンウル・レイダース","MBC青龍","MBCチョンリョン","三美スーパースターズ","チョンボ・ピントス"];
+const CPBL_TEAMS = ["統一ライオンズ","統一7-ELEVEnライオンズ","兄弟エレファンツ","中信兄弟","中信ブラザーズ","中信ホエールズ","Lamigoモンキーズ","ラミゴモンキーズ","楽天モンキーズ","味全ドラゴンズ","富邦ガーディアンズ","義大ライノズ","興農ブルズ","La Newベアーズ","誠泰コブラス","中華職棒","台湾大聯盟","第一金剛","和信ホエールズ","時報イーグルス","三商タイガース","俊国ベアーズ","台鋼ホークス"];
+function foreignNote(s){
+  const t = String(s || "");
+  if(KBO_TEAMS.some(n => t.indexOf(n) >= 0)) return "（韓国）";
+  if(CPBL_TEAMS.some(n => t.indexOf(n) >= 0)) return "（台湾）";
+  return "";
+}
 function loreHtml(p){
   const L = ssLore(p);
   const chron = (L.chron || []).slice(0, 9), awards = (L.awards || []);
@@ -1575,7 +1600,8 @@ function loreHtml(p){
   let h = '<div class="m-lore">';
   if(chron.length) h += '<div class="m-yr">球歴</div><ol class="m-chron">' + chron.map(function(x){
     const m = String(x).match(/^(.*?)\s*[（(]([^（）()]*\d{4}[^（）()]*)[）)]\s*$/);
-    return '<li>' + (m ? '<b>' + esc(m[1]) + '</b><span>' + esc(m[2]) + '</span>' : '<b>' + esc(x) + '</b>') + '</li>';
+    const fn = foreignNote(x);
+    return '<li>' + (m ? '<b>' + esc(m[1]) + fn + '</b><span>' + esc(m[2]) + '</span>' : '<b>' + esc(x) + fn + '</b>') + '</li>';
   }).join("") + '</ol>';
   if(awards.length){
     const show = awards.slice(0, 10);
@@ -4641,10 +4667,26 @@ function playDay(){
   // 接戦の終盤に際どい判定(review.js)。中継の日でなくても、いい場面なら監督に問う
   if(typeof rvFindScene === "function"){
     const sc = rvFindScene(rolled);
-    if(sc){ state.pendingDay = rolled; rvStartScene(sc); return false; }
+    if(sc){ state.pendingDay = rolled; rvFlash(sc); return false; }
   }
   finishDay(rolled);
   return true;
+}
+// 際どい判定の速報。タップで映像(review.js)へ、閉じればその日の続きがそのまま進む
+function rvFlash(sc){
+  const resume = !!state.playing;
+  stopTimer();
+  const sp = $("s-play"), sk = $("s-skip"); if(sp) sp.disabled = true; if(sk) sk.disabled = true;
+  const kind = sc.kind === "abs" ? "ABSチャレンジ" : "リクエスト";
+  const prev = state.eventCtx;
+  state.eventCtx = {queue:[sc.victim], idx:0, flash:true};   // 幕に球団のエンブレムを出すため
+  if(typeof seMiss === "function") try{ seMiss(); }catch(e){}
+  curtain("速報 ── " + kind,
+    esc(sc.victim.name) + " × " + esc(sc.opp.name) + "　" + sc.inn + "回" + (sc.top ? "表" : "裏") + "<br>" +
+    "<b>" + esc(sc.callSub || "際どい判定") + "</b>　当初の判定は「" + esc(String(sc.call || "").replace(/！$/, "")) + "」<br>" +
+    "<small>" + esc(sc.victim.name) + " の端末で判断してください。見終わると試合はそのまま続きます</small>",
+    "映像を見る",
+    function(){ state.eventCtx = prev; if(resume) startTimer(); rvStartScene(sc); });
 }
 function finishDay(rolled){
   const dl = dateLabel(state.day);
@@ -9000,7 +9042,10 @@ function rouletteRender(){
     const ang = i*seg + seg/2 - 90;
     const rad = ang * Math.PI/180;
     const tx = CX + 88*Math.cos(rad), ty = CY + 88*Math.sin(rad);
-    return '<text class="rw-i" x="' + tx.toFixed(1) + '" y="' + (ty+9).toFixed(1) + '" text-anchor="middle">' +
+    // 盤ごと回るので、止まったあとは文字だけ逆に回して正立させる(逆さの字は読めない)
+    const rot = res && ctx.wheelDeg ? -(ctx.wheelDeg % 360) : 0;
+    return '<text class="rw-i" x="' + tx.toFixed(1) + '" y="' + (ty+9).toFixed(1) + '" text-anchor="middle"' +
+           (rot ? ' transform="rotate(' + rot.toFixed(1) + ' ' + tx.toFixed(1) + ' ' + ty.toFixed(1) + ')"' : '') + '>' +
            esc(r.icon) + '</text>';
   }).join("");
   // 盤の下にも日本語の対照表を置く。当たった目だけが残る
@@ -9020,7 +9065,7 @@ function rouletteRender(){
         '<div class="rl-cap">' + (res.cls==="good"?"吉":res.cls==="bad"?"凶":"平") + '</div>' +
         '<div class="rl-big"><span class="rl-ri">' + esc(res.icon) + '</span>' + esc(res.label) + '</div>' +
         (res.eff ? '<div class="rl-eff"><b>効果</b>' + esc(res.eff) + '</div>' : "") +
-        (res.msg ? '<div class="rl-msg">' + esc(res.msg.replace(/^【[^】]+】/, "")) + '</div>' : "") +
+        (res.msg ? '<div class="rl-msg">' + (typeof emphNames === "function" ? emphNames(esc(res.msg.replace(/^【[^】]+】/, ""))) : esc(res.msg.replace(/^【[^】]+】/, ""))) + '</div>' : "") +
       '</div>';
   }
 
@@ -9079,7 +9124,9 @@ function scoutChoose(i){
   if(!pick) return;
   const p = pick.cands[i];
   scoutSign(pick.t, pick.key, pick.cur, p);
-  partyNews("補", "good", "【緊急補強】" + pick.t.name + "が" + p.name + "の獲得に成功！ " + pick.cur.name + "と入れ替わる");
+  const msg = "【緊急補強】" + pick.t.name + "が" + p.name + "（" + roleLabel(p) + "・能力" + p.ovr + "）の獲得に成功！ " + pick.cur.name + "（能力" + pick.cur.ovr + "）と入れ替わる";
+  partyNews("補", "good", msg);
+  if(state.eventCtx && state.eventCtx.type === "roulette" && state.eventCtx.result){ state.eventCtx.result.msg = msg; state.eventCtx.result.eff = "控えを補強した"; }
   state.scoutPick = null;
   seWin();
   renderRosterLive(); renderTeamStrip();
@@ -9163,7 +9210,7 @@ function benchKeyWeakest(t){
   return ks.sort((a, b) => t.slots[a].ovr - t.slots[b].ovr)[0];
 }
 const HAPPENINGS = [
-  {id:"shosei", label:"二軍から新星", icon:"昇", color:"#2c5c34", months:[0,1,2,3,4],
+  {id:"shosei", label:"二軍から新星", icon:"昇", color:"#2c5c34", months:[0,1],
    intro:"ファームで結果を出し続けた若手が、各球団で一軍に呼ばれた",
    run(){ return state.parts.map(function(t){
      const c = BENCH_KEYS.concat(RP_KEYS).map(k => t.slots[k]).filter(p => p && !p.twoWay && p.ovr < 95);
@@ -9176,16 +9223,27 @@ const HAPPENINGS = [
      return state.parts.map(function(t){
        if(t === strong){ formShift(lineupOf(t), 1); return {t, cls:"good", txt:t.name+"は暑さに強い。打線がむしろ元気になった(調子↑)"}; }
        formShift(pitchersOf(t), -1); return {t, cls:"bad", txt:t.name+"の投手陣が暑さでバテ気味(調子↓)"}; }); }},
-  {id:"kaze", label:"集団風邪", icon:"咳", color:"#8c2412", months:[0,1,4],
+  {id:"kaze", label:"季節外れの風邪", icon:"咳", color:"#8c2412", months:[0,4],
    intro:"クラブハウスで風邪が大流行。主力が次々と離脱寸前に",
    run(){ const n = rnd() < .5 ? 1 : 2;
      return shuffle(state.parts).slice(0, n).map(function(t){
        formShift(lineupOf(t), -1); moodSet(t, -1, 10, "集団風邪");
        return {t, cls:"bad", txt:t.name+"のロッカーに風邪が蔓延。打線の調子↓・士気↓(10日)"}; }); }},
-  {id:"fanday", label:"ファン感謝デー", icon:"感", color:"#2c5c34", months:[1,2,3],
-   intro:"全球団が一斉にファン感謝デーを開催。選手たちの表情も明るい",
-   run(){ return state.parts.map(function(t){ moodSet(t, 1.2, 14, "ファン感謝デー");
-     return {t, cls:"good", txt:t.name+"のイベントが大盛況。士気↑(14日)"}; }); }},
+  {id:"fanday", label:"夏休みの花火ナイター", icon:"花", color:"#2c5c34", months:[2,3],
+   intro:"夏休みに入り、各地で花火ナイターが満員御礼。子どもたちの声援に選手も上機嫌",
+   run(){ return state.parts.map(function(t){ moodSet(t, 1.2, 14, "花火ナイター");
+     return {t, cls:"good", txt:t.name+"の本拠地が連日満員。士気↑(14日)"}; }); }},
+  {id:"gw", label:"GWの9連戦", icon:"連", color:"#8c2412", months:[0],
+   intro:"ゴールデンウィークは休みなしの9連戦。客は入るが、投手のやりくりが苦しい",
+   run(){ const tired = shuffle(state.parts).slice(0, Math.max(1, Math.round(state.parts.length / 2)));
+     return state.parts.map(function(t){
+       if(tired.indexOf(t) >= 0){ formShift(SP_KEYS.concat(RP_KEYS).map(k => t.slots[k]).filter(Boolean), -1); return {t, cls:"bad", txt:t.name+"は連戦で投手陣が疲労(調子↓)"}; }
+       moodSet(t, 1.0, 10, "GWの大入り"); return {t, cls:"good", txt:t.name+"は連日の大入りで士気↑(10日)"}; }); }},
+  {id:"road", label:"夏の長期ロード", icon:"旅", color:"#8c2412", months:[3],
+   intro:"本拠地が高校野球に使われ、ひと月近い遠征暮らし。ホテルと移動でナインが消耗する",
+   run(){ const t = pick1(state.parts);
+     moodSet(t, -1.2, 18, "長期ロード");
+     return [{t, cls:"bad", txt:t.name+"が本拠地を追われて長期ロードへ。士気↓(18日)"}]; }},
   {id:"kekkon", label:"主力の結婚", icon:"婚", color:"#9a7714", months:[0,1,2,3,4],
    intro:"シーズン中の吉報。祝福ムードで打棒が冴える",
    run(){ const n = rnd() < .6 ? 1 : 2;
@@ -9193,7 +9251,7 @@ const HAPPENINGS = [
        const c = lineupOf(t); if(!c.length) return null;
        const p = pick1(c); p.form = 2;
        return {t, cls:"good", txt:t.name+"の"+p.name+"が結婚を発表。幸せ効果で絶好調に"}; }); }},
-  {id:"intai", label:"ベテランの引退表明", icon:"花", color:"#9a7714", months:[3,4],
+  {id:"intai", label:"ベテランの引退表明", icon:"引", color:"#9a7714", months:[4],
    intro:"今季限りの引退を明かした大ベテラン。ナインは花道を飾ろうと燃える",
    run(){ const t = pick1(state.parts);
      const c = lineupOf(t).concat(pitchersOf(t)).filter(p => p && p.year);
@@ -9201,7 +9259,7 @@ const HAPPENINGS = [
      const p = c.sort((a, b) => a.year - b.year)[0];
      moodSet(t, 1.5, 25, p.name + "の花道");
      return [{t, cls:"good", txt:t.name+"の"+p.name+"が今季限りの引退を表明。「最後は胴上げを」とナインが結束(士気↑25日)"}]; }},
-  {id:"taifu", label:"台風で連戦中止", icon:"台", color:"#6e675a", months:[2,3,4],
+  {id:"taifu", label:"台風で連戦中止", icon:"台", color:"#6e675a", months:[3,4],
    intro:"大型台風で各地の試合が流れた。思わぬ休養日で先発陣が息を吹き返す",
    run(){ const tired = pick1(state.parts);
      return state.parts.map(function(t){
@@ -9233,7 +9291,7 @@ const HAPPENINGS = [
    run(){ return state.parts.filter(t => !t.cpu && t.oshi).map(function(t){
      const p = t.oshi; p.form = Math.min(2, (p.form||0) + 1);
      return {t, cls:"good", txt:t.name+"の"+p.name+"が一面を飾った。調子↑。今月活躍すれば推し得点も狙い目"}; }); }},
-  {id:"suketto", label:"助っ人来日", icon:"助", color:"#9a7714", months:[0,1,2,3], interactive:true,
+  {id:"suketto", label:"助っ人来日", icon:"助", color:"#9a7714", months:[0,1,2], interactive:true,
    intro:"代理人が各球団に助っ人を売り込んできた。控えと入れ替えで獲得できる",
    run(){ return null; }},
 ];

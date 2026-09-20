@@ -39,14 +39,14 @@ function rvFindScene(rolled){
       const my = side === "A" ? r.rA : r.rB, op = side === "A" ? r.rB : r.rA;
       if(Math.abs(my - op) > 2) continue;
       if(t.rvCool && state.day < t.rvCool) continue;
-      let p = state.skipping ? 0.08 : 0.20;
+      let p = state.skipping ? 0.16 : 0.34;
       if(rem <= 30) p += 0.08;
       if(s.indexOf(t) <= 1 && s.indexOf(opp) <= 1) p += 0.12;
       if(Math.abs(my - op) <= 1) p += 0.06;
       if(rnd() > p) continue;
       const c = rvBuildScene(r, side, t, opp, my, op);
       if(!c) continue;
-      t.rvCool = state.day + 14;
+      t.rvCool = state.day + 6;
       return c;
     }
   }

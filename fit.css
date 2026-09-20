@@ -949,3 +949,31 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 #scr-setup .setup-go .btn.lg{width:100%;padding:13px 0;font-size:16px;border-radius:14px;}
 @media (min-width:701px){ #scr-setup .setup-go{position:sticky;bottom:0;z-index:35;margin-top:14px;} }
 #panel-roster[hidden],#row-budget[hidden]{display:none !important;}
+
+/* Chromeの自動ダークで字が灰色に溶けないよう、明るい配色だけを宣言 */
+:root{color-scheme:only light;}
+/* 名鑑(長押し): 名前と球歴は黒でくっきり */
+#modal .m-nm-t > b,#modal .m-chron li b,#modal .m-awards li b{color:#111 !important;}
+#modal .m-chron li,#modal .m-awards li{font-size:13px;}
+#modal .m-chron li span{font-size:12.5px;font-weight:600;}
+#modal .m-sub,#modal .mk-y{color:#2b2823 !important;font-weight:600;}
+/* 選手名鑑(一覧の札) */
+#mk-card .mk-m,#mk-card .mk-d,#mk-card .mk-life,#mk-card .mk-y,#mk-card .mk-s i,#mk-card .m-yr,#mk-card .mf-k{color:#2b2823;}
+#mk-card .mk-cr,#mk-card .mk-cr a{color:#5a554a;}
+/* 球種の札 */
+.ab-pt{margin-top:4px;align-items:center;}
+.ab-pt .ab-lb{font:700 10px/1 "Noto Sans JP",sans-serif;color:#3f4a5a;letter-spacing:.08em;margin-right:2px;}
+.ab.pt.best{border-color:#c9a000;background:#fff8dc;}
+.ab.pt small{color:#8a6a00;}
+/* PC幅でも編成は縦積み(役・絆・タブ・図が横一列に並んで崩れていた) */
+#order-body{flex-direction:column !important;gap:0 !important;}
+#order-body > .od-body{width:100%;}
+/* ルーレット: 暗い盤の上の説明と結果は白ではっきり */
+#event-panel:has(.rl-stage)>.sub{color:#e6ebf5 !important;font-weight:600;}
+#event-panel:has(.rl-stage) .rl-msg{color:#f4f6fa !important;font-size:14px;line-height:1.8;}
+#event-panel:has(.rl-stage) .rl-msg b,#event-panel:has(.rl-stage) .rl-msg .nm-emph{color:#ffd257;font-weight:900;}
+#event-panel:has(.rl-stage) .rl-chip{color:#eef2f8;background:#1c2740;border-color:#3d4c6c;font-weight:700;}
+#event-panel:has(.rl-stage) .rl-chip.dim{opacity:.35;}
+#event-panel:has(.rl-stage) .rl-pick-h{color:#f4f6fa;font-weight:600;}
+#event-panel:has(.rl-stage) .rl-eff{color:#fff3c4;}
+#event-panel:has(.rl-stage) .mlb-card{background:#fff;color:#1a1206;}

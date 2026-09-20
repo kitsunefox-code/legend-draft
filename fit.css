@@ -1068,3 +1068,8 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   #event-panel .mlb-card .pc-row{align-items:center;}
   #event-panel .mlb-card .nm{font-size:13.5px;}
 }
+
+/* 生中継: スマホでは上から詰める(縦中央寄せで上端が切れていた) */
+@media (max-width:700px){
+  #live-bg{align-items:flex-start !important;padding:max(10px, env(safe-area-inset-top, 0px)) 8px 8px !important;}
+}

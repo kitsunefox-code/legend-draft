@@ -993,3 +993,16 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 .gg-awd-n small{font-size:10px;color:#c9d2e0;display:inline-flex;align-items:center;gap:3px;}
 .gg-awd-r.human .gg-awd-n b{color:#ffe9a8;}
 .gg-awd-v{flex:none;font:700 12px/1 "Oswald",sans-serif;color:#fff;}
+
+/* 順位帯: 総合得点の列を足したぶん格子を6列に(札が次の行に落ちて縦書きになっていた) */
+@media (max-width:700px){
+  #scr-season .ts-card{grid-template-columns:20px minmax(0,1fr) auto auto auto auto !important;}
+  #scr-season .ts-pts{margin:0;font-size:9.5px;color:#cfd8c9;text-align:right;white-space:nowrap;}
+  #scr-season .ts-pts b{font-size:12px;color:#ffd257;}
+  #scr-season .ts-badges{flex-wrap:nowrap;}
+  #scr-season .ts-b{white-space:nowrap;}
+}
+.ts-b{white-space:nowrap;}
+/* 本拠地抽選の見出し: 帯・球場名・語が途中で切れないように */
+#park-panel h2{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;line-height:1.35;word-break:keep-all;overflow-wrap:normal;}
+#park-panel h2 .kicker{flex:none;}

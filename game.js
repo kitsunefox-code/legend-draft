@@ -6080,7 +6080,30 @@ function renderRosterLive(){
   body.innerHTML = (t.park ? `<div class="rl-park">本拠地　<b>${esc(t.park.name)}</b>　<span title="${esc(t.park.note)}">${esc(t.park.type)}／${esc(t.park.note)}</span></div>` : "")
     + (editable ? `<div class="rl-edit"><button class="btn ghost sm" onclick="openOrder(${state.parts.indexOf(t)})">打順・ローテを組む</button></div>` : "")
     + (m ? `<div class="rl-mgr">監督　<b>${esc(m.name)}</b>　采配${((m.ovr-85)*0.1>=0?"+":"")}${((m.ovr-85)*0.1).toFixed(1)}／育成${devStars(m)}${t.mgrRest?`　<span class="seal b">休養中</span>`:""}</div>` : "")
-    + statTables(t, false);
+    + rosterBody(t);
+}
+// スマホでは12列の表が横に切れるので、顔と要点だけの札で並べる。「詳細な表」で従来の表に切り替え
+function rosterBody(t){
+  const narrow = typeof matchMedia === "function" && matchMedia("(max-width:700px)").matches;
+  if(!narrow || state.rosterFull) return (narrow ? '<div class="rl-sw"><button class="btn ghost sm" onclick="state.rosterFull=false;renderRosterLive()">札で見る</button></div>' : "") + statTables(t, false);
+  const marks = p => (p.awakened?`<span class='seal g'>覚</span>`:"")+(p.traded?`<span class='seal b'>交</span>`:"")+((p.joined!==undefined&&p.joined!==false)?`<span class='seal b'>米</span>`:"");
+  const seen = new Set();
+  const row = (d, p) => {
+    const s = statOf(t, p, d.grp);
+    const line = s ? statLineLive(s) : "今季まだ出場なし";
+    const apt = (d.grp !== "DH" && d.grp !== "BN" && p.cat === "B" && slotPos(d.key)) ? aptHtml(aptAt(p, d.key)) : "";
+    return `<div class="rl-c${p.inj ? " inj" : ""}" onclick="openModal(&quot;${p.id}&quot;)">
+      <span class="rl-c-pos">${esc(d.label)}${apt}</span>${faceThumb(p, 30, 38)}
+      <span class="rl-c-main"><b>${formIcon(p)} ${esc(p.name)}${marks(p)}${injBadge(p)}</b><small>${esc(line)}</small></span>
+      <span class="rl-c-ovr">${rankIcon(p, 14)}<i>${ovrFor(p, d.grp)}</i></span></div>`;
+  };
+  const sec = (title, keys) => {
+    const rows = [];
+    keys.forEach(k => { const d = SLOT_DEFS.find(x => x.key === k); const p = d && t.slots[k]; if(!p || seen.has(p.id + d.grp)) return; seen.add(p.id + d.grp); rows.push(row(d, p)); });
+    return rows.length ? `<div class="rl-c-h">${title}</div><div class="rl-cards">${rows.join("")}</div>` : "";
+  };
+  return '<div class="rl-sw"><button class="btn ghost sm" onclick="state.rosterFull=true;renderRosterLive()">詳細な表を見る</button><small>札をタップで名鑑</small></div>' +
+    sec("野手", orderKeys(t)) + sec("控え", BENCH_KEYS) + sec("先発", rotKeys(t)) + sec("救援", RP_KEYS.concat(["CL"]));
 }
 
 // ---- チーム別 選手成績(順位表の行をタップ。自由契約やトレードの判断材料に) ----

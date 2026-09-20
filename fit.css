@@ -1023,3 +1023,18 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   #pool-pv:not(.open) .pv-mini .btn{min-height:26px;padding:2px 8px;font-size:11px;}
   #pool-pv:not(.open) .pv-ovr{font-size:11px;color:var(--ink2);} #pool-pv:not(.open) .pv-ovr b{font-family:"Oswald",sans-serif;font-size:14px;color:var(--ink);}
 }
+
+/* ロスター(スマホ): 顔と要点の札 */
+.rl-sw{display:flex;align-items:center;gap:8px;margin:6px 0 4px;} .rl-sw small{font-size:10.5px;color:#cfd8c9;}
+.rl-c-h{font:700 10.5px/1 "Oswald","Noto Sans JP",sans-serif;letter-spacing:.2em;color:#ffd257;margin:10px 0 4px;}
+.rl-cards{display:flex;flex-direction:column;gap:4px;}
+.rl-c{display:grid;grid-template-columns:34px 30px minmax(0,1fr) auto;align-items:center;gap:7px;padding:4px 6px;border-radius:8px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);cursor:pointer;}
+.rl-c:active{background:rgba(255,255,255,.14);}
+.rl-c.inj{opacity:.55;}
+.rl-c-pos{font-size:12px;font-weight:800;color:#e8efe4;display:inline-flex;align-items:center;gap:1px;}
+.rl-c-pos .apt{font-size:9px;}
+.rl-c-main{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.rl-c-main b{font-size:13px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:3px;}
+.rl-c-main small{font:600 11px/1.2 "Oswald","Noto Sans JP",sans-serif;color:#cfd8c9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rl-c-ovr{display:inline-flex;align-items:center;gap:3px;} .rl-c-ovr i{font:700 13px/1 "Oswald",sans-serif;font-style:normal;color:#ffd257;}
+.rl-c .f-th{border-radius:4px;}

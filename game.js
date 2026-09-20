@@ -2164,6 +2164,8 @@ function poolCat(v){
   state.poolPv = null;      // 区分を変えたら上の面もその区分の先頭へ
   renderPool();
 }
+// 上の面を畳む/広げる(スマホは畳んだ状態が既定。一覧を多く見せる)
+function pvToggle(ev){ if(ev) ev.stopPropagation(); state.pvOpen = !state.pvOpen; seTap(); renderPool(); }
 // 見ている候補。札を押すと上の面が入れ替わる
 function poolPick(id){
   state.poolPv = id;
@@ -2207,8 +2209,9 @@ function renderPool(){
   const preview = pv ? (function(){
     const can = !t.cpu && (canTake(t, pv) || (validPool(t).over && canTake(t, pv, true)));
     const bid = state.bid && state.bid.stage === "collect";
-    return '<div id="pool-pv" class="pv">' +
-      '<div class="pv-name">' + esc(pv.name) + titleBadge(pv) + '</div>' +
+    return '<div id="pool-pv" class="pv' + (state.pvOpen ? " open" : "") + '">' +
+      '<div class="pv-name">' + esc(pv.name) + titleBadge(pv) +
+        '<button type="button" class="pv-tg" onclick="pvToggle(event)">' + (state.pvOpen ? "▲ 閉じる" : "▼ 詳細") + '</button></div>' +
       '<div class="pv-body pl-body">' +
         '<div class="pv-shot pl-shot">' +
           (pv.ph !== undefined
@@ -2228,6 +2231,9 @@ function renderPool(){
           (intlRibbon(pv) ? '<div class="pl-rb">' + intlRibbon(pv) + '</div>' : "") +
         '</div>' +
       '</div>' +
+      '<div class="pv-mini"><span class="tag key">コスト <b>' + pv.cost + '</b>pt</span><span class="pv-ovr">OVR <b>' + pv.ovr + '</b></span>' +
+        '<button type="button" class="btn ghost sm" onclick="openModal(&quot;' + pv.id + '&quot;)">名鑑</button>' +
+        (t.cpu ? "" : '<button type="button" class="btn ghost sm" onclick="toggleWatch(&quot;' + pv.id + '&quot;)">' + (t.watch.has(pv.id) ? "★" : "☆") + '</button>') + '</div>' +
       '<div class="pv-note">' + esc(pv.desc || "") + '</div>' +
       '<div class="pl-more"><button class="btn ghost sm" onclick="openModal(&quot;' + pv.id + '&quot;)">詳しく見る</button>' +
         (t.cpu ? "" : '<button class="btn ghost sm" onclick="toggleWatch(&quot;' + pv.id + '&quot;)">' +

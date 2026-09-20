@@ -1006,3 +1006,20 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 /* 本拠地抽選の見出し: 帯・球場名・語が途中で切れないように */
 #park-panel h2{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;line-height:1.35;word-break:keep-all;overflow-wrap:normal;}
 #park-panel h2 .kicker{flex:none;}
+
+/* ドラフトの上の面: スマホでは畳んで一覧を多く見せる。▼詳細で広がる */
+.pv-tg{display:none;margin-left:auto;font-family:inherit;font-size:11px;font-weight:700;color:#fff;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.4);border-radius:99px;padding:2px 9px;cursor:pointer;}
+.pv-mini{display:none;}
+@media (max-width:700px){
+  #pool-pv .pv-name{display:flex;align-items:center;gap:6px;}
+  #pool-pv .pv-tg{display:inline-block;}
+  #pool-pv:not(.open) .pv-body{grid-template-columns:54px minmax(0,1fr);gap:8px;padding:6px 8px 6px;align-items:center;}
+  #pool-pv:not(.open) .pl-shot{width:54px;}
+  #pool-pv:not(.open) .pl-shot img{height:66px;max-height:66px;}
+  #pool-pv:not(.open) .pl-av{min-height:66px;}
+  #pool-pv:not(.open) .pl-figs,#pool-pv:not(.open) .pl-tags,#pool-pv:not(.open) .pl-more,#pool-pv:not(.open) .pv-note,#pool-pv:not(.open) .pl-rb{display:none;}
+  #pool-pv:not(.open) .ab-chips{margin-top:3px;} #pool-pv:not(.open) .ab-pt{display:none;}
+  #pool-pv:not(.open) .pv-mini{display:flex;align-items:center;gap:6px;margin-top:4px;flex-wrap:wrap;}
+  #pool-pv:not(.open) .pv-mini .btn{min-height:26px;padding:2px 8px;font-size:11px;}
+  #pool-pv:not(.open) .pv-ovr{font-size:11px;color:var(--ink2);} #pool-pv:not(.open) .pv-ovr b{font-family:"Oswald",sans-serif;font-size:14px;color:var(--ink);}
+}

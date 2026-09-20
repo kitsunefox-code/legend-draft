@@ -3117,7 +3117,7 @@ function startSeason(){
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
   state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.haisui = null; });
-  state.sponsor = null; state.sponsorResult = null;
+  state.sponsor = null; state.sponsorResult = null; state.weekBet = null; state.weekBetResult = null;
   awardYaku();   // 開幕オーダーの役
   state.parts.forEach(t => { if(mascotAb(t, "luck") && !t.cpu) t.saihai = (t.saihai||0) + 2; t.crowdMark = 0; });   // 幸運: 采配権+2
   state.eventQueue = [];
@@ -4064,7 +4064,8 @@ function showWeekReport(snap){
       '<span class="wk-mv ' + (mv > 0 ? "up" : mv < 0 ? "down" : "") + '">' + (mv > 0 ? "▲" + mv : mv < 0 ? "▼" + (-mv) : "―") + '</span>' +
       teamEmblem(t, 16) + '<span class="wk-nm">' + esc(t.name) + '</span>' +
       '<span class="wk-week">今週 <b>' + w + '</b>勝<b>' + l + '</b>敗</span>' + riv +
-      '<span class="wk-tot">' + t.W + '-' + t.L + '</span></div>';
+      '<span class="wk-tot">' + t.W + '-' + t.L + '</span>' +
+      (state.opts.points !== false && !t.cpu ? '<span class="wk-pts">' + (t.pts||0) + '<small>点</small></span>' : '') + '</div>';
   }).join("");
   // 週間MVP
   let mvp = null;
@@ -4079,13 +4080,29 @@ function showWeekReport(snap){
     }
   });
   // 来週の注目カード: 首位攻防 > 人間同士 > 首位の試合
-  let watch = "";
+  let watch = "", betHtml = "";
   for(let d = state.day; d < Math.min(state.day + 7, state.schedule.length) && !watch; d++){
     const games = state.schedule[d] || [];
     const top = games.find(function(g){ const A = state.parts[g[0]], B = state.parts[g[1]]; return (A === s[0] && B === s[1]) || (A === s[1] && B === s[0]); });
     const hum = games.find(function(g){ return !state.parts[g[0]].cpu && !state.parts[g[1]].cpu; });
-    const pick = top || hum;
-    if(pick){ const A = state.parts[pick[0]], B = state.parts[pick[1]]; watch = dateLabel(d) + "　" + A.name + " × " + B.name + (top ? "（首位攻防）" : "（直接対決）"); }
+    const pick = top || hum || games[0];
+    if(pick){
+      const A = state.parts[pick[0]], B = state.parts[pick[1]];
+      watch = dateLabel(d) + "　" + A.name + " × " + B.name + (top ? "（首位攻防）" : hum ? "（直接対決）" : "");
+      // みんなで勝者を予想。当てれば+1点。次の週報で答え合わせ
+      if(state.opts.points !== false && !state.finished){
+        state.weekBet = {day:d, ai:pick[0], bi:pick[1], picks:{}, label:watch};
+        betHtml = weekBetHtml();
+      }
+    }
+  }
+  // 先週の予想の答え合わせ
+  let lastBet = "";
+  if(state.weekBetResult){
+    const r = state.weekBetResult;
+    lastBet = '<div class="wk-bet-res"><small>先週の予想</small>' + esc(r.A.name) + ' <b>' + r.rA + '-' + r.rB + '</b> ' + esc(r.B.name) +
+      (r.tie ? '　引き分けで無効' : '　的中: ' + (r.hits.length ? esc(r.hits.join("・")) + ' <i>+1点</i>' : 'なし')) + '</div>';
+    state.weekBetResult = null;
   }
   state.gogaiAfter = null;
   $("gg-go").textContent = "週報";
@@ -4095,9 +4112,44 @@ function showWeekReport(snap){
   $("gg-v").textContent = "首位 " + s[0].name + "　" + (isClimax() ? "終盤戦へ" : "残り" + Math.max(0, Math.round((state.gamesPer || 144)) - (s[0].W + s[0].L + (s[0].T||0))) + "試合");
   $("gg-sub").innerHTML = '<div class="wk-tbl">' + rows + '</div>' +
     (mvp ? '<div class="gg-mvp"><div class="gg-mvp-face">' + faceThumb(mvp.p, 40, 50) + '</div><div class="gg-mvp-t"><small>週間MVP</small><b>' + esc(mvp.p.name) + '</b><span>' + esc(mvp.t.name) + '　' + esc(mvp.line) + '</span></div></div>' : '') +
-    (watch ? '<div class="wk-watch"><small>来週の注目</small>' + esc(watch) + '</div>' : '');
+    lastBet +
+    (watch ? '<div class="wk-watch"><small>来週の注目</small>' + esc(watch) + '</div>' : '') + betHtml;
   $("gogai-bg").classList.add("show");
   seTap();
+}
+// 週間予想の札。人間の球団ごとに、注目カードのどちらが勝つかを選ぶ
+function weekBetHtml(){
+  const b = state.weekBet; if(!b) return "";
+  const A = state.parts[b.ai], B = state.parts[b.bi];
+  const humans = state.parts.map(function(t, i){ return {t, i}; }).filter(function(x){ return !x.t.cpu; });
+  if(!humans.length) return "";
+  return '<div class="wk-bet" id="wk-bet" onclick="event.stopPropagation()"><div class="wk-bet-h">みんなの週間予想<small>どちらが勝つ？ 当てれば+1点</small></div>' +
+    humans.map(function(x){
+      const pk = b.picks[x.i];
+      return '<div class="wk-bet-row"><span class="wk-bet-who">' + teamEmblem(x.t, 14) + esc(x.t.name) + '</span>' +
+        '<button type="button" class="wk-bet-b' + (pk === "A" ? " on" : "") + '" onclick="weekBetPick(' + x.i + ',&quot;A&quot;)">' + teamEmblem(A, 14) + esc(A.name) + '</button>' +
+        '<button type="button" class="wk-bet-b' + (pk === "B" ? " on" : "") + '" onclick="weekBetPick(' + x.i + ',&quot;B&quot;)">' + teamEmblem(B, 14) + esc(B.name) + '</button></div>';
+    }).join("") + '</div>';
+}
+function weekBetPick(i, side){
+  const b = state.weekBet; if(!b) return;
+  b.picks[i] = side;
+  const box = $("wk-bet"); if(box) box.outerHTML = weekBetHtml();
+  seTap();
+}
+// 注目カードが行われた日に答え合わせ(finishDay から)
+function weekBetResolve(rolled){
+  const b = state.weekBet; if(!b) return;
+  const A = state.parts[b.ai], B = state.parts[b.bi];
+  const r = rolled.find(function(x){ return (x.A === A && x.B === B) || (x.A === B && x.B === A); });
+  if(!r) return;
+  const rA = r.A === A ? r.rA : r.rB, rB = r.A === A ? r.rB : r.rA;
+  const win = rA === rB ? null : rA > rB ? "A" : "B";
+  const hits = [];
+  Object.keys(b.picks).forEach(function(k){ const t = state.parts[Number(k)]; if(t && win && b.picks[k] === win){ hits.push(t.name); addPts(t, 1, "週間予想 的中 " + (win === "A" ? A.name : B.name)); } });
+  state.weekBetResult = {A, B, rA, rB, tie: !win, hits};
+  state.weekBet = null;
+  if(hits.length) partyNews("予", "good", "【週間予想】" + A.name + " " + rA + "-" + rB + " " + B.name + "。的中は " + hits.join("・") + "（+1点）");
 }
 function skipAhead(){
   stopTimer();
@@ -4153,8 +4205,32 @@ function finishSeason(){
     $("s-note").textContent = `全${Math.round(state.gamesPer)}試合を完走。1位${s[0].name}と2位${s[1].name}が日本シリーズで激突！`;
     telop(`レギュラーシーズン終了 ―― 日本シリーズは ${s[0].name} 対 ${s[1].name}`);
   }
-  // 最終月の月報。日送りの輪の外で終わるので、ここで出す
-  if(state.monthGogai){ const mg = state.monthGogai; state.monthGogai = null; showMonthGogai(mg, null); }
+  // 最終月の月報 → 表彰式。日送りの輪の外で終わるので、ここで出す
+  let titles = [];
+  try{ titles = computeTitles(); }catch(e){ titles = []; }
+  const ceremony = function(){ if(titles.length) showAwardsGogai(titles); };
+  if(state.monthGogai){ const mg = state.monthGogai; state.monthGogai = null; showMonthGogai(mg, ceremony); }
+  else ceremony();
+}
+// シーズン表彰式。MVPと各タイトルを顔つきで一枚に
+function showAwardsGogai(titles, after){
+  state.gogaiAfter = after || null;
+  $("gg-go").textContent = "表彰";
+  $("gogai").classList.add("gg-month", "gg-award"); $("gogai").classList.remove("gg-record", "gg-week");
+  $("gg-k").textContent = "球史編纂所 ── シーズン表彰式";
+  $("gg-team").textContent = "今季の顔";
+  const mvp = titles.find(function(x){ return /MVP/.test(x.tt); });
+  $("gg-v").textContent = mvp ? "MVP " + mvp.name + "（" + mvp.team.name + "）" : "個人タイトル";
+  const P = function(name){ return PLAYERS.concat(MLB_STARS).find(function(p){ return p.name === name; }); };
+  $("gg-sub").innerHTML = '<div class="gg-awd">' + titles.map(function(x){
+    const p = P(x.name), human = x.team && !x.team.cpu;
+    return '<div class="gg-awd-r' + (/MVP/.test(x.tt) ? " mvp" : "") + (human ? " human" : "") + '">' +
+      '<span class="gg-awd-t">' + esc(x.tt) + '</span>' + (p ? faceThumb(p, 34, 42) : '') +
+      '<span class="gg-awd-n"><b>' + esc(x.name) + '</b><small>' + teamEmblem(x.team, 13) + esc(x.team.name) + '</small></span>' +
+      '<span class="gg-awd-v">' + esc(x.val || "") + '</span></div>';
+  }).join("") + '</div>';
+  $("gogai-bg").classList.add("show");
+  if(typeof seFanfare === "function") try{ seFanfare(); }catch(e){}
 }
 function dueEvent(){
   return state.eventQueue.find(e=>!e.done && e.after <= state.monthsCompleted);
@@ -4692,6 +4768,7 @@ function finishDay(rolled){
   const dl = dateLabel(state.day);
   const scores = [];
   const played = [];
+  try{ weekBetResolve(rolled); }catch(e){}
   for(const r of rolled){
     const A = r.A, B = r.B;
     const g = {rA:r.rA, rB:r.rB};
@@ -5021,6 +5098,7 @@ function renderTeamStrip(){
         <div class="ts-name">${teamEmblem(t,18)} ${esc(t.name)} ${fIcon}</div>
         <div class="ts-rec">${t.W}<span>勝</span>${t.L}<span>敗</span>${t.T?`${t.T}<span>分</span>`:""}</div>
         <div class="ts-gap ${gap>0?"plus":gap<0?"minus":""}">${gap>0?"貯金"+gap:gap<0?"借金"+(-gap):"五分"}<b class="ts-gb">${i===0?"首位":"首位と"+gbv.toFixed(1)+"差"}</b></div>
+        ${state.opts.points !== false && !t.cpu ? `<div class="ts-pts">総合 <b>${t.pts||0}</b>点</div>` : ""}
         ${badges?`<div class="ts-badges">${badges}</div>`:""}
       </div>
     </div>`;

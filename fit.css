@@ -977,3 +977,29 @@ body:has(#wake-bg.show) #s-dock{display:none;}
 #event-panel:has(.rl-stage) .rl-pick-h{color:#f4f6fa;font-weight:600;}
 #event-panel:has(.rl-stage) .rl-eff{color:#fff3c4;}
 #event-panel:has(.rl-stage) .mlb-card{background:#fff;color:#1a1206;}
+
+/* 週間予想 */
+.wk-bet{margin-top:10px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);}
+.wk-bet-h{font-size:12.5px;font-weight:800;color:#ffd98a;display:flex;align-items:baseline;gap:8px;margin-bottom:6px;}
+.wk-bet-h small{font-size:10.5px;font-weight:400;color:#e6ebf5;}
+.wk-bet-row{display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px dashed rgba(255,255,255,.14);}
+.wk-bet-who{flex:1;min-width:0;display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wk-bet-b{font-family:inherit;font-size:11.5px;font-weight:700;color:#fff;background:rgba(255,255,255,.1);border:1.5px solid rgba(255,255,255,.35);border-radius:99px;padding:4px 9px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.wk-bet-b.on{background:#e0a600;border-color:#e0a600;color:#1a1206;}
+.wk-bet-res{margin-top:8px;font-size:12px;color:#fff;display:flex;flex-wrap:wrap;gap:6px;align-items:baseline;}
+.wk-bet-res small{font-size:10px;letter-spacing:.12em;color:#ffd98a;} .wk-bet-res i{font-style:normal;color:#ffd257;font-weight:800;}
+.wk-pts{flex:none;font:800 12px/1 "Oswald",sans-serif;color:#ffd257;margin-left:6px;} .wk-pts small{font-size:9px;margin-left:1px;}
+/* 帯の総合得点 */
+.ts-pts{font-size:10.5px;color:var(--ink2);margin-top:2px;} .ts-pts b{font-family:"Oswald",sans-serif;font-size:13px;color:#1f3b63;}
+/* 表彰式 */
+#gogai.gg-award .gg-go::after{content:" AWARDS";} #gogai.gg-award .gg-go{color:#ffd257;} #gogai.gg-award{border-top-color:#e0a600;}
+#gogai.gg-award .gg-team{font-size:26px;color:#fff;} #gogai.gg-award .gg-v{color:#ffd98a;font-size:13px;letter-spacing:.06em;}
+.gg-awd{display:flex;flex-direction:column;gap:0;margin-top:6px;}
+.gg-awd-r{display:flex;align-items:center;gap:8px;padding:5px 0;border-top:1px dashed rgba(255,255,255,.16);}
+.gg-awd-r.mvp{background:linear-gradient(90deg,rgba(224,166,0,.25),transparent);border-radius:6px;padding:7px 6px;}
+.gg-awd-t{flex:none;width:78px;font-size:11px;font-weight:800;color:#ffd98a;letter-spacing:.04em;}
+.gg-awd-r.mvp .gg-awd-t{color:#ffd257;font-size:12px;}
+.gg-awd-n{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;} .gg-awd-n b{font-size:14px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.gg-awd-n small{font-size:10px;color:#c9d2e0;display:inline-flex;align-items:center;gap:3px;}
+.gg-awd-r.human .gg-awd-n b{color:#ffe9a8;}
+.gg-awd-v{flex:none;font:700 12px/1 "Oswald",sans-serif;color:#fff;}

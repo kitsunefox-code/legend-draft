@@ -1052,3 +1052,19 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   .gm-oshi-list .gm-oshi-b .f-th{width:24px;height:30px;border-radius:3px;flex:none;}
   .gm-ob b{font-size:12px;}
 }
+
+/* イベント面: 上に寄せる(短い内容が縦中央に浮いて上が空いていた)。見出しは語の途中で折らない */
+#event-panel{justify-content:flex-start !important;}
+#event-panel h2{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;line-height:1.35;word-break:keep-all;overflow-wrap:normal;}
+#event-panel h2 .kicker{flex:none;}
+/* 球宴: 名前は2行まで折り返す(省略して読めないより良い) */
+@media (max-width:700px){
+  .as-nm{white-space:normal;line-height:1.15;font-size:11px;}
+  .as-from{flex:none;}
+}
+/* MLB補強: スマホは1列の横長カードにして名前を切らない */
+@media (max-width:520px){
+  #event-panel .mlb-grid{grid-template-columns:1fr !important;gap:6px;}
+  #event-panel .mlb-card .pc-row{align-items:center;}
+  #event-panel .mlb-card .nm{font-size:13.5px;}
+}

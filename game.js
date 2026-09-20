@@ -4096,7 +4096,7 @@ function showWeekReport(snap){
   }
   state.gogaiAfter = null;
   $("gg-go").textContent = "週報";
-  $("gogai").classList.add("gg-month", "gg-week"); $("gogai").classList.remove("gg-record");
+  $("gogai").classList.add("gg-month", "gg-week"); $("gogai").classList.remove("gg-record", "gg-award");
   $("gg-k").textContent = "球史編纂所 ── " + dateLabel(snap.day) + "〜" + dateLabel(Math.max(snap.day, state.day - 1));
   $("gg-team").textContent = "第" + snap.no + "週";
   $("gg-v").textContent = "首位 " + s[0].name + "　" + (isClimax() ? "終盤戦へ" : "残り" + Math.max(0, Math.round((state.gamesPer || 144)) - (s[0].W + s[0].L + (s[0].T||0))) + "試合");
@@ -4944,7 +4944,7 @@ function buildMonthGogai(m){
 function showMonthGogai(mg, after){
   state.gogaiAfter = after || null;
   $("gg-go").textContent = "月報";
-  $("gogai").classList.remove("gg-record", "gg-week");
+  $("gogai").classList.remove("gg-record", "gg-week", "gg-award");
   $("gg-k").textContent = "球史編纂所 ── " + MONTHS[mg.m] + "の記";
   $("gg-team").textContent = mg.head;
   $("gg-v").textContent = MONTHS[mg.m] + "終了時点";
@@ -4965,7 +4965,7 @@ function showMonthGogai(mg, after){
 function showRecordGogai(rg, after){
   state.gogaiAfter = after || null;
   $("gg-go").textContent = "快挙";
-  $("gogai").classList.add("gg-month", "gg-record"); $("gogai").classList.remove("gg-week");
+  $("gogai").classList.add("gg-month", "gg-record"); $("gogai").classList.remove("gg-week", "gg-award");
   $("gg-k").textContent = "球史編纂所 ── " + (rg.date || dateLabel(state.day-1)) + "の記";
   $("gg-team").textContent = rg.kind;
   $("gg-v").textContent = rg.t.name + "　" + rg.score + "　" + rg.opp.name;
@@ -7651,7 +7651,7 @@ function seFanfare(){
 function showGogai(champ){
   state.gogaiAfter = null;
   $("gg-go").textContent = "特筆";
-  $("gogai").classList.remove("gg-month", "gg-record", "gg-week");
+  $("gogai").classList.remove("gg-month", "gg-record", "gg-week", "gg-award");
   $("gg-k").textContent = "球史編纂所 ── 優勝の記";
   $("gg-team").textContent = champ.name;
   const pct = (champ.W/(champ.W+champ.L)).toFixed(3).replace(/^0/,"");

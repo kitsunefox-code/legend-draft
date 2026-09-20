@@ -1082,3 +1082,22 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   .sr-team span{font-size:9.5px;letter-spacing:.06em;}
   .sr-w{margin-top:8px;}
 }
+
+/* 名鑑: 通算／球歴・表彰／プロフィールはタブで(縦に長くしない) */
+.m-tabs{display:flex;gap:4px;margin:12px 0 8px;border-bottom:2px solid var(--navy);}
+.m-tab{flex:1;font-family:inherit;font-size:12px;font-weight:800;color:var(--ink2);background:#f4efe2;border:1px solid var(--rule);border-bottom:0;border-radius:6px 6px 0 0;padding:6px 4px;cursor:pointer;}
+.m-tab.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+.m-none{font-size:12px;color:var(--ink2);padding:6px 0;}
+.m-prof{font-size:13px;line-height:1.8;color:#2b2823;} .m-prof .m-life{font-weight:700;margin-bottom:4px;}
+#m-tab-body .m-yr{margin-top:0;}
+#m-tab-body .m-lore{margin-top:0;}
+@media (max-width:700px){
+  #modal{padding:12px 12px 10px !important;}
+  #modal .statline{padding:9px 10px 10px !important;margin:8px 0 !important;}
+  #modal .m-figs{gap:6px 14px !important;} #modal .mf-v{font-size:20px !important;}
+  #modal .m-yr{margin-bottom:6px !important;padding-bottom:4px !important;}
+  #modal .ab-chips{margin-top:5px;gap:3px;} #modal .ab{font-size:10.5px;padding:2px 5px 2px 2px;} #modal .ab i{font-size:12px;min-width:18px;}
+  #modal .m-tabs{margin:9px 0 6px;}
+  #modal .m-chron li,#modal .m-awards li{font-size:12px;padding:2px 0;}
+  #modal > div[style*="margin-top:18px"]{margin-top:10px !important;}
+}

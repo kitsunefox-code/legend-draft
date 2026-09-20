@@ -2479,20 +2479,26 @@ function openModal(id){
   }
   const cf = careerFigs(p);
   const sf = p.cat === "M" ? null : seasonFigs(p);
-  $("m-stats").innerHTML =
-    (sf ? '<div class="m-yr m-now">今季　' + esc(sf.t.name) + '<small>' + dateLabel(Math.max(0, state.day - 1)) + 'まで</small></div>' + figuresHtml(sf.figs) : "") +
-    '<div class="m-yr' + (sf ? ' m-yr2' : '') + '">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
-    figuresHtml(statFigures(p)) + (typeof abilChips === "function" ? abilChips(p) : "") + extra +
-    (cf ? '<div class="m-yr m-yr2">通算' + (p.car.yr ? "　" + p.car.yr + "年" : "") + '</div>' +
-          figuresHtml(cf.map(function(x){ return {k:x[0], v:x[1]}; })) : "") + loreHtml(p);
-  // プロフィールと写真の出典。表示が要るライセンスがあるので必ず添える
+  // 上段は今季・キャリアハイ・能力だけ。通算／球歴・表彰／プロフィールはタブで切り替え、縦に長くしない
   const life = [];
   if(p.y) life.push(p.y);
   if(p.b) life.push(p.b + (p.d ? "–" + p.d : "–"));
   if(p.f) life.push(p.f);
-  $("m-desc").innerHTML = (life.length ? '<div class="m-life">' + esc(life.join("　")) + '</div>' : "") +
-    '<div>' + esc(p.desc || "") + '</div>' + intlLines(p) + faceCredit(p) +
-    mateChips(p) + wikiLink(p);
+  const lore = loreHtml(p);
+  state.modalTabs = {
+    car: cf ? '<div class="m-yr m-yr2">通算' + (p.car.yr ? "　" + p.car.yr + "年" : "") + '</div>' + figuresHtml(cf.map(function(x){ return {k:x[0], v:x[1]}; })) : '<div class="m-none">通算成績の記録はありません</div>',
+    lore: lore || '<div class="m-none">球歴・表彰の記録はありません</div>',
+    prof: '<div class="m-prof">' + (life.length ? '<div class="m-life">' + esc(life.join("　")) + '</div>' : "") +
+      '<div>' + esc(p.desc || "") + '</div>' + intlLines(p) + faceCredit(p) + mateChips(p) + wikiLink(p) + '</div>',
+  };
+  if(!state.mTab || !state.modalTabs[state.mTab]) state.mTab = "car";
+  $("m-stats").innerHTML =
+    (sf ? '<div class="m-yr m-now">今季　' + esc(sf.t.name) + '<small>' + dateLabel(Math.max(0, state.day - 1)) + 'まで</small></div>' + figuresHtml(sf.figs) : "") +
+    '<div class="m-yr' + (sf ? ' m-yr2' : '') + '">' + p.year + '年' + (p.cat === "M" ? "" : "　キャリアハイ") + '</div>' +
+    figuresHtml(statFigures(p)) + (typeof abilChips === "function" ? abilChips(p) : "") + extra +
+    '<div class="m-tabs" id="m-tabs"></div><div id="m-tab-body"></div>';
+  modalTabRender();
+  $("m-desc").innerHTML = "";
   const t = currentTeam();
   const canPick = $("scr-draft").classList.contains("active") && t && !t.cpu && !p.mlb &&
     (canTake(t,p) || (validPool(t).over && canTake(t,p,true)));
@@ -2520,6 +2526,14 @@ function openModal(id){
   $("modal-bg").classList.add("show");
 }
 function closeModal(){ $("modal-bg").classList.remove("show"); }
+const M_TABS = [["car","通算"],["lore","球歴・表彰"],["prof","プロフィール"]];
+function modalTabRender(){
+  const tabs = $("m-tabs"), body = $("m-tab-body");
+  if(!tabs || !body || !state.modalTabs) return;
+  tabs.innerHTML = M_TABS.map(function(x){ return '<button type="button" class="m-tab' + (state.mTab === x[0] ? " on" : "") + '" onclick="modalTab(&quot;' + x[0] + '&quot;)">' + x[1] + '</button>'; }).join("");
+  body.innerHTML = state.modalTabs[state.mTab] || "";
+}
+function modalTab(k){ state.mTab = k; seTap(); modalTabRender(); }
 // 一覧から直に指名する。詳細を開かずに決められるように
 function poolPickGo(id){
   const t = currentTeam(), p = findPlayer(id);

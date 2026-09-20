@@ -1101,3 +1101,12 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   #modal .m-chron li,#modal .m-awards li{font-size:12px;padding:2px 0;}
   #modal > div[style*="margin-top:18px"]{margin-top:10px !important;}
 }
+
+/* 名鑑の表彰: スマホでは2列に並べて縦を半分に */
+@media (max-width:700px){
+  #modal .m-awards{display:grid;grid-template-columns:1fr 1fr;gap:2px 10px;}
+  #modal .m-awards li{border-bottom:1px dashed rgba(128,128,128,.25);padding:3px 0;}
+  #modal .m-awards li span{font-size:10px;line-height:1.35;}
+  #modal .m-awards li.more{grid-column:1/-1;}
+  #modal .m-chron li{padding:2px 0;}
+}

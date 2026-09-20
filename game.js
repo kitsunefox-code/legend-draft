@@ -6292,7 +6292,11 @@ function gmRender(){
     }
     const cands = lineupOf(t).concat(rotKeys(t).map(function(k){ return t.slots[k]; }).filter(Boolean));
     return '<div class="gm-sec"><div class="gm-h">推し選手を宣言<small>この選手の活躍が自分の得点になる。一人だけ、変えられません</small></div><div class="gm-teams gm-oshi-list">' +
-      cands.map(function(p){ return '<button type="button" class="gm-team' + (c.oshi === p ? " on" : "") + '" onclick="gmOshi(&quot;' + String(p.id).replace(/"/g,'') + '&quot;)">' + faceThumb(p, 20, 26) + '<b>' + esc(p.name) + '</b></button>'; }).join("") + '</div></div>';
+      cands.map(function(p){
+        const d = SLOT_DEFS.find(function(x){ return x.key !== "MGR" && t.slots[x.key] === p; });
+        const st = d ? statLineLive(statOf(t, p, d.grp)) : "";
+        return '<button type="button" class="gm-team gm-oshi-b' + (c.oshi === p ? " on" : "") + '" onclick="gmOshi(&quot;' + String(p.id).replace(/"/g,'') + '&quot;)">' + faceThumb(p, 24, 30) +
+          '<span class="gm-ob"><b>' + esc(p.name) + '</b><small>' + esc(d ? d.label : "") + (st ? '　' + esc(st) : '') + '</small></span></button>'; }).join("") + '</div></div>';
   })();
   const orderHtml = '<div class="gm-sec"><div class="gm-h">打順・守備・ローテ<small>先月の結果を見て組み直せます</small></div>' +
     '<button type="button" class="btn ghost sm gm-order" onclick="gmOrder()">打順を組み直す</button></div>';

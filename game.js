@@ -6090,45 +6090,59 @@ function openTeamStats(idx){
 }
 
 function renderChart(){
-  const W=720, H=240, padL=34, padR=86, padT=12, padB=22;
+  const narrow = typeof matchMedia === "function" && matchMedia("(max-width:700px)").matches;
+  const W = narrow ? 380 : 720, H = narrow ? 230 : 240, padL = narrow ? 30 : 34, padR = narrow ? 92 : 96, padT = 14, padB = 24;
+  const F = narrow ? 11 : 10.5;                      // 文字の大きさ(スマホは縮小表示されるので大きめ)
   const total = (state.schedule && state.schedule.length) || 1;
-  const maxLen = total + 1; // 開幕前(0)+全日程
-  let lo=0, hi=0;
-  state.parts.forEach(t=>t.hist.forEach(v=>{ lo=Math.min(lo,v); hi=Math.max(hi,v); }));
-  if(hi-lo<6){hi+=3;lo-=3;}
-  const x = i => padL + (W-padL-padR)*i/(maxLen-1);
-  const y = v => padT + (H-padT-padB)*(1-(v-lo)/(hi-lo));
-  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
-  svg += `<line x1="${padL}" y1="${y(0)}" x2="${W-padR}" y2="${y(0)}" stroke="#b3a683" stroke-dasharray="4 4"/>`;
-  svg += `<text x="${padL-6}" y="${y(0)+4}" fill="#7b7159" font-size="10" text-anchor="end">0</text>`;
-  MONTHS.forEach((m,i)=>{
-    const dx = x(i*total/7 + total/14);
-    svg += `<text x="${dx}" y="${H-6}" fill="#7b7159" font-size="10" text-anchor="middle">${m}</text>`;
-    if(i>0) svg += `<line x1="${x(i*total/7)}" y1="${padT}" x2="${x(i*total/7)}" y2="${H-padB}" stroke="#e6dec7" stroke-width="1"/>`;
+  const played = Math.max(0, Math.max.apply(null, state.parts.map(t => t.hist.length)) - 1);
+  // 消化した日数+少し先まで。開幕直後は最低30日ぶんの幅にして線が左端で潰れないようにする
+  const span = Math.min(total, Math.max(30, Math.ceil(played * 1.15) + 3));
+  const maxLen = span + 1;
+  let lo = 0, hi = 0;
+  state.parts.forEach(t => t.hist.forEach(v => { lo = Math.min(lo, v); hi = Math.max(hi, v); }));
+  if(hi - lo < 8){ hi += 4; lo -= 4; }
+  hi += 1; lo -= 1;
+  const x = i => padL + (W - padL - padR) * i / (maxLen - 1);
+  const y = v => padT + (H - padT - padB) * (1 - (v - lo) / (hi - lo));
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">`;
+  // 貯金の目盛り(5刻み)
+  const step = (hi - lo) > 30 ? 10 : 5;
+  for(let v = Math.ceil(lo / step) * step; v <= hi; v += step){
+    if(v === 0) continue;
+    svg += `<line x1="${padL}" y1="${y(v)}" x2="${W - padR}" y2="${y(v)}" stroke="#ece5d2" stroke-width="1"/>`;
+    svg += `<text x="${padL - 5}" y="${y(v) + 4}" fill="#8a8068" font-size="${F - 1}" text-anchor="end">${v > 0 ? "+" + v : v}</text>`;
+  }
+  svg += `<line x1="${padL}" y1="${y(0)}" x2="${W - padR}" y2="${y(0)}" stroke="#9a8e6a" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  svg += `<text x="${padL - 5}" y="${y(0) + 4}" fill="#5f5744" font-size="${F}" font-weight="bold" text-anchor="end">0</text>`;
+  // 月の境と月名(見えている範囲だけ)
+  MONTHS.forEach((m, i) => {
+    const d0 = i * total / 7, d1 = (i + 1) * total / 7;
+    if(d0 > span) return;
+    if(i > 0) svg += `<line x1="${x(d0)}" y1="${padT}" x2="${x(d0)}" y2="${H - padB}" stroke="#d9d0b8" stroke-width="1"/>`;
+    const mid = (d0 + Math.min(d1, span)) / 2;
+    if(Math.min(d1, span) - d0 > span * 0.06) svg += `<text x="${x(mid)}" y="${H - 7}" fill="#6b6350" font-size="${F}" font-weight="bold" text-anchor="middle">${m}</text>`;
   });
-  state.parts.forEach(t=>{
-    const pts = t.hist.map((v,i)=>`${x(i)},${y(v)}`).join(" ");
-    svg += `<polyline points="${pts}" fill="none" stroke="${t.color}" stroke-width="2" stroke-linejoin="round"/>`;
+  // 今日の縦線
+  if(played > 0 && played < span) svg += `<line x1="${x(played)}" y1="${padT}" x2="${x(played)}" y2="${H - padB}" stroke="#e4432c" stroke-width="1" stroke-dasharray="2 3" opacity=".7"/>`;
+  // 各球団の線(人間は太く、CPUは細く)
+  state.parts.forEach(t => {
+    const pts = t.hist.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    svg += `<polyline points="${pts}" fill="none" stroke="${t.color}" stroke-width="${t.cpu ? 2 : 3}" stroke-linejoin="round" stroke-linecap="round" opacity="${t.cpu ? .75 : 1}"/>`;
   });
   // 端の見出しは重なりやすい(開幕直後は全球団が0で並ぶ)。上下にずらして必ず読めるようにする
-  const ends = state.parts.map(t=>{
-    const last = t.hist[t.hist.length-1];
-    return {t, last, lx:x(t.hist.length-1), ly:y(last), ty:y(last)};
-  }).sort((a,b)=>a.ty-b.ty);
-  const GAP = 12;
-  for(let i=1;i<ends.length;i++){
-    if(ends[i].ty - ends[i-1].ty < GAP) ends[i].ty = ends[i-1].ty + GAP;
-  }
-  const over = ends.length ? ends[ends.length-1].ty - (H-padB) : 0;
-  if(over > 0) ends.forEach(e=>{ e.ty -= over; });
-  ends.forEach(e=>{
-    const nm = e.t.name.length>5 ? e.t.name.slice(0,5) : e.t.name;
-    svg += `<circle cx="${e.lx}" cy="${e.ly}" r="3.5" fill="${e.t.color}"/>`;
-    // 点と見出しがずれた分は引き出し線でつなぐ
-    if(Math.abs(e.ty - e.ly) > 1.5){
-      svg += `<path d="M${e.lx+4} ${e.ly} L${e.lx+9} ${e.ty-3.5}" stroke="${e.t.color}" stroke-width="1" fill="none" opacity=".55"/>`;
-    }
-    svg += `<text x="${e.lx+11}" y="${e.ty}" fill="${e.t.color}" font-size="10.5" font-weight="bold" dominant-baseline="middle">${esc(nm)} ${e.last>0?"+":""}${e.last}</text>`;
+  const ends = state.parts.map(t => {
+    const last = t.hist[t.hist.length - 1];
+    return {t, last, lx: x(t.hist.length - 1), ly: y(last), ty: y(last)};
+  }).sort((a, b) => a.ty - b.ty);
+  const GAP = F + 4;
+  for(let i = 1; i < ends.length; i++){ if(ends[i].ty - ends[i - 1].ty < GAP) ends[i].ty = ends[i - 1].ty + GAP; }
+  const over = ends.length ? ends[ends.length - 1].ty - (H - padB) : 0;
+  if(over > 0) ends.forEach(e => { e.ty -= over; });
+  ends.forEach(e => {
+    const nm = e.t.name.length > 6 ? e.t.name.slice(0, 6) : e.t.name;
+    svg += `<circle cx="${e.lx}" cy="${e.ly}" r="${narrow ? 4.5 : 3.5}" fill="${e.t.color}" stroke="#fff" stroke-width="1.5"/>`;
+    if(Math.abs(e.ty - e.ly) > 1.5) svg += `<path d="M${e.lx + 5} ${e.ly} L${e.lx + 10} ${e.ty}" stroke="${e.t.color}" stroke-width="1" fill="none" opacity=".55"/>`;
+    svg += `<text x="${e.lx + 13}" y="${e.ty}" fill="${e.t.color}" font-size="${F + 1}" font-weight="bold" dominant-baseline="middle">${esc(nm)} ${e.last > 0 ? "+" : ""}${e.last}</text>`;
   });
   svg += `</svg>`;
   $("chart").innerHTML = svg;

@@ -3117,7 +3117,7 @@ function startSeason(){
   state.monthsCompleted = -1; state.resumeAfterEvent = false;
   state.monthGogai = null; state.monthLeader0 = null; state.monthStartDay = 0; state.leader = null;
   state.parts.forEach(t => { t.mW0 = 0; t.mL0 = 0; t.pts = 0; t.ptsLog = []; t.h2h = {}; t.pred = null; t.gamble = null; t.haisui = null; });
-  state.sponsor = null; state.sponsorResult = null; state.weekBet = null; state.weekBetResult = null;
+  state.sponsor = null; state.sponsorResult = null; state.climaxArranged = false;
   awardYaku();   // 開幕オーダーの役
   state.parts.forEach(t => { if(mascotAb(t, "luck") && !t.cpu) t.saihai = (t.saihai||0) + 2; t.crowdMark = 0; });   // 幸運: 采配権+2
   state.eventQueue = [];
@@ -4080,29 +4080,13 @@ function showWeekReport(snap){
     }
   });
   // 来週の注目カード: 首位攻防 > 人間同士 > 首位の試合
-  let watch = "", betHtml = "";
+  let watch = "";
   for(let d = state.day; d < Math.min(state.day + 7, state.schedule.length) && !watch; d++){
     const games = state.schedule[d] || [];
     const top = games.find(function(g){ const A = state.parts[g[0]], B = state.parts[g[1]]; return (A === s[0] && B === s[1]) || (A === s[1] && B === s[0]); });
     const hum = games.find(function(g){ return !state.parts[g[0]].cpu && !state.parts[g[1]].cpu; });
-    const pick = top || hum || games[0];
-    if(pick){
-      const A = state.parts[pick[0]], B = state.parts[pick[1]];
-      watch = dateLabel(d) + "　" + A.name + " × " + B.name + (top ? "（首位攻防）" : hum ? "（直接対決）" : "");
-      // みんなで勝者を予想。当てれば+1点。次の週報で答え合わせ
-      if(state.opts.points !== false && !state.finished){
-        state.weekBet = {day:d, ai:pick[0], bi:pick[1], picks:{}, label:watch};
-        betHtml = weekBetHtml();
-      }
-    }
-  }
-  // 先週の予想の答え合わせ
-  let lastBet = "";
-  if(state.weekBetResult){
-    const r = state.weekBetResult;
-    lastBet = '<div class="wk-bet-res"><small>先週の予想</small>' + esc(r.A.name) + ' <b>' + r.rA + '-' + r.rB + '</b> ' + esc(r.B.name) +
-      (r.tie ? '　引き分けで無効' : '　的中: ' + (r.hits.length ? esc(r.hits.join("・")) + ' <i>+1点</i>' : 'なし')) + '</div>';
-    state.weekBetResult = null;
+    const pick = top || hum;
+    if(pick){ const A = state.parts[pick[0]], B = state.parts[pick[1]]; watch = dateLabel(d) + "　" + A.name + " × " + B.name + (top ? "（首位攻防）" : "（直接対決）"); }
   }
   state.gogaiAfter = null;
   $("gg-go").textContent = "週報";
@@ -4112,44 +4096,9 @@ function showWeekReport(snap){
   $("gg-v").textContent = "首位 " + s[0].name + "　" + (isClimax() ? "終盤戦へ" : "残り" + Math.max(0, Math.round((state.gamesPer || 144)) - (s[0].W + s[0].L + (s[0].T||0))) + "試合");
   $("gg-sub").innerHTML = '<div class="wk-tbl">' + rows + '</div>' +
     (mvp ? '<div class="gg-mvp"><div class="gg-mvp-face">' + faceThumb(mvp.p, 40, 50) + '</div><div class="gg-mvp-t"><small>週間MVP</small><b>' + esc(mvp.p.name) + '</b><span>' + esc(mvp.t.name) + '　' + esc(mvp.line) + '</span></div></div>' : '') +
-    lastBet +
-    (watch ? '<div class="wk-watch"><small>来週の注目</small>' + esc(watch) + '</div>' : '') + betHtml;
+    (watch ? '<div class="wk-watch"><small>来週の注目</small>' + esc(watch) + '</div>' : '');
   $("gogai-bg").classList.add("show");
   seTap();
-}
-// 週間予想の札。人間の球団ごとに、注目カードのどちらが勝つかを選ぶ
-function weekBetHtml(){
-  const b = state.weekBet; if(!b) return "";
-  const A = state.parts[b.ai], B = state.parts[b.bi];
-  const humans = state.parts.map(function(t, i){ return {t, i}; }).filter(function(x){ return !x.t.cpu; });
-  if(!humans.length) return "";
-  return '<div class="wk-bet" id="wk-bet" onclick="event.stopPropagation()"><div class="wk-bet-h">みんなの週間予想<small>どちらが勝つ？ 当てれば+1点</small></div>' +
-    humans.map(function(x){
-      const pk = b.picks[x.i];
-      return '<div class="wk-bet-row"><span class="wk-bet-who">' + teamEmblem(x.t, 14) + esc(x.t.name) + '</span>' +
-        '<button type="button" class="wk-bet-b' + (pk === "A" ? " on" : "") + '" onclick="weekBetPick(' + x.i + ',&quot;A&quot;)">' + teamEmblem(A, 14) + esc(A.name) + '</button>' +
-        '<button type="button" class="wk-bet-b' + (pk === "B" ? " on" : "") + '" onclick="weekBetPick(' + x.i + ',&quot;B&quot;)">' + teamEmblem(B, 14) + esc(B.name) + '</button></div>';
-    }).join("") + '</div>';
-}
-function weekBetPick(i, side){
-  const b = state.weekBet; if(!b) return;
-  b.picks[i] = side;
-  const box = $("wk-bet"); if(box) box.outerHTML = weekBetHtml();
-  seTap();
-}
-// 注目カードが行われた日に答え合わせ(finishDay から)
-function weekBetResolve(rolled){
-  const b = state.weekBet; if(!b) return;
-  const A = state.parts[b.ai], B = state.parts[b.bi];
-  const r = rolled.find(function(x){ return (x.A === A && x.B === B) || (x.A === B && x.B === A); });
-  if(!r) return;
-  const rA = r.A === A ? r.rA : r.rB, rB = r.A === A ? r.rB : r.rA;
-  const win = rA === rB ? null : rA > rB ? "A" : "B";
-  const hits = [];
-  Object.keys(b.picks).forEach(function(k){ const t = state.parts[Number(k)]; if(t && win && b.picks[k] === win){ hits.push(t.name); addPts(t, 1, "週間予想 的中 " + (win === "A" ? A.name : B.name)); } });
-  state.weekBetResult = {A, B, rA, rB, tie: !win, hits};
-  state.weekBet = null;
-  if(hits.length) partyNews("予", "good", "【週間予想】" + A.name + " " + rA + "-" + rB + " " + B.name + "。的中は " + hits.join("・") + "（+1点）");
 }
 function skipAhead(){
   stopTimer();
@@ -4715,8 +4664,59 @@ function simGame(A, B){
   applyGame(A, B, g.rA, g.rB);
   return g;
 }
+// 終盤(残り3週)に入るとき、残りの日程をカード単位で並べ替え、人間同士の大一番が最後に来るようにする。
+// 3連戦の塊(3日+移動日)ごとに動かすので、対戦数やホーム・ビジターは変わらない
+function arrangeClimax(){
+  if(state.climaxArranged || !state.schedule) return;
+  const total = state.schedule.length, rem = total - state.day;
+  if(rem > 22 || rem < 8) return;
+  state.climaxArranged = true;
+  const humans = state.parts.filter(t => !t.cpu);
+  if(humans.length < 2) return;
+  const s = standingsSorted();
+  const rank = t => s.indexOf(t);
+  // いま進行中のカードは動かさない。次の移動日の翌日から塊を切る
+  let from = state.day;
+  while(from < total && (state.schedule[from] || []).length) from++;
+  from++;
+  if(from >= total) return;
+  const blocks = []; let cur = [];
+  for(let d = from; d < total; d++){
+    cur.push(state.schedule[d]);
+    if(!(state.schedule[d] || []).length || d === total - 1){ blocks.push(cur); cur = []; }
+  }
+  if(cur.length) blocks.push(cur);
+  const score = blk => {
+    const games = (blk.find(x => x && x.length) || []);
+    let sc = 0;
+    games.forEach(([a, b]) => {
+      const A = state.parts[a], B = state.parts[b];
+      if(A.cpu || B.cpu) return;
+      sc += 2;
+      const r1 = rank(A), r2 = rank(B);
+      if(Math.max(r1, r2) <= 1) sc += 4;            // 1位×2位
+      else if(Math.min(r1, r2) === 0) sc += 2;      // 首位がらみ
+      else if(Math.max(r1, r2) <= 2) sc += 1;       // 2位×3位
+    });
+    return sc;
+  };
+  const order = blocks.map((b, i) => ({b, i, sc: score(b)})).sort((x, y) => (x.sc - y.sc) || (x.i - y.i));
+  const days = [].concat.apply([], order.map(x => x.b));
+  for(let k = 0; k < days.length; k++) state.schedule[from + k] = days[k];
+  // 最後のカードを予告
+  const last = order[order.length - 1];
+  const g0 = (last.b.find(x => x && x.length) || [])[0];
+  if(g0 && last.sc > 0){
+    const A = state.parts[g0[0]], B = state.parts[g0[1]];
+    const txt = "【終盤】最終カードは " + A.name + " × " + B.name + " の直接対決。優勝争いは最後の3連戦で決まる";
+    telop(txt);
+    partyNews("決", "warn", txt, null, A);
+    const note = $("s-note"); if(note) note.textContent = txt.replace("【終盤】", "");
+  }
+}
 function playDay(){
   state.parts.forEach(refreshLinks);
+  if(!state.climaxArranged && state.schedule && state.schedule.length - state.day <= 22) arrangeClimax();
   const games = state.schedule[state.day];
   if(!games || !games.length){       // 移動日
     state.restDay = true;
@@ -4768,7 +4768,6 @@ function finishDay(rolled){
   const dl = dateLabel(state.day);
   const scores = [];
   const played = [];
-  try{ weekBetResolve(rolled); }catch(e){}
   for(const r of rolled){
     const A = r.A, B = r.B;
     const g = {rA:r.rA, rB:r.rB};

@@ -1122,3 +1122,14 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   #event-panel .gm-card{padding:6px 9px;}
   #event-panel .gm-foot{margin-top:6px;}
 }
+
+/* シーズン画面: 上の順位帯とタブを詰めて、順位表の下の「本日の試合」まで見えるように */
+@media (max-width:700px){
+  #scr-season .ts-card{min-height:27px;padding:2px 8px !important;border-radius:5px;}
+  #scr-season .ts-rank{width:18px;height:18px;line-height:17px;font-size:11px;}
+  #scr-season .ts-name{font-size:12px;} #scr-season .ts-rec{font-size:13px !important;}
+  #scr-season .ts-gap{font-size:10px;} #scr-season .ts-pts{font-size:9px;}
+  #team-strip{gap:3px !important;}
+  #scr-season .s-tabs{margin:4px 0 6px !important;}
+  #scr-season .s-tab{padding:6px 4px !important;font-size:13px !important;}
+}

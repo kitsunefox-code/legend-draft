@@ -1110,3 +1110,15 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   #modal .m-awards li.more{grid-column:1/-1;}
   #modal .m-chron li{padding:2px 0;}
 }
+
+/* GMの決断: 一画面に収める(推し候補の枠を低く、打順の段は見出しとボタンを横並び) */
+.gm-oshi-list{max-height:176px;}
+.gm-sec:has(> .gm-order){display:flex;align-items:center;gap:8px;}
+.gm-sec:has(> .gm-order) .gm-h{flex:1;margin:0;}
+.gm-sec:has(> .gm-order) .gm-order{margin:0;flex:none;}
+@media (max-width:700px){
+  #event-panel .gm-sec{margin:5px 0;}
+  #event-panel .gm-report2{padding:6px 8px;}
+  #event-panel .gm-card{padding:6px 9px;}
+  #event-panel .gm-foot{margin-top:6px;}
+}

@@ -71,7 +71,7 @@ ${pRows}
 ${kRows}
 </tbody></table></div></section>
 </main>
-<footer class="ab-foot"><a href="about.html">このゲームについて</a> ・ <a href="./">ゲームへ戻る</a> ・ <a href="https://kusayakyu-navi.com/?utm_source=legend-draft&utm_medium=credits&utm_campaign=game">草野球ナビ</a></footer>
+<footer class="ab-foot"><a href="about.html">このゲームについて</a> ・ <a href="./">ゲームへ戻る</a></footer>
 </body>
 </html>
 `;

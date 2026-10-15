@@ -40,8 +40,6 @@ function applyRoster(sp, rp, bn){
 }
 applyRoster(6, 3, 3);
 
-// ---------- 計測(GA4)。どこまで遊ばれたかだけを送る。失敗しても本編は止めない ----------
-function gaEvent(name, params){ try{ if(typeof gtag === "function") gtag("event", name, Object.assign({content_group:"legend-draft"}, params || {})); }catch(e){} }
 // ---------- utils ----------
 const $ = id => document.getElementById(id);
 const rnd = () => Math.random();
@@ -732,7 +730,7 @@ function bindDraftFilter(){
   };
   row.parentNode.insertBefore(b, row);
 }
-function startDraft(){ gaEvent("ld_start", {mode: ($("opt-gacha") && $("opt-gacha").checked) ? "gacha" : "draft"});
+function startDraft(){
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
   $("modal-bg").classList.remove("show");   // 球団アイコンの選択が開いたままでも持ち越さない
@@ -3127,7 +3125,7 @@ function seasonPane(k){
   const w = document.querySelector("#scr-season .s-pane.on");
   if(w && w.scrollIntoView) w.scrollIntoView({block:"nearest"});
 }
-function startSeason(){ gaEvent("ld_season_start", {mode: (state.opts && state.opts.gacha) ? "gacha" : "draft", players: (state.parts || []).filter(t => !t.cpu).length});
+function startSeason(){
   const n = state.parts.length;
   state.pairGames = clamp(Math.round(143/(n-1)), 8, 143); // NPBと同じ143試合基準
   state.schedule = buildSchedule(n, state.pairGames);
@@ -4152,7 +4150,7 @@ function skipAhead(){
   renderLive();
   finishSeason();
 }
-function finishSeason(){ gaEvent("ld_season_end", {mode: (state.opts && state.opts.gacha) ? "gacha" : "draft", players: (state.parts || []).filter(t => !t.cpu).length});
+function finishSeason(){
   if(state.finished) return;
   state.finished = true;
   stopTimer();
@@ -6972,7 +6970,7 @@ function resultPane(k){
   const w = document.querySelector("#scr-result .s-pane.on");
   if(w && w.scrollIntoView) w.scrollIntoView({block:"nearest"});
 }
-function showResult(){ gaEvent("ld_result", {mode: (state.opts && state.opts.gacha) ? "gacha" : "draft", players: (state.parts || []).filter(t => !t.cpu).length});
+function showResult(){
   const s = standingsSorted();
   const champ = state.seriesWinner || s[0];
   show("scr-result");
@@ -9077,7 +9075,7 @@ function snapPaper(){
     }
   });
   ctx.fillStyle = "#8f8468"; ctx.font = `12px ${mincho}`;
-  ctx.fillText("kusayakyu-navi.com/legend-draft ── 成績はキャリアハイ年の実測に基づく", 40, H-32);
+  ctx.fillText("球史 〜レジェンドドラフト〜 ── 成績はキャリアハイ年の実測に基づく", 40, H-32);
   const url = cv.toDataURL("image/png");
   $("paper-img").innerHTML = `<img src="${url}" style="max-width:100%;border:1px solid var(--rule2);" alt="ドラフト記念の一葉">`;
   $("paper-dl").href = url;

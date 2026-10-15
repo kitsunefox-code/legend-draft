@@ -83,7 +83,7 @@
           '<div class="dg-col">' + paragraphs(desc) + '</div>' +
         '</div>' +
         '<div class="dg-stats">' + statsOf(p).map(function(s){ return '<span><small>' + s[0] + '</small><b>' + s[1] + '</b></span>'; }).join("") + '</div>' +
-        '<div class="dg-seal">' + (p.cat === "M" ? "試練の監督" : "不運の助っ人") + '</div>' +
+        '<div class="dg-seal">' + (p.cat === "M" ? "ダメ監督" : "残念助っ人") + '</div>' +
         '<button type="button" class="btn dg-close" onclick="dangerArticleClose()">' + (mask ? (p.cat === "M" ? "この監督の正体を見る" : "この助っ人の正体を見る") : "記事を閉じる") + '</button>' +
       '</div>';
     bg.onclick = window.dangerArticleClose;

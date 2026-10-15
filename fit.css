@@ -1133,3 +1133,7 @@ body:has(#wake-bg.show) #s-dock{display:none;}
   #scr-season .s-tabs{margin:4px 0 6px !important;}
   #scr-season .s-tab{padding:6px 4px !important;font-size:13px !important;}
 }
+
+/* 表紙の脚注リンク */
+.bk-links{margin-top:10px;font-size:11.5px;color:#9a9078;display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.bk-links a{color:#cfc5a5;text-decoration:underline;text-underline-offset:2px;}

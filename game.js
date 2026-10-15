@@ -40,6 +40,8 @@ function applyRoster(sp, rp, bn){
 }
 applyRoster(6, 3, 3);
 
+// ---------- 計測(GA4)。どこまで遊ばれたかだけを送る。失敗しても本編は止めない ----------
+function gaEvent(name, params){ try{ if(typeof gtag === "function") gtag("event", name, Object.assign({content_group:"legend-draft"}, params || {})); }catch(e){} }
 // ---------- utils ----------
 const $ = id => document.getElementById(id);
 const rnd = () => Math.random();
@@ -730,7 +732,7 @@ function bindDraftFilter(){
   };
   row.parentNode.insertBefore(b, row);
 }
-function startDraft(){
+function startDraft(){ gaEvent("ld_start", {mode: ($("opt-gacha") && $("opt-gacha").checked) ? "gacha" : "draft"});
   const rows = [...$("p-list").children];
   if(rows.length<2){ alert("参加者は2人以上必要です"); return; }
   $("modal-bg").classList.remove("show");   // 球団アイコンの選択が開いたままでも持ち越さない
@@ -3125,7 +3127,7 @@ function seasonPane(k){
   const w = document.querySelector("#scr-season .s-pane.on");
   if(w && w.scrollIntoView) w.scrollIntoView({block:"nearest"});
 }
-function startSeason(){
+function startSeason(){ gaEvent("ld_season_start", {mode: (state.opts && state.opts.gacha) ? "gacha" : "draft", players: (state.parts || []).filter(t => !t.cpu).length});
   const n = state.parts.length;
   state.pairGames = clamp(Math.round(143/(n-1)), 8, 143); // NPBと同じ143試合基準
   state.schedule = buildSchedule(n, state.pairGames);
@@ -4150,7 +4152,7 @@ function skipAhead(){
   renderLive();
   finishSeason();
 }
-function finishSeason(){
+function finishSeason(){ gaEvent("ld_season_end", {mode: (state.opts && state.opts.gacha) ? "gacha" : "draft", players: (state.parts || []).filter(t => !t.cpu).length});
   if(state.finished) return;
   state.finished = true;
   stopTimer();
@@ -6970,7 +6972,7 @@ function resultPane(k){
   const w = document.querySelector("#scr-result .s-pane.on");
   if(w && w.scrollIntoView) w.scrollIntoView({block:"nearest"});
 }
-function showResult(){
+function showResult(){ gaEvent("ld_result", {mode: (state.opts && state.opts.gacha) ? "gacha" : "draft", players: (state.parts || []).filter(t => !t.cpu).length});
   const s = standingsSorted();
   const champ = state.seriesWinner || s[0];
   show("scr-result");
@@ -7115,7 +7117,7 @@ function faceCredit(p){
   if(p.ph === undefined) return "";
   const cr = [p.pa, p.pl].filter(Boolean).join(" / ");
   if(!cr) return "";
-  return '<div class="mk-cr">写真: ' +
+  return '<div class="mk-cr">写真: ' + '<a onclick="event.stopPropagation()" href="credits.html" target="_blank" rel="noopener noreferrer">出典一覧</a>　' +
     (p.pu ? '<a onclick="event.stopPropagation()" href="' + esc(p.pu) + '" target="_blank" rel="noopener noreferrer">' + esc(cr) + '</a>'
           : esc(cr)) + '</div>';
 }

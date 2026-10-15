@@ -1795,7 +1795,7 @@ function mascotCardHtml(m, size){
     '<div class="gc-rk"><span class="rank rank-' + m.rank + '">' + m.rank + '</span></div>' +
     '<div class="gc-face tall">' + (ph ? '<img src="assets/mascot/' + m.id + '.jpg" alt="" decoding="async" onerror="this.remove()">' : '<span class="mc-none">' + esc(m.name.slice(0, 1)) + '</span>') + '</div>' +
     '<div class="gc-nm">' + esc(m.name) + '</div>' +
-    '<div class="gc-meta">' + esc(m.team) + (m.since ? '・' + m.since + '年〜' : '') + '</div>' +
+    '<div class="gc-meta">' + esc(m.team) + '・オリジナル</div>' +
     '<div class="mc-ab"><i>' + (ab.icon || "") + '</i><b>' + esc(ab.name || "") + '</b><span>' + esc(ab.desc || "") + '</span></div>' +
     (size === "l" && m.desc ? '<div class="mc-desc">' + esc(m.desc) + '</div>' : '') +
   '</div>';
@@ -5425,7 +5425,7 @@ const FILE_CATS = [
   {k:"showa", label:"昭和"},
   {k:"hei",   label:"平成・令和"},
   {k:"mlb",   label:"MLB"},
-  {k:"dame",  label:"ダメ助っ人"},
+  {k:"dame",  label:"不運の助っ人"},
   {k:"misc",  label:"助っ人・珍記録"},
 ];
 function fileCatOf(e){ return e.cat || "misc"; }
@@ -8402,7 +8402,7 @@ const PARTY_EVENTS = [
   { id:"scandal", w:7,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
     run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
-      startEmergency(t, pick1(droppableDefs(t)).key, "写真週刊誌のスキャンダル直撃で無期限謹慎"); } },
+      startEmergency(t, pick1(droppableDefs(t)).key, "諸事情によりチームを離れた（球団は詳細を明かしていない）"); } },
   { id:"gaijin", w:5,
     need:()=>state.parts.some(t=>droppableDefs(t).some(d=>isForeignName(t.slots[d.key].name))),
     run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).some(d=>isForeignName(x.slots[d.key].name))));
@@ -8415,7 +8415,7 @@ const PARTY_EVENTS = [
   { id:"monge", w:4,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
     run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
-      startEmergency(t, pick1(droppableDefs(t)).key, "門限破りが発覚し無期限の出場停止処分"); } },
+      startEmergency(t, pick1(droppableDefs(t)).key, "体調不良で長期離脱"); } },
   { id:"kaigai", w:3,
     need:()=>state.parts.some(t=>droppableDefs(t).length),
     run(){ const t = pickScandal(state.parts.filter(x=>droppableDefs(x).length));
@@ -8489,7 +8489,7 @@ const PARTY_EVENTS = [
   { id:"kekkon", w:5, need:()=>true,
     run(){ const t = anyTeam(); const p = pick1([...lineupOf(t), ...pitchersOf(t)]);
       p.form = 2;
-      partyNews("祝","good",`【祝福】${p.name}（${t.name}）が電撃結婚を発表！ 幸せいっぱいのバットが火を噴く`); renderRosterLive(); } },
+      partyNews("祝","good",`【祝福】${t.name}の主力にうれしい知らせ。幸せいっぱいのバットが火を噴く`); renderRosterLive(); } },
   { id:"inFire", w:5, need:()=>true,
     run(){ const t = anyTeam(); const p = pick1([...lineupOf(t), ...pitchersOf(t)]);
       p.form = 2;
@@ -8507,7 +8507,7 @@ const PARTY_EVENTS = [
       partyNews("砲","fun",`【怪力】${p.name}（${t.name}）の場外弾が球場外の車のガラスを直撃。球団が全額弁償することに`); } },
   { id:"nebou", w:3, need:()=>true,
     run(){ const t = anyTeam(); const p = pick1(lineupOf(t));
-      partyNews("眠","fun",`【珍事】${p.name}（${t.name}）が寝坊で試合開始に遅刻。罰金と反省文で決着した`); } },
+      partyNews("眠","fun",`【珍事】${t.name}の若手が寝坊で試合開始に遅刻。罰金と反省文で決着した`); } },
   { id:"oiokoshi", w:3, need:()=>true,
     run(){ const t = anyTeam(); const [a,b] = shuffle(lineupOf(t)).slice(0,2);
       partyNews("珍","fun",`【珍プレー】${a.name}が${b.name}を追い越してアウト（${t.name}）。ベンチは頭を抱えた`); } },
@@ -8650,7 +8650,25 @@ function loreTargets(e){
   }
   return null;
 }
+// 私生活・不祥事・処分に関わる事件は、実在の選手に着せない(名前の代わりに「ある選手」)。
+// 試合中の出来事(本塁打・好守・乱闘・退場など)は従来どおり名前を入れる
+const LORE_SENS = /喫煙|たばこ|深酒|酒気|飲酒|泥酔|女性|交際|熱愛|密会|合コン|別居|離婚|認知|会食|交遊|後援者|賭|薬物|逮捕|送検|失踪|蒸発|音信不通|写真誌|週刊誌|激写|スクープ|門限|脱走|抜け出|私生活|規律違反|契約解除|謹慎|罰金|遊技場|体重|暴露|内情|詰め物|粘着|追放|八百長|裏金|サイン盗|疑惑|処分|謝罪|報道|舌禍|夜の|深夜|寝坊|無断|欠席|罰走|結婚|暴言|騒動|事情聴取|禁煙|流出|裏アカ|口論|行きつけ|謝礼|契約金|傷をつけ|やすり|指輪|出場停止|塩対応|合図はあった/;
+function loreSensitive(e){ return LORE_SENS.test(e.text || ""); }
 function loreText(e, x){
+  if(loreSensitive(e)){
+    return e.text
+      .replace(/監督\{M\}/g, "監督")
+      .replace(/期待の若手\{P\}（\{T\}）/g, "{T}の期待の若手")
+      .replace(/助っ人\{P\}（\{T\}）/g, "{T}の助っ人")
+      .replace(/助っ人\{P\}/g, "ある助っ人")
+      .replace(/\{P\}（\{T\}）/g, "{T}のある選手")
+      .replace(/\{P\}と\{P2\}/g, "{T}の選手二人")
+      .replace(/\{P2\}/g, "別の選手")
+      .replace(/\{P\}/g, "ある選手")
+      .replace(/\{M\}/g, "ある監督")
+      .replace(/\{T2\}/g, x.T2 ? x.T2.name : "相手球団")
+      .replace(/\{T\}/g, x.t.name);
+  }
   return e.text
     .replace(/\{P2\}/g, x.P2 ? x.P2.name : (x.P ? x.P.name : "ナイン"))
     .replace(/\{P\}/g,  x.P ? x.P.name : "ナイン")
@@ -8667,13 +8685,12 @@ const EVENT_PIC = new Set([
   "beer-kake-me","beer-night-riot","black-sox","boy-homer","chien-koui",
   "daida-manrui-sayonara","daida-sayonara","dairanto","daiso-specialist",
   "daisou-gyakusou","dengeki-intai","densetsu-no-renpai","disco-demolition",
-  "dotonbori-tobikomi","douage-shippai","dousei-suzume","draft-uratorihiki",
-  "fan-interference","first-base-tunnel","gambling-ban","go-eikyu-fumetsu",
+  "douage-shippai","dousei-suzume","draft-uratorihiki",
+  "fan-interference","first-base-tunnel","go-eikyu-fumetsu",
   "go-heading","go-otachidai-uta","goat-curse","hamakaze","heading-jiken",
   "hero-shitsugen","hikouki-chien","iseki-negai-teishutsu",
-  "jidakyu-kossetsu","juten-ichikyu","kaimaku-26-0","kamino-otsuge",
-  "kankyaku-rannyu","kantoku-fukki","kanzen-shiai","keiyakukin-chouka",
-  "koushin-etsunen","kyudan-gappei","limping-walkoff","maboroshi-homerun",
+  "jidakyu-kossetsu","juten-ichikyu","kaimaku-26-0","kankyaku-rannyu","kantoku-fukki","kanzen-shiai","keiyakukin-chouka",
+  "kyudan-gappei","limping-walkoff","maboroshi-homerun",
   "magic-shometsu","make-drama","make-legend","manager-tirade",
   "mascot-chinji","muhai-24shou","nijuichikyu","nitouryu-kousou",
   "no-hit-no-run","noumu-called","pitchclock-ihan","rabbit-ball",
@@ -8836,7 +8853,8 @@ function runLore(e){
       partyNews(e.icon || "急", e.cls || "bad", txt, e.id, t);
       // 事件の見出しをそのまま離脱理由にする(例:【直撃】→「直撃」)
       const m = /^【([^】]{1,10})】/.exec(e.text || "");
-      const reason = m ? m[1] + "の余波でチームを離れた" : "球界を揺るがす事態でチームを離れた";
+      const reason = loreSensitive(e) ? "諸事情によりチームを離れた（球団は詳細を明かしていない）"
+        : (m ? m[1] + "の余波でチームを離れた" : "球界を揺るがす事態でチームを離れた");
       const go = () => { startEmergency(t, x.slotKey, reason); renderRosterLive(); };
       if(hasEventPic(e.id)) showEventPic(e, txt, go); else go();
       return true;
@@ -8921,7 +8939,7 @@ function startEmergency(t, slotKey, reason){
   if(wIn.length) list = [...wIn.slice(0,2), ...list].slice(0,5).sort((a,b)=>b.ovr-a.ovr);
   partyNews("急","bad",`【緊急事態】${victim.name}（${t.name}・${d.label}）が${reason}！`);
   if(!list.length){ // 代役なし→騒動は沈静化
-    state.news.unshift({mo:dateLabel(state.day-1), txt:`${t.name}球団が謝罪会見。${victim.name}は厳重注意で決着した`});
+    state.news.unshift({mo:dateLabel(state.day-1), txt:`${t.name}は代役を立てず、${victim.name}の復帰を待つことにした`});
     if(state.resumeAfterEvent){ state.resumeAfterEvent=false; startTimer(); }
     return;
   }
@@ -9309,7 +9327,7 @@ function rouletteSpin(){
         setTimeout(function(){
           const d = pick1(ds);
           state.eventCtx = null;
-          startEmergency(t, d.key, "写真週刊誌のスキャンダル直撃で無期限謹慎");
+          startEmergency(t, d.key, "諸事情によりチームを離れた（球団は詳細を明かしていない）");
           const rest = {type:"roulette", queue:ctx.queue, idx:ctx.idx+1, no:ctx.no, spinning:false, result:null};
           state.rouletteResume = (rest.idx < rest.queue.length) ? rest : null;
         }, 1800);
@@ -9384,13 +9402,13 @@ const HAPPENINGS = [
    run(){ const t = pick1(state.parts);
      moodSet(t, -1.2, 18, "長期ロード");
      return [{t, cls:"bad", txt:t.name+"が本拠地を追われて長期ロードへ。士気↓(18日)"}]; }},
-  {id:"kekkon", label:"主力の結婚", icon:"婚", color:"#9a7714", months:[0,1,2,3,4],
+  {id:"kekkon", label:"ロッカーの吉報", icon:"祝", color:"#9a7714", months:[0,1,2,3,4],
    intro:"シーズン中の吉報。祝福ムードで打棒が冴える",
    run(){ const n = rnd() < .6 ? 1 : 2;
      return shuffle(state.parts).slice(0, n).map(function(t){
        const c = lineupOf(t); if(!c.length) return null;
        const p = pick1(c); p.form = 2;
-       return {t, cls:"good", txt:t.name+"の"+p.name+"が結婚を発表。幸せ効果で絶好調に"}; }); }},
+       return {t, cls:"good", txt:t.name+"の主力にうれしい知らせ。"+p.name+"も祝福ムードで絶好調に"}; }); }},
   {id:"intai", label:"ベテランの引退表明", icon:"引", color:"#9a7714", months:[4],
    intro:"今季限りの引退を明かした大ベテラン。ナインは花道を飾ろうと燃える",
    run(){ const t = pick1(state.parts);
